@@ -1,0 +1,73 @@
+# @huspee/sdk
+
+Huspee's extension of the community [`@congminh1254/shopee-sdk`](https://github.com/congminh1254/shopee-sdk).
+It has two entry points with deliberately separate trust levels:
+
+| Import | Runtime | Auth transport | Purpose |
+|---|---|---|---|
+| `@huspee/sdk` | Browser + Node | Cookie session (`credentials: 'include'`, optional in-memory jar for Node) | Typed client for **project-defined** `/api/v1` routes: auth, marketplace, cart, checkout, buyer orders/returns, seller onboarding, seller gateway |
+| `@huspee/sdk/server` | Node only | Shopee HMAC + shop access token | `HuspeeShopeeSDK` (upstream `ShopeeSDK` subclass) + **custom signed** `/api/v2/custom/*` methods |
+
+The browser entry imports no Node built-ins, no upstream SDK and never handles `partner_key` or shop
+tokens (enforced by `tests/extensions/signed-client.test.ts`).
+
+## Upstream version and delta
+
+- Upstream dependency pinned to **`@congminh1254/shopee-sdk@2.12.0`** (exact version; review the upstream changelog before bumping and re-run `pnpm test:upstream`).
+- **No upstream file is modified or monkey-patched.** `HuspeeShopeeSDK extends ShopeeSDK` and adds only:
+  - `custom.shop.getPolicies()`, `custom.shop.updatePolicies(input)`, `custom.shop.getSalesSummary(range)`
+  - `custom.logistics.simulateShipmentEvent({ order_sn, event })`
+  - `buildAuthPartnerUrl(redirect)` — signed v2 `GET /shop/auth_partner` URL (upstream `getAuthorizationUrl()` targets Shopee's newer unsigned auth page, which Huspee does not implement)
+- Standalone helpers: `signShopee`, `buildAuthPartnerUrl`, `verifyPushSignature`, `ShopTokenStore` (+ `createShopClient`) for keeping independent tokens per shop under one shared Partner identity.
+- Tests prove every inherited manager method is the upstream function and that request signing through the subclass is byte-identical to upstream.
+
+## Usage
+
+### Browser / storefront (session)
+
+```ts
+import { HuspeeClient } from '@huspee/sdk';
+
+const api = new HuspeeClient({ baseUrl: 'http://localhost:3000' });
+await api.auth.login('an.nguyen@example.com', 'Password123!');
+const { data: products } = await api.marketplace.searchProducts({ q: 'áo thun', sort: 'price_asc' });
+const detail = await api.marketplace.getProduct(products[0].item_id);
+await api.cart.addItem(detail.models[0].model_id, 1);
+const quote = await api.checkout.preview({ address_id: 1, payment_method: 'COD' });
+const result = await api.checkout.placeOrder({ address_id: 1 }, { idempotencyKey: crypto.randomUUID() });
+```
+
+Seller dashboard operations go through the trusted gateway; the backend signs/validates with the
+shop's server-held token:
+
+```ts
+const env = await api.seller.shopee.call(880001, '/product/update_stock', {
+  item_id: 2000103,
+  stock_list: [{ model_id: 0, seller_stock: [{ stock: 50 }] }],
+});
+if (env.error) throw new Error(env.message);
+```
+
+Errors from `/api/v1` routes throw `HuspeeApiError { status, code, message, details }`. Gateway calls
+return the Shopee envelope as-is (check `error`).
+
+For Node scripts/tests, pass `cookieJar: true` to keep the session cookie in memory.
+
+### Server (signed Shopee-compatible calls)
+
+```ts
+import { createShopClient, ShopTokenStore } from '@huspee/sdk/server';
+
+const store = new ShopTokenStore(); // persist encrypted in production
+const sdk = createShopClient(
+  { partner_id: 2001001, partner_key: process.env.HUSPEE_PARTNER_KEY!, base_url: 'http://localhost:3000/api/v2' },
+  store,
+  880001,
+);
+const consentUrl = sdk.buildAuthPartnerUrl('http://localhost:3000/my-callback');
+// ... seller approves, your callback receives ?code=&shop_id=
+await sdk.authenticateWithCode(code, 880001);
+
+await sdk.product.getItemList({ offset: 0, page_size: 20, item_status: ['NORMAL'] }); // upstream method
+await sdk.custom.shop.updatePolicies({ return_window_days: 10 });                    // Huspee extension
+```
