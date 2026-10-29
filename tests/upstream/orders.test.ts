@@ -220,7 +220,7 @@ describe('returns module', () => {
     expect((reasons.response as { dispute_reason_list: unknown[] }).dispute_reason_list.length).toBeGreaterThan(0);
     await sdk.returns.dispute({ return_sn: ret.return_sn, email: 'huy.techzone@example.com', dispute_reason_id: 2, dispute_text_reason: 'Hàng trả về đã qua sử dụng' });
     expect((await sdk.returns.getReturnDetail({ return_sn: ret.return_sn })).response.status).toBe('JUDGING');
-    await sdk.returns.cancelDispute({ return_sn: ret.return_sn });
+    await sdk.returns.cancelDispute({ return_sn: ret.return_sn, email: 'huy.techzone@example.com' });
     expect((await sdk.returns.getReturnDetail({ return_sn: ret.return_sn })).response.status).toBe('REQUESTED');
   });
 

@@ -137,7 +137,7 @@ export class ReturnsOps implements CompatOperationProvider {
         path: '/returns/cancel_dispute',
         method: 'POST',
         auth: 'shop',
-        input: z.object({ return_sn: z.string().min(1) }),
+        input: z.object({ return_sn: z.string().min(1), email: z.string().email().optional() }),
         handler: async (ctx, input) => {
           await this.returns.cancelDispute(ctx.shopId, input.return_sn);
           return { return_sn: input.return_sn };

@@ -41,7 +41,8 @@ describe('public marketplace', () => {
     expect(tee.data[0]!.item_id).toBe(SEED.items.tee.itemId);
 
     const fashion = await anon.marketplace.searchProducts({ category_id: 100004, sort: 'price_asc' });
-    expect(fashion.data.map((p) => p.item_id)).toEqual([SEED.items.tee.itemId, 2000302]);
+    // Other suites may add products; only assert on seeded fixtures (ids below 2100000).
+    expect(fashion.data.map((p) => p.item_id).filter((id) => id < 2100000)).toEqual([SEED.items.tee.itemId, 2000302]);
 
     const all = await anon.marketplace.searchProducts({ page_size: 100 });
     expect(new Set(all.data.map((p) => p.shop.shop_id)).size).toBeGreaterThanOrEqual(4);
