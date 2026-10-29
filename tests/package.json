@@ -1,0 +1,22 @@
+{
+  "name": "@huspee/tests",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:upstream": "vitest run upstream",
+    "test:extensions": "vitest run extensions",
+    "test:e2e": "vitest run e2e",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@congminh1254/shopee-sdk": "2.12.0",
+    "@huspee/sdk": "workspace:*",
+    "@types/node": "22.20.5",
+    "@types/pg": "8.23.1",
+    "pg": "8.23.1",
+    "typescript": "5.9.3",
+    "vitest": "3.2.7"
+  }
+}

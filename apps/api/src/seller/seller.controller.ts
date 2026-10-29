@@ -9,6 +9,7 @@ import { PrismaService } from '../common/prisma.service';
 import { nowUnix, unix } from '../common/time';
 import { parseInput, q } from '../common/validation';
 import { CurrentUser, Public, RequireRole, SessionGuard } from '../auth/session.guard';
+import { mediaUrl } from '../domain/catalog.service';
 import { DEFAULT_POLICY, ShopService } from '../domain/shop.service';
 import { PushService } from '../domain/push.service';
 import { OAuthService } from '../partner/oauth.service';
@@ -216,7 +217,7 @@ export class SellerController {
       shop_id: shop.id,
       shop_name: shop.name,
       description: shop.description,
-      logo_url: shop.logoUrl,
+      logo_url: shop.logoUrl ? mediaUrl(shop.logoUrl) : null,
       region: shop.region,
       status: shop.status,
       city: shop.city,

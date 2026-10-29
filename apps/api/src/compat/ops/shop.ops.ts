@@ -5,6 +5,7 @@ import { notFound, validation } from '../../common/errors';
 import { PrismaService } from '../../common/prisma.service';
 import { unix } from '../../common/time';
 import { q } from '../../common/validation';
+import { mediaUrl } from '../../domain/catalog.service';
 import { CompatOperationProvider, op } from '../compat.types';
 
 const categoryStatusCode: Record<ShopCategoryStatus, number> = { DELETED: 0, NORMAL: 1, INACTIVE: 2 };
@@ -56,7 +57,7 @@ export class ShopOps implements CompatOperationProvider {
         input: z.object({}),
         handler: async (ctx) => {
           const shop = await this.prisma.shop.findUniqueOrThrow({ where: { id: ctx.shopId } });
-          return { shop_logo: shop.logoUrl ?? '', description: shop.description, shop_name: shop.name, invoice_issuer: 'Other' };
+          return { shop_logo: shop.logoUrl ? mediaUrl(shop.logoUrl) : '', description: shop.description, shop_name: shop.name, invoice_issuer: 'Other' };
         },
       }),
       op({
@@ -76,7 +77,7 @@ export class ShopOps implements CompatOperationProvider {
             where: { id: ctx.shopId },
             data: { name: input.shop_name, logoUrl: input.shop_logo, description: input.description },
           });
-          return { shop_logo: shop.logoUrl ?? '', description: shop.description, shop_name: shop.name };
+          return { shop_logo: shop.logoUrl ? mediaUrl(shop.logoUrl) : '', description: shop.description, shop_name: shop.name };
         },
       }),
       op({

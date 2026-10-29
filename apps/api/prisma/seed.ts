@@ -76,6 +76,9 @@ function publicHosts(): string[] {
 }
 
 async function main() {
+  if (process.env.NODE_ENV === 'production' && process.env.HUSPEE_ALLOW_SEED_RESET !== 'true') {
+    throw new Error('Refusing to reset data with NODE_ENV=production (set HUSPEE_ALLOW_SEED_RESET=true to override).');
+  }
   await truncateAll();
   const partnerId = Number(process.env.HUSPEE_PARTNER_ID ?? 2001001);
 
