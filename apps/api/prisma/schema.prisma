@@ -1,0 +1,828 @@
+// Huspee Phase 1 domain model: one shared commerce state behind the
+// Shopee-compatible seller API, the custom buyer/platform API and the seller dashboard.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Identity and web sessions
+// ---------------------------------------------------------------------------
+
+enum UserRole {
+  BUYER
+  SELLER
+}
+
+model User {
+  id           Int        @id @default(autoincrement())
+  email        String     @unique
+  passwordHash String     @map("password_hash")
+  name         String
+  phone        String?
+  roles        UserRole[]
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  sessions    WebSession[]
+  memberships ShopMember[]
+  addresses   BuyerAddress[]
+  cartItems   CartItem[]
+  orders      Order[]
+  returns     ReturnRequest[]
+  reviews     Review[]
+
+  @@map("users")
+}
+
+model WebSession {
+  id        String   @id // sha256(session token); raw token only lives in the cookie
+  userId    Int      @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  expiresAt DateTime @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("web_sessions")
+}
+
+// ---------------------------------------------------------------------------
+// Shops
+// ---------------------------------------------------------------------------
+
+enum ShopStatus {
+  NORMAL
+  BANNED
+  FROZEN
+}
+
+enum ShopMemberRole {
+  OWNER
+  STAFF
+}
+
+model Shop {
+  id               Int        @id @default(autoincrement()) // Shopee shop_id
+  name             String
+  description      String     @default("")
+  logoUrl          String?    @map("logo_url")
+  region           String     @default("VN")
+  status           ShopStatus @default(NORMAL)
+  isOfficial       Boolean    @default(false) @map("is_official")
+  holidayMode      Boolean    @default(false) @map("holiday_mode")
+  holidayModeAt    DateTime?  @map("holiday_mode_at")
+  city             String?
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime   @updatedAt @map("updated_at")
+
+  members        ShopMember[]
+  policy         ShopPolicy?
+  addresses      ShopAddress[]
+  items          Item[]
+  shopCategories ShopCategory[]
+  vouchers       Voucher[]
+  discounts      Discount[]
+  orders         Order[]
+  returns        ReturnRequest[]
+  authorizations ShopAuthorization[]
+  credentials    PlatformShopCredential[]
+  media          MediaImage[]
+
+  @@map("shops")
+}
+
+model ShopMember {
+  userId    Int            @map("user_id")
+  shopId    Int            @map("shop_id")
+  role      ShopMemberRole @default(OWNER)
+  createdAt DateTime       @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shop Shop @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@id([userId, shopId])
+  @@index([shopId])
+  @@map("shop_members")
+}
+
+/// Deterministic, versioned per-shop policy rules. Text is shown to buyers; numeric
+/// fields drive checkout/return eligibility in code.
+model ShopPolicy {
+  shopId                Int      @id @map("shop_id")
+  version               Int      @default(1)
+  shippingPolicy        String   @map("shipping_policy")
+  returnPolicy          String   @map("return_policy")
+  warrantyPolicy        String   @map("warranty_policy")
+  returnWindowDays      Int      @default(7) @map("return_window_days")
+  freeShippingMinSpend  Decimal? @map("free_shipping_min_spend") @db.Decimal(14, 2)
+  allowBuyerCancelUntil String   @default("READY_TO_SHIP") @map("allow_buyer_cancel_until")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  shop Shop @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@map("shop_policies")
+}
+
+model ShopAddress {
+  id             Int      @id @default(autoincrement())
+  shopId         Int      @map("shop_id")
+  name           String
+  phone          String
+  region         String   @default("VN")
+  state          String
+  city           String
+  district       String
+  town           String   @default("")
+  address        String
+  zipcode        String   @default("")
+  isDefault      Boolean  @default(false) @map("is_default")
+  isPickup       Boolean  @default(true) @map("is_pickup")
+  isReturn       Boolean  @default(true) @map("is_return")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  shop Shop @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@index([shopId])
+  @@map("shop_addresses")
+}
+
+// ---------------------------------------------------------------------------
+// Partner applications, shop grants, codes and opaque tokens
+// ---------------------------------------------------------------------------
+
+/// An integrating application (Shopee "partner"). Phase 1 seeds exactly one.
+/// The key itself never lives in the database: keyRef names the runtime secret.
+model PartnerApp {
+  id              Int      @id // partner_id
+  name            String
+  keyRef          String   @map("key_ref")
+  redirectDomains String[] @map("redirect_domains")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  authorizations ShopAuthorization[]
+  authRequests   AuthRequest[]
+  pushConfig     PushConfig?
+
+  @@map("partner_apps")
+}
+
+enum GrantStatus {
+  ACTIVE
+  REVOKED
+}
+
+/// Partner <-> shop authorization (many-to-many ready).
+model ShopAuthorization {
+  id                 Int         @id @default(autoincrement())
+  partnerId          Int         @map("partner_id")
+  shopId             Int         @map("shop_id")
+  status             GrantStatus @default(ACTIVE)
+  authorizedByUserId Int         @map("authorized_by_user_id")
+  authorizedAt       DateTime    @default(now()) @map("authorized_at")
+  expiresAt          DateTime    @map("expires_at")
+  revokedAt          DateTime?   @map("revoked_at")
+
+  partner       PartnerApp     @relation(fields: [partnerId], references: [id])
+  shop          Shop           @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  codes         AuthCode[]
+  accessTokens  AccessToken[]
+  refreshTokens RefreshToken[]
+
+  @@unique([partnerId, shopId])
+  @@map("shop_authorizations")
+}
+
+/// A pending consent screen opened from a signed /api/v2/shop/auth_partner URL.
+model AuthRequest {
+  id          String    @id
+  partnerId   Int       @map("partner_id")
+  redirectUri String    @map("redirect_uri")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  expiresAt   DateTime  @map("expires_at")
+  completedAt DateTime? @map("completed_at")
+
+  partner PartnerApp @relation(fields: [partnerId], references: [id])
+
+  @@map("auth_requests")
+}
+
+model AuthCode {
+  codeHash        String    @id @map("code_hash")
+  authorizationId Int       @map("authorization_id")
+  partnerId       Int       @map("partner_id")
+  shopId          Int       @map("shop_id")
+  redirectUri     String    @map("redirect_uri")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  expiresAt       DateTime  @map("expires_at")
+  usedAt          DateTime? @map("used_at")
+
+  authorization ShopAuthorization @relation(fields: [authorizationId], references: [id], onDelete: Cascade)
+
+  @@map("auth_codes")
+}
+
+model AccessToken {
+  tokenHash       String    @id @map("token_hash")
+  authorizationId Int       @map("authorization_id")
+  partnerId       Int       @map("partner_id")
+  shopId          Int       @map("shop_id")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  expiresAt       DateTime  @map("expires_at")
+  revokedAt       DateTime? @map("revoked_at")
+
+  authorization ShopAuthorization @relation(fields: [authorizationId], references: [id], onDelete: Cascade)
+
+  @@index([authorizationId])
+  @@map("access_tokens")
+}
+
+model RefreshToken {
+  tokenHash       String    @id @map("token_hash")
+  authorizationId Int       @map("authorization_id")
+  partnerId       Int       @map("partner_id")
+  shopId          Int       @map("shop_id")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  expiresAt       DateTime  @map("expires_at")
+  usedAt          DateTime? @map("used_at")
+  revokedAt       DateTime? @map("revoked_at")
+
+  authorization ShopAuthorization @relation(fields: [authorizationId], references: [id], onDelete: Cascade)
+
+  @@index([authorizationId])
+  @@map("refresh_tokens")
+}
+
+/// Token custody for the platform's own trusted client (seller dashboard backend).
+/// Token values are AES-256-GCM encrypted with a runtime secret.
+model PlatformShopCredential {
+  shopId             Int      @map("shop_id")
+  partnerId          Int      @map("partner_id")
+  accessTokenEnc     String   @map("access_token_enc")
+  refreshTokenEnc    String   @map("refresh_token_enc")
+  accessExpiresAt    DateTime @map("access_expires_at")
+  refreshExpiresAt   DateTime @map("refresh_expires_at")
+  connectedByUserId  Int      @map("connected_by_user_id")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  shop Shop @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@id([shopId, partnerId])
+  @@map("platform_shop_credentials")
+}
+
+// ---------------------------------------------------------------------------
+// Catalog
+// ---------------------------------------------------------------------------
+
+model Category {
+  id          Int     @id
+  parentId    Int?    @map("parent_id")
+  name        String
+  displayName String  @map("display_name")
+  imageUrl    String? @map("image_url")
+  sortOrder   Int     @default(0) @map("sort_order")
+
+  parent     Category?           @relation("CategoryTree", fields: [parentId], references: [id])
+  children   Category[]          @relation("CategoryTree")
+  items      Item[]
+  attributes CategoryAttribute[]
+  brands     Brand[]
+
+  @@map("categories")
+}
+
+model CategoryAttribute {
+  id          Int     @id
+  categoryId  Int     @map("category_id")
+  name        String
+  displayName String  @map("display_name")
+  isMandatory Boolean @default(false) @map("is_mandatory")
+  inputType   String  @default("DROP_DOWN") @map("input_type")
+  /// [{ value_id, name, display_name }]
+  values      Json    @default("[]")
+
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@map("category_attributes")
+}
+
+model Brand {
+  id         Int    @id
+  name       String
+  categoryId Int?   @map("category_id")
+
+  category Category? @relation(fields: [categoryId], references: [id])
+  items    Item[]
+
+  @@map("brands")
+}
+
+enum ItemStatus {
+  NORMAL
+  UNLIST
+  BANNED
+  DELETED
+  REVIEWING
+}
+
+model Item {
+  id            Int        @id @default(autoincrement()) // item_id
+  shopId        Int        @map("shop_id")
+  categoryId    Int        @map("category_id")
+  brandId       Int?       @map("brand_id")
+  name          String
+  description   String
+  itemSku       String     @default("") @map("item_sku")
+  status        ItemStatus @default(NORMAL)
+  condition     String     @default("NEW")
+  weightKg      Decimal    @default(0.5) @map("weight_kg") @db.Decimal(10, 3)
+  lengthCm      Int        @default(10) @map("length_cm")
+  widthCm       Int        @default(10) @map("width_cm")
+  heightCm      Int        @default(10) @map("height_cm")
+  daysToShip    Int        @default(2) @map("days_to_ship")
+  /// [{ attribute_id, value_id?, value? }]
+  attributes    Json       @default("[]")
+  /// Shopee tier_variation: [{ name, option_list: [{ option, image_id? }] }]
+  tierVariation Json       @default("[]") @map("tier_variation")
+  /// Shopee logistic_info: [{ logistic_id, enabled, is_free, shipping_fee? }]
+  logistics     Json       @default("[]")
+  hasModel      Boolean    @default(false) @map("has_model")
+  sales         Int        @default(0)
+  views         Int        @default(0)
+  likes         Int        @default(0)
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
+
+  shop      Shop               @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  category  Category           @relation(fields: [categoryId], references: [id])
+  brand     Brand?             @relation(fields: [brandId], references: [id])
+  images    ItemImage[]
+  models    Model[]
+  reviews   Review[]
+  shopCats  ShopCategoryItem[]
+
+  @@index([shopId, status])
+  @@index([categoryId])
+  @@map("items")
+}
+
+model ItemImage {
+  id        Int    @id @default(autoincrement())
+  itemId    Int    @map("item_id")
+  imageId   String @map("image_id")
+  url       String
+  sortOrder Int    @default(0) @map("sort_order")
+
+  item Item @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([itemId])
+  @@map("item_images")
+}
+
+enum ModelStatus {
+  MODEL_NORMAL
+  MODEL_UNAVAILABLE
+}
+
+/// Variant/SKU. Items without variations own exactly one default model
+/// (isDefault=true, tierIndex=[]) which Shopee exposes as model_id 0.
+model Model {
+  id            Int         @id @default(autoincrement())
+  itemId        Int         @map("item_id")
+  isDefault     Boolean     @default(false) @map("is_default")
+  tierIndex     Int[]       @map("tier_index")
+  sku           String      @default("")
+  originalPrice Decimal     @map("original_price") @db.Decimal(14, 2)
+  stock         Int         @default(0)
+  reservedStock Int         @default(0) @map("reserved_stock")
+  status        ModelStatus @default(MODEL_NORMAL)
+  weightKg      Decimal?    @map("weight_kg") @db.Decimal(10, 3)
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  item           Item            @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  cartItems      CartItem[]
+  discountModels DiscountModel[]
+
+  @@index([itemId])
+  @@map("models")
+}
+
+model MediaImage {
+  imageId   String   @id @map("image_id")
+  shopId    Int?     @map("shop_id")
+  mimeType  String   @map("mime_type")
+  data      Bytes
+  scene     String   @default("normal")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  shop Shop? @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@map("media_images")
+}
+
+enum ShopCategoryStatus {
+  NORMAL
+  INACTIVE
+  DELETED
+}
+
+model ShopCategory {
+  id         Int                @id @default(autoincrement())
+  shopId     Int                @map("shop_id")
+  name       String
+  sortWeight Int                @default(0) @map("sort_weight")
+  status     ShopCategoryStatus @default(NORMAL)
+  createdBy  String             @default("Seller") @map("created_by")
+  createdAt  DateTime           @default(now()) @map("created_at")
+
+  shop  Shop               @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  items ShopCategoryItem[]
+
+  @@index([shopId])
+  @@map("shop_categories")
+}
+
+model ShopCategoryItem {
+  shopCategoryId Int      @map("shop_category_id")
+  itemId         Int      @map("item_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  shopCategory ShopCategory @relation(fields: [shopCategoryId], references: [id], onDelete: Cascade)
+  item         Item         @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@id([shopCategoryId, itemId])
+  @@map("shop_category_items")
+}
+
+model Review {
+  id          Int       @id @default(autoincrement()) // comment_id
+  itemId      Int       @map("item_id")
+  modelId     Int?      @map("model_id")
+  orderSn     String?   @map("order_sn")
+  buyerId     Int       @map("buyer_id")
+  rating      Int
+  comment     String
+  imageUrls   String[]  @map("image_urls")
+  sellerReply String?   @map("seller_reply")
+  repliedAt   DateTime? @map("replied_at")
+  hidden      Boolean   @default(false)
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  item  Item @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  buyer User @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+
+  @@unique([orderSn, itemId, modelId])
+  @@index([itemId])
+  @@map("reviews")
+}
+
+// ---------------------------------------------------------------------------
+// Promotions
+// ---------------------------------------------------------------------------
+
+/// Shopee voucher. voucherType: 1 shop, 2 product. rewardType: 1 fix amount, 2 percentage.
+model Voucher {
+  id                Int       @id @default(autoincrement())
+  shopId            Int       @map("shop_id")
+  code              String
+  name              String
+  voucherType       Int       @default(1) @map("voucher_type")
+  rewardType        Int       @default(1) @map("reward_type")
+  discountAmount    Decimal?  @map("discount_amount") @db.Decimal(14, 2)
+  percentage        Int?
+  maxPrice          Decimal?  @map("max_price") @db.Decimal(14, 2)
+  minBasketPrice    Decimal   @default(0) @map("min_basket_price") @db.Decimal(14, 2)
+  usageQuantity     Int       @map("usage_quantity")
+  currentUsage      Int       @default(0) @map("current_usage")
+  startTime         DateTime  @map("start_time")
+  endTime           DateTime  @map("end_time")
+  /// 1 all pages (public), 3 code-only (hidden), per Shopee display_channel_list
+  displayChannels   Int[]     @map("display_channels")
+  itemIds           Int[]     @map("item_ids")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  shop Shop @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, code])
+  @@map("vouchers")
+}
+
+/// Seeded product discount promotions ("Discount Promotions" in get_item_promotion).
+model Discount {
+  id        Int      @id @default(autoincrement())
+  shopId    Int      @map("shop_id")
+  name      String
+  startTime DateTime @map("start_time")
+  endTime   DateTime @map("end_time")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  shop   Shop            @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  models DiscountModel[]
+
+  @@map("discounts")
+}
+
+model DiscountModel {
+  discountId     Int     @map("discount_id")
+  modelId        Int     @map("model_id")
+  promotionPrice Decimal @map("promotion_price") @db.Decimal(14, 2)
+
+  discount Discount @relation(fields: [discountId], references: [id], onDelete: Cascade)
+  model    Model    @relation(fields: [modelId], references: [id], onDelete: Cascade)
+
+  @@id([discountId, modelId])
+  @@map("discount_models")
+}
+
+// ---------------------------------------------------------------------------
+// Buyer commerce
+// ---------------------------------------------------------------------------
+
+model BuyerAddress {
+  id          Int      @id @default(autoincrement())
+  userId      Int      @map("user_id")
+  name        String
+  phone       String
+  region      String   @default("VN")
+  state       String
+  city        String
+  district    String
+  town        String   @default("")
+  address     String
+  zipcode     String   @default("")
+  isDefault   Boolean  @default(false) @map("is_default")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("buyer_addresses")
+}
+
+model CartItem {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  modelId   Int      @map("model_id")
+  quantity  Int
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  model Model @relation(fields: [modelId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, modelId])
+  @@map("cart_items")
+}
+
+model LogisticsChannel {
+  id           Int     @id // logistics_channel_id
+  name         String
+  description  String  @default("")
+  baseFee      Decimal @map("base_fee") @db.Decimal(14, 2)
+  perKgFee     Decimal @map("per_kg_fee") @db.Decimal(14, 2)
+  minDays      Int     @map("min_days")
+  maxDays      Int     @map("max_days")
+  codEnabled   Boolean @default(true) @map("cod_enabled")
+  enabled      Boolean @default(true)
+  maskChannel  Int     @default(0) @map("mask_channel_id")
+  trackingPrefix String @map("tracking_prefix")
+
+  @@map("logistics_channels")
+}
+
+enum OrderStatus {
+  UNPAID
+  READY_TO_SHIP
+  PROCESSED
+  SHIPPED
+  TO_CONFIRM_RECEIVE
+  COMPLETED
+  IN_CANCEL
+  CANCELLED
+  TO_RETURN
+}
+
+/// Simulated logistics status, mirrors Shopee logistics_status values.
+enum LogisticsStatus {
+  LOGISTICS_NOT_START
+  LOGISTICS_READY
+  LOGISTICS_REQUEST_CREATED
+  LOGISTICS_PICKUP_DONE
+  LOGISTICS_DELIVERY_DONE
+  LOGISTICS_DELIVERY_FAILED
+  LOGISTICS_REQUEST_CANCELED
+  LOGISTICS_INVALID
+}
+
+model Order {
+  orderSn             String      @id @map("order_sn")
+  checkoutId          String      @map("checkout_id")
+  shopId              Int         @map("shop_id")
+  buyerId             Int         @map("buyer_id")
+  status              OrderStatus
+  currency            String      @default("VND")
+  paymentMethod       String      @map("payment_method")
+  cod                 Boolean     @default(false)
+  itemsSubtotal       Decimal     @map("items_subtotal") @db.Decimal(14, 2)
+  shippingFee         Decimal     @map("shipping_fee") @db.Decimal(14, 2)
+  shippingDiscount    Decimal     @default(0) @map("shipping_discount") @db.Decimal(14, 2)
+  voucherDiscount     Decimal     @default(0) @map("voucher_discount") @db.Decimal(14, 2)
+  totalAmount         Decimal     @map("total_amount") @db.Decimal(14, 2)
+  voucherId           Int?        @map("voucher_id")
+  voucherCode         String?     @map("voucher_code")
+  /// Snapshot of the buyer's delivery address at checkout time
+  recipientAddress    Json        @map("recipient_address")
+  messageToSeller     String      @default("") @map("message_to_seller")
+  logisticsChannelId  Int         @map("logistics_channel_id")
+  shippingCarrier     String      @map("shipping_carrier")
+  daysToShip          Int         @map("days_to_ship")
+  shipByDate          DateTime    @map("ship_by_date")
+  payTime             DateTime?   @map("pay_time")
+  cancelBy            String?     @map("cancel_by")
+  cancelReason        String?     @map("cancel_reason")
+  buyerCancelReason   String?     @map("buyer_cancel_reason")
+  completedAt         DateTime?   @map("completed_at")
+  createdAt           DateTime    @default(now()) @map("created_at")
+  updatedAt           DateTime    @updatedAt @map("updated_at")
+
+  shop     Shop            @relation(fields: [shopId], references: [id])
+  buyer    User            @relation(fields: [buyerId], references: [id])
+  items    OrderItem[]
+  package  Shipment?
+  returns  ReturnRequest[]
+
+  @@index([shopId, status])
+  @@index([buyerId])
+  @@index([checkoutId])
+  @@map("orders")
+}
+
+model OrderItem {
+  id                 Int     @id @default(autoincrement())
+  orderSn            String  @map("order_sn")
+  itemId             Int     @map("item_id")
+  modelId            Int     @map("model_id") // internal model id (default model for no-variation items)
+  isDefaultModel     Boolean @map("is_default_model")
+  itemName           String  @map("item_name")
+  modelName          String  @map("model_name")
+  itemSku            String  @map("item_sku")
+  modelSku           String  @map("model_sku")
+  imageUrl           String? @map("image_url")
+  quantity           Int
+  originalPrice      Decimal @map("original_price") @db.Decimal(14, 2)
+  discountedPrice    Decimal @map("discounted_price") @db.Decimal(14, 2)
+  weightKg           Decimal @map("weight_kg") @db.Decimal(10, 3)
+  promotionId        Int?    @map("promotion_id")
+
+  order Order @relation(fields: [orderSn], references: [orderSn], onDelete: Cascade)
+
+  @@index([orderSn])
+  @@map("order_items")
+}
+
+model Shipment {
+  packageNumber     String          @id @map("package_number")
+  orderSn           String          @unique @map("order_sn")
+  logisticsStatus   LogisticsStatus @default(LOGISTICS_READY) @map("logistics_status")
+  trackingNumber    String?         @unique @map("tracking_number")
+  shipMethod        String?         @map("ship_method") // pickup | dropoff
+  pickupAddressId   Int?            @map("pickup_address_id")
+  pickupTimeId      String?         @map("pickup_time_id")
+  shippedAt         DateTime?       @map("shipped_at")
+  deliveredAt       DateTime?       @map("delivered_at")
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
+
+  order  Order           @relation(fields: [orderSn], references: [orderSn], onDelete: Cascade)
+  events TrackingEvent[]
+
+  @@map("shipments")
+}
+
+model TrackingEvent {
+  id              Int             @id @default(autoincrement())
+  packageNumber   String          @map("package_number")
+  logisticsStatus LogisticsStatus @map("logistics_status")
+  description     String
+  createdAt       DateTime        @map("created_at")
+
+  shipment Shipment @relation(fields: [packageNumber], references: [packageNumber], onDelete: Cascade)
+
+  @@index([packageNumber])
+  @@map("tracking_events")
+}
+
+/// Idempotency record for checkout retries.
+model CheckoutRequest {
+  buyerId        Int      @map("buyer_id")
+  idempotencyKey String   @map("idempotency_key")
+  checkoutId     String   @map("checkout_id")
+  requestHash    String   @map("request_hash")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@id([buyerId, idempotencyKey])
+  @@map("checkout_requests")
+}
+
+// ---------------------------------------------------------------------------
+// Returns
+// ---------------------------------------------------------------------------
+
+enum ReturnStatus {
+  REQUESTED
+  ACCEPTED
+  CANCELLED
+  JUDGING
+  CLOSED
+  PROCESSING
+  SELLER_DISPUTE
+}
+
+/// Shopee return_solution: 0 = return & refund, 1 = refund only.
+model ReturnRequest {
+  returnSn          String       @id @map("return_sn")
+  orderSn           String       @map("order_sn")
+  shopId            Int          @map("shop_id")
+  buyerId           Int          @map("buyer_id")
+  status            ReturnStatus @default(REQUESTED)
+  reason            String
+  textReason        String       @default("") @map("text_reason")
+  imageUrls         String[]     @map("image_urls")
+  solution          Int          @default(0)
+  refundAmount      Decimal      @map("refund_amount") @db.Decimal(14, 2)
+  currency          String       @default("VND")
+  /// [{ item_id, model_id, quantity, refund_amount, item_name, model_name, item_sku, model_sku, image_url }]
+  items             Json
+  /// negotiation: { status, proposed_solution, proposed_adjusted_refund_amount, offer_due_date }
+  negotiation       Json?
+  /// seller dispute info: { reason, text_reason, email, images }
+  dispute           Json?
+  needsReturnShipment Boolean    @default(true) @map("needs_return_shipment")
+  reverseTrackingNumber String? @map("reverse_tracking_number")
+  /// [{ update_time, tracking_status, description }]
+  reverseTracking   Json        @default("[]") @map("reverse_tracking")
+  refundPaidAt      DateTime?    @map("refund_paid_at")
+  dueDate           DateTime     @map("due_date")
+  createdAt         DateTime     @default(now()) @map("created_at")
+  updatedAt         DateTime     @updatedAt @map("updated_at")
+
+  order Order @relation(fields: [orderSn], references: [orderSn])
+  shop  Shop  @relation(fields: [shopId], references: [id])
+  buyer User  @relation(fields: [buyerId], references: [id])
+
+  @@index([shopId, status])
+  @@index([buyerId])
+  @@map("returns")
+}
+
+// ---------------------------------------------------------------------------
+// Push configuration and simulated event delivery
+// ---------------------------------------------------------------------------
+
+model PushConfig {
+  partnerId        Int      @id @map("partner_id")
+  callbackUrl      String   @default("") @map("callback_url")
+  liveCallbackUrl  String   @default("") @map("live_callback_url")
+  /// enabled push codes (e.g. 3 order_status, 4 tracking_no, 8 reserved_stock_change...)
+  pushCodes        Int[]    @map("push_codes")
+  blockedShopIds   Int[]    @map("blocked_shop_ids")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  partner PartnerApp @relation(fields: [partnerId], references: [id])
+
+  @@map("push_configs")
+}
+
+enum PushDeliveryStatus {
+  PENDING
+  DELIVERED
+  FAILED
+  SKIPPED
+}
+
+model PushEvent {
+  id          Int                @id @default(autoincrement())
+  partnerId   Int                @map("partner_id")
+  shopId      Int                @map("shop_id")
+  code        Int
+  payload     Json
+  status      PushDeliveryStatus @default(PENDING)
+  attempts    Int                @default(0)
+  lastError   String?            @map("last_error")
+  createdAt   DateTime           @default(now()) @map("created_at")
+  deliveredAt DateTime?          @map("delivered_at")
+
+  @@index([status])
+  @@map("push_events")
+}

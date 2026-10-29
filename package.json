@@ -1,0 +1,28 @@
+{
+  "name": "huspee",
+  "private": true,
+  "packageManager": "pnpm@10.0.0",
+  "scripts": {
+    "build": "pnpm -r --filter @huspee/sdk --filter @huspee/api run build",
+    "dev": "pnpm --filter @huspee/api run dev",
+    "db:migrate": "pnpm --filter @huspee/api run db:migrate",
+    "db:reset": "pnpm --filter @huspee/api run db:reset",
+    "db:seed": "pnpm --filter @huspee/api run db:seed",
+    "typecheck": "pnpm -r run typecheck",
+    "test": "pnpm build && pnpm --filter @huspee/tests run test",
+    "test:upstream": "pnpm --filter @huspee/tests run test:upstream",
+    "test:extensions": "pnpm --filter @huspee/tests run test:extensions",
+    "test:e2e": "pnpm --filter @huspee/tests run test:e2e"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@prisma/client",
+      "@prisma/engines",
+      "prisma",
+      "esbuild"
+    ]
+  }
+}
