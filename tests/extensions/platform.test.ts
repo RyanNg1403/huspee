@@ -5,7 +5,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { HuspeeApiError, HuspeeClient } from '@huspee/sdk';
 import { API, DEMO_PASSWORD, PARTNER_KEY, SEED } from '../helpers/env.js';
-import { connectViaDashboard, loginAs, newBuyer, newSellerWithShop, sessionClient, uid } from '../helpers/fixtures.js';
+import { connectViaDashboard, db, loginAs, newBuyer, newSellerWithShop, sessionClient, uid } from '../helpers/fixtures.js';
 import { approveConsent, Browser } from '../helpers/oauth.js';
 
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64');
@@ -146,5 +146,21 @@ describe('seller onboarding and shop authorization (dashboard flow)', () => {
     expect(res).toMatchObject({ disconnected: true, connected: false, grant_status: 'REVOKED' });
     const call = await seller.client.seller.shopee.call(seller.shopId, '/shop/get_profile');
     expect(call.error).toBe('error_auth');
+  });
+});
+
+describe('gateway token refresh', () => {
+  it('concurrent calls after access-token expiry refresh once and keep the shop connected', async () => {
+    const seller = await newSellerWithShop();
+    await connectViaDashboard(seller.client, seller.shopId);
+    await db().query(`UPDATE platform_shop_credentials SET access_expires_at = now() - interval '1 minute' WHERE shop_id = $1`, [seller.shopId]);
+    const results = await Promise.all(
+      Array.from({ length: 6 }, () => seller.client.seller.shopee.call(seller.shopId, '/shop/get_profile')),
+    );
+    expect(results.map((r) => r.error)).toEqual(Array(6).fill(''));
+    const status = await seller.client.seller.shops.connectionStatus(seller.shopId);
+    expect(status.connected).toBe(true);
+    expect(status.access_token_expire_time).toBeGreaterThan(Date.now() / 1000);
+    expect((await seller.client.seller.shopee.call(seller.shopId, '/shop/get_profile')).error).toBe('');
   });
 });

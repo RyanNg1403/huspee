@@ -36,8 +36,24 @@ export class PlatformCredentialService {
     });
   }
 
-  /** Returns a currently valid access token, refreshing (and rotating) when near expiry. */
+  /**
+   * Returns a currently valid access token, refreshing (and rotating) when near expiry.
+   * Refreshes are serialized per shop: refresh tokens are single-use and a concurrent second
+   * refresh would look like token reuse and revoke the whole token family. (In-process lock;
+   * a multi-instance deployment would need a DB/advisory lock here.)
+   */
   async accessToken(shopId: number, partnerId: number): Promise<string> {
+    const key = `${partnerId}:${shopId}`;
+    const pending = this.inflight.get(key);
+    if (pending) return pending;
+    const run = this.resolveToken(shopId, partnerId).finally(() => this.inflight.delete(key));
+    this.inflight.set(key, run);
+    return run;
+  }
+
+  private readonly inflight = new Map<string, Promise<string>>();
+
+  private async resolveToken(shopId: number, partnerId: number): Promise<string> {
     const cred = await this.prisma.platformShopCredential.findUnique({ where: { shopId_partnerId: { shopId, partnerId } } });
     if (!cred) throw new DomainError('INVALID_STATE', 'Shop is not connected. Authorize the shop first.', { shopee_error: 'error_auth' });
     const key = loadConfig().HUSPEE_TOKEN_ENCRYPTION_KEY;

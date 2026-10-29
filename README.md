@@ -13,7 +13,7 @@ project. Phase 1 is the **commerce platform only** (no AI/voice). Huspee is unaf
 - **Custom signed seller extensions** (`/api/v2/custom/*`): shop policies, sales summary, simulated
   carrier events.
 - **`@huspee/sdk`**: browser-safe session client + server-only `HuspeeShopeeSDK` (upstream subclass).
-- One shared PostgreSQL state, deterministic Vietnamese seed data (VND), 113 SDK-driven tests.
+- One shared PostgreSQL state, deterministic Vietnamese seed data (VND), 114 SDK-driven tests.
 
 Docs: [`AGENTS.md`](AGENTS.md) (requirements) · [`PHASE1_ENDPOINTS.md`](PHASE1_ENDPOINTS.md) (endpoint
 inventory with status/auth/SDK/tests) · [`docs/COMPATIBILITY.md`](docs/COMPATIBILITY.md) (faithful vs.
