@@ -1,49 +1,41 @@
 # Huspee
 
-A simulated Shopee-like marketplace with a buyer storefront, a seller dashboard and a per-shop voice
-shopping assistant. Everything runs locally on mock data; no Shopee account or paid API is needed.
+A simulated Shopee-like marketplace: a buyer storefront, a seller dashboard and a per-shop voice
+shopping assistant, all running locally on mock data. No Shopee account or paid API is needed.
 Huspee is unaffiliated with Shopee.
 
-## Run it
+## Architecture
 
-You need Node 22+, pnpm 10 and PostgreSQL 16 (or Docker).
+```mermaid
+flowchart LR
+    WEB[Next.js web app<br/>buyer storefront + seller dashboard] -->|session cookie| API
+    API[NestJS API<br/>buyer routes, Shopee-compatible seller API,<br/>assistant tools] --> DB[(PostgreSQL)]
+    API -.->|optional voice| CODEX[codex app-server<br/>your Codex login]
+```
 
-### Option A: Docker
+- `apps/web`: Next.js buyer storefront and seller dashboard.
+- `apps/api`: NestJS + Prisma backend. It serves custom buyer routes, a Shopee Open API v2-compatible
+  seller API (signed, per-shop tokens) and the assistant's tools. `prisma/` has the schema and seed.
+- `packages/sdk`: `@huspee/sdk`, a browser client and a server-only Shopee-compatible client.
+- `tests`: upstream SDK, extension and end-to-end suites.
+
+More detail: [`docs/PLATFORM.md`](docs/PLATFORM.md).
+
+## Run it with Docker (recommended)
+
+You need Docker. Then:
 
 ```bash
+git clone https://github.com/RyanNg1403/huspee.git
+cd huspee
 docker compose up --build
 ```
 
-Open http://localhost:3001. The API runs on http://localhost:3000, and the database is migrated and
-reset to fresh mock data on every start, so changes do not survive a restart. Compose publishes Postgres on port 5432, so stop any local
-Postgres first.
+Open http://localhost:3001 (the API is on http://localhost:3000). The first build takes a few minutes.
+Every start migrates the database and reloads fresh mock data, so changes do not survive a restart.
 
-### Option B: local
-
-```bash
-pnpm install
-cp apps/api/.env.example apps/api/.env      # dev defaults; edit DATABASE_URL if needed
-cp apps/web/.env.example apps/web/.env.local
-pnpm --filter @huspee/sdk build             # the web app uses the built SDK
-pnpm db:migrate                             # create tables
-pnpm db:seed                                # load mock data (wipes existing data)
-```
-
-Then, in two terminals:
-
-```bash
-pnpm dev        # API  -> http://localhost:3000
-pnpm dev:web    # Web  -> http://localhost:3001
-```
-
-`.env.example` expects a `huspee` user with password `huspee` and a `huspee` database on
-localhost:5432:
-
-```bash
-createuser -s huspee && psql -c "alter user huspee password 'huspee'" postgres && createdb -O huspee huspee
-```
-
-To start over with fresh mock data at any time, run `pnpm db:seed` again.
+Compose uses ports 3000, 3001 and 5432; stop anything else on them first (a local Postgres often
+holds 5432).
 
 ## Mock data
 
@@ -57,56 +49,61 @@ Every account's password is `Password123!`.
 | Seller | `tuan.saigonstyle@example.com` | Saigon Style (fashion) |
 | Seller | `trang.nhaxinh@example.com` | Nhà Xinh Home (home and living) |
 
-The seed has 4 shops and 15 products with variants, photos, reviews, vouchers, shipping options, shop
+There are 4 shops and 15 products with variants, photos, reviews, vouchers, shipping options,
 policies, past orders and assistant FAQs. Prices are in VND.
 
-Things to try:
+A seller must link their shop once before managing it: sign in, open `/seller/shops`, click Connect
+and approve.
 
-- As a buyer: search, open a product, add to cart, check out, then follow the order under your orders.
-- As a seller: sign in, open `/seller/shops` and click Connect, then approve once; this links the
-  shop to the platform's API app, as on Shopee. Then see the buyer's order, arrange shipment and
-  advance it; the buyer's tracking updates.
-- Change stock or price as a seller and watch the storefront update.
+## Run it locally (for development, and for voice)
 
-## Voice assistant (optional)
+You need Node 22+, pnpm 10 and PostgreSQL 16. Create the database the defaults expect:
 
-Each shop page has an assistant that answers from that shop's data and can add to cart, place orders
-and open returns after confirmation. It runs on your own Codex login (`codex-cli 0.166.0`), not an
-OpenAI API key.
+```bash
+createuser -s huspee && psql -c "alter user huspee password 'huspee'" postgres && createdb -O huspee huspee
+```
 
-**Requires a paid ChatGPT plan:** Plus or above (Plus, Pro). Codex voice (`/voice`) is not available on the Free
-plan, so the assistant cannot start a voice session with a Free account.
+Then:
 
-It is off by default; to turn it on, log in with `codex login`, set
-`ASSISTANT_VOICE_ENABLED=true` in `apps/api/.env` and restart the API. Each session uses your Codex
-subscription. Without it, the rest of the app works normally. Details: [`docs/VOICE.md`](docs/VOICE.md).
+```bash
+pnpm install
+cp apps/api/.env.example apps/api/.env
+cp apps/web/.env.example apps/web/.env.local
+pnpm --filter @huspee/sdk build   # the web app uses the built SDK
+pnpm db:migrate
+pnpm db:seed                      # load mock data; run again any time to reset it
+pnpm dev                          # API -> http://localhost:3000
+pnpm dev:web                      # web -> http://localhost:3001 (second terminal)
+```
+
+## Voice assistant (optional, local setup only)
+
+Each shop page has an assistant that answers from that shop's data and can add to cart, place
+orders and open returns after the buyer confirms. It runs on your own Codex login
+(`codex-cli 0.166.0`), not an OpenAI API key, and each session uses your subscription.
+
+**Requires a paid ChatGPT plan:** Plus or above (Plus, Pro). Codex voice (`/voice`) is not
+available on the Free plan, so the assistant cannot start a voice session with a Free account.
+
+To turn it on: run `codex login`, set `ASSISTANT_VOICE_ENABLED=true` in `apps/api/.env`, and
+restart the API. The Docker images do not include Codex. Without voice, the rest of the app works
+normally. Details: [`docs/VOICE.md`](docs/VOICE.md).
 
 ## Tests
 
 ```bash
 pnpm test   # builds, then runs all suites against a reseeded huspee_test database
-WEB_URL=http://localhost:3001 API_URL=http://localhost:3000 pnpm smoke:ui   # browser smoke test, needs running servers and installed Chrome
+WEB_URL=http://localhost:3001 API_URL=http://localhost:3000 pnpm smoke:ui   # browser smoke test; needs running servers and Chrome
 ```
 
-The tests start the API on port 3999 and need a Postgres role that can create the `huspee_test`
-database (override with `TEST_DATABASE_URL`). No test starts a real Codex session.
-
-## Project layout
-
-```
-apps/api       NestJS + Prisma backend (prisma/ has the schema, migrations and seed)
-apps/web       Next.js buyer storefront and seller dashboard
-packages/sdk   @huspee/sdk: browser client and server-only Shopee-compatible client
-tests          upstream SDK, extension and end-to-end suites
-docs           design notes
-```
+`pnpm test` needs a Postgres role that can create `huspee_test` (override with `TEST_DATABASE_URL`).
+No test starts a real Codex session.
 
 ## More docs
 
 - [`AGENTS.md`](AGENTS.md): requirements and rules for contributors and coding agents
 - [`BRIEF.md`](BRIEF.md): product brief
-- [`PHASE1_ENDPOINTS.md`](PHASE1_ENDPOINTS.md): every API route, its auth, SDK method and tests
-- [`docs/COMPATIBILITY.md`](docs/COMPATIBILITY.md): how closely the seller API matches Shopee Open API v2
-- [`docs/ASSISTANT.md`](docs/ASSISTANT.md), [`docs/VOICE.md`](docs/VOICE.md), [`docs/EVAL.md`](docs/EVAL.md): voice assistant contract, runtime and evaluation
+- [`PHASE1_ENDPOINTS.md`](PHASE1_ENDPOINTS.md): every API route, its auth and tests
+- [`docs/COMPATIBILITY.md`](docs/COMPATIBILITY.md): how closely the seller API matches Shopee
+- [`docs/ASSISTANT.md`](docs/ASSISTANT.md), [`docs/VOICE.md`](docs/VOICE.md), [`docs/EVAL.md`](docs/EVAL.md): assistant contract, voice runtime, evaluation
 - [`packages/sdk/README.md`](packages/sdk/README.md): SDK usage and changes from upstream
-- [`docs/PLATFORM.md`](docs/PLATFORM.md): how the platform fits together, configuration and security notes
