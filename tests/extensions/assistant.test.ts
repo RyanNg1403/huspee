@@ -294,8 +294,12 @@ describe('assistant platform extensions', () => {
     };
     expect((await run<{ success: boolean }>('open_return', returnArgs)).success).toBe(false);
     await db().query("UPDATE orders SET status = 'COMPLETED', completed_at = NOW() WHERE order_sn = $1", [orderSn]);
-    const openReturn = await run<{ success: boolean; card: { action: { action_id: string } } }>('open_return', returnArgs);
+    const openReturn = await run<{ success: boolean; text: string; card: { action: { action_id: string } } }>('open_return', returnArgs);
     expect(openReturn.success).toBe(true);
+    // The read-back names the reason and solution in words, never the enum codes.
+    expect(openReturn.text).toContain('Lý do: Hàng bị hư hỏng; Phương án: Trả hàng và hoàn tiền');
+    expect(openReturn.text).toContain('Reason: Item damaged; Solution: Return and refund');
+    expect(openReturn.text).not.toMatch(/ITEM_DAMAGED|RETURN_REFUND/);
     const originalReturn = openReturn.card.action.action_id;
     const returnOptions = await client.assistant.actions.options(originalReturn);
     expect(returnOptions.lines[0]?.model_id).toBe(SEED.items.iphone.blackModel);

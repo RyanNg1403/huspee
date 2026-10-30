@@ -9,6 +9,22 @@ import { assistantQuoteSnapshot, CheckoutInput, OrderService, PaymentMethod } fr
 import { AssistantEvents } from './assistant.events';
 import type { PendingActionView } from './types';
 
+/** Spoken and shown labels for return reasons; the stored value stays the enum. */
+const RETURN_REASON_LABELS: Record<string, string> = {
+  NOT_RECEIPT: 'Chưa nhận được hàng / Item not received',
+  WRONG_ITEM: 'Giao sai hàng / Wrong item',
+  ITEM_DAMAGED: 'Hàng bị hư hỏng / Item damaged',
+  DIFFERENT_DESCRIPTION: 'Khác mô tả / Different from description',
+  MUTUAL_AGREE: 'Thỏa thuận với người bán / Agreed with seller',
+  ITEM_MISSING: 'Thiếu hàng / Item missing',
+  EXPECTATION_FAILED: 'Không như mong đợi / Not as expected',
+  ITEM_FAKE: 'Hàng giả / Counterfeit item',
+  PHYSICAL_DMG: 'Hư hỏng bên ngoài / Physical damage',
+  FUNCTIONAL_DMG: 'Lỗi chức năng / Does not work properly',
+  CHANGE_MIND: 'Đổi ý / Changed mind',
+  OTHER: 'Lý do khác / Other',
+};
+
 @Injectable()
 export class ActionsService {
   constructor(
@@ -202,11 +218,11 @@ export class ActionsService {
         { label: 'Đơn hàng / Order', value: input.order_sn },
         ...snapshot.lines.map((line) => ({
           label: line.name,
-          value: `${line.variant || 'Mặc định / Default'} × ${line.quantity} @ ${line.price} VND`,
+          value: `${line.variant ? `${line.variant} ` : ''}× ${line.quantity} @ ${line.price} VND`,
         })),
         ...resolutions.map((resolution) => ({ label: 'Nghe được / Heard', value: `${resolution.resolved_from} → ${resolution.resolved_to}` })),
-        { label: 'Lý do / Reason', value: input.reason },
-        { label: 'Phương án / Solution', value: input.solution },
+        { label: 'Lý do / Reason', value: RETURN_REASON_LABELS[input.reason] ?? input.reason },
+        { label: 'Phương án / Solution', value: input.solution === 'REFUND_ONLY' ? 'Chỉ hoàn tiền / Refund only' : 'Trả hàng và hoàn tiền / Return and refund' },
         { label: 'Mã giảm giá / Voucher', value: order.voucherCode ?? 'Không có / None' },
       ],
       total: refund,
