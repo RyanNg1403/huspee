@@ -67,12 +67,11 @@ type Adapter = {
 
 type TimedCard = { card: Card; at: number };
 /** Cards keep the time they first appeared so they sit in the conversation where they arrived. */
-function upsertTimed(previous: TimedCard[], incoming: Card): TimedCard[] {
+function upsertTimed(previous: TimedCard[], incoming: Card, now = Date.now()): TimedCard[] {
   const next = upsertCard(
     previous.map((item) => item.card),
     incoming,
   );
-  const now = Date.now();
   return next.map((card, i) => ({ card, at: previous[i]?.at ?? now }));
 }
 type Profile = { shop_name: string; greeting: { vi: string; en: string } };
@@ -112,11 +111,9 @@ function ClockGlyph({ className = '' }: { className?: string }) {
 function PastConversation({ detail, getOptions }: { detail: HistoryDetail; getOptions: Adapter['options'] }) {
   const items = [
     ...detail.messages.map((message, index) => ({ at: message.created_at, order: index * 2, message })),
-    ...detail.cards.map((entry, index) => ({
-      at: entry.created_at,
-      order: index * 2 + 1,
-      card: entry.card as Card,
-    })),
+    ...detail.cards
+      .reduce<TimedCard[]>((cards, entry) => upsertTimed(cards, entry.card as Card, entry.created_at), [])
+      .map((entry, index) => ({ at: entry.at, order: index * 2 + 1, card: entry.card })),
   ].sort((a, b) => a.at - b.at || a.order - b.order);
   return (
     <>
