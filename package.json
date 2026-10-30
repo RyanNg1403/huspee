@@ -12,7 +12,9 @@
     "test": "pnpm build && pnpm --filter @huspee/tests run test",
     "test:upstream": "pnpm --filter @huspee/tests run test:upstream",
     "test:extensions": "pnpm --filter @huspee/tests run test:extensions",
-    "test:e2e": "pnpm --filter @huspee/tests run test:e2e"
+    "test:e2e": "pnpm --filter @huspee/tests run test:e2e",
+    "dev:web": "pnpm --filter @huspee/web dev",
+    "build:web": "pnpm --filter @huspee/sdk build && pnpm --filter @huspee/web build"
   },
   "engines": {
     "node": ">=22"

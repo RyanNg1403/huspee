@@ -1,0 +1,16 @@
+@import 'tailwindcss';
+@theme {
+  --color-primary: #ee4d2d;
+  --color-page: #f5f5f5;
+}
+body {
+  background: #f5f5f5;
+  color: #242424;
+}
+button,
+a,
+input,
+select,
+textarea {
+  outline-color: #ee4d2d;
+}
