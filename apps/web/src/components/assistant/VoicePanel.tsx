@@ -72,7 +72,7 @@ function upsertTimed(previous: TimedCard[], incoming: Card, now = Date.now()): T
   );
   return next.map((card, i) => ({ card, at: previous[i]?.at ?? now }));
 }
-type Profile = { shop_name: string; greeting: { vi: string; en: string } };
+type Profile = { shop_name: string; connected?: boolean; greeting: { vi: string; en: string } };
 
 function MicGlyph({ className = '' }: { className?: string }) {
   return (
@@ -665,6 +665,14 @@ export function VoicePanel({
             <p className="flex flex-1 items-center justify-center p-8 text-center text-sm text-gray-600">
               {t('buyerOnly')}
             </p>
+          ) : profile?.connected === false && state === 'idle' && view === 'chat' ? (
+            <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
+              <span className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 text-gray-400">
+                <MicOffGlyph className="h-7 w-7" />
+              </span>
+              <strong className="text-sm font-semibold text-ink">{t('notConnectedTitle')}</strong>
+              <p className="text-sm text-gray-600">{t('notConnected')}</p>
+            </div>
           ) : view === 'history' ? (
             <div className="flex-1 overflow-y-auto bg-gray-50/60 px-4 py-4">
               {viewing ? (

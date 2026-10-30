@@ -39,6 +39,11 @@ export class VoiceService implements OnModuleInit, OnModuleDestroy {
     }
     return this.voiceCache || [];
   }
+  /** Forgets the voice list and stops the app-server, so the next session starts with the current login. */
+  reset(): void {
+    this.voiceCache = undefined;
+    this.runtime.close();
+  }
   onModuleDestroy(): void {
     this.unsubscribe();
     this.runtime.close();

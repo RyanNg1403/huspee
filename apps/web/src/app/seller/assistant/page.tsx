@@ -9,13 +9,29 @@ import { errorMessageKey, getApiClient } from '@/lib/api';
 import { useApi } from '@/lib/use-api';
 import { AssistantNav } from './_components/AssistantNav';
 import { AssistantShopGuard } from './_components/AssistantShopGuard';
+import { ConnectionCard } from './_components/ConnectionCard';
 import { assistantMessages } from './messages';
 
 export default function AssistantSettingsPage() {
+  const t = useT(assistantMessages);
   return (
-    <AssistantShopGuard>
-      {(shop) => <AssistantSettingsContent shopId={shop.shop_id} shopName={shop.shop_name} />}
-    </AssistantShopGuard>
+    <div className="space-y-6">
+      {/* Page Header */}
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">{t('assistantTitle')}</h1>
+        <p className="mt-1 text-sm text-gray-500">{t('assistantDesc')}</p>
+      </div>
+
+      {/* Sub Nav */}
+      <AssistantNav />
+
+      {/* Shared by every shop, so it does not need a selected shop */}
+      <ConnectionCard />
+
+      <AssistantShopGuard>
+        {(shop) => <AssistantSettingsContent shopId={shop.shop_id} shopName={shop.shop_name} />}
+      </AssistantShopGuard>
+    </div>
   );
 }
 
@@ -32,16 +48,7 @@ function AssistantSettingsContent({ shopId, shopName }: { shopId: number; shopNa
   }, []);
 
   return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">{t('assistantTitle')}</h1>
-        <p className="mt-1 text-sm text-gray-500">{t('assistantDesc')}</p>
-      </div>
-
-      {/* Sub Nav */}
-      <AssistantNav />
-
+    <>
       {/* Main Content State */}
       {configApi.loading ? (
         <div className="flex h-64 items-center justify-center">
@@ -61,7 +68,7 @@ function AssistantSettingsContent({ shopId, shopName }: { shopId: number; shopNa
           onSaved={configApi.reload}
         />
       )}
-    </div>
+    </>
   );
 }
 

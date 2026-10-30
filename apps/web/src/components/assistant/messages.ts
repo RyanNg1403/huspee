@@ -42,6 +42,9 @@ export const messages = defineMessages({
     cancel: 'Hủy',
     connecting: 'Đang kết nối…',
     unavailable: 'Trợ lý hiện không khả dụng.',
+    notConnectedTitle: 'Trợ lý chưa được kết nối',
+    notConnected:
+      'Người bán chưa kết nối tài khoản ChatGPT cho trợ lý giọng nói. Bạn vẫn mua sắm bình thường; hãy quay lại sau.',
     busy: 'Trợ lý đang bận. Vui lòng thử lại.',
     microphone: 'Không thể truy cập micrô. Vui lòng kiểm tra quyền truy cập.',
     error: 'Có lỗi xảy ra. Vui lòng thử lại.',
@@ -122,6 +125,9 @@ export const messages = defineMessages({
     cancel: 'Cancel',
     connecting: 'Connecting…',
     unavailable: 'The assistant is unavailable.',
+    notConnectedTitle: 'The assistant is not connected yet',
+    notConnected:
+      'The seller has not connected a ChatGPT account for the voice assistant yet. You can keep shopping as usual; check back later.',
     busy: 'The assistant is busy. Please try again.',
     microphone: 'Microphone access failed. Check your permissions.',
     error: 'Something went wrong. Please try again.',

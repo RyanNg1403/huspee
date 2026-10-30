@@ -4,6 +4,7 @@
  */
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import { existsSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { API, DATABASE_URL, PARTNER_ID, PARTNER_KEY, TEST_PORT, TOKEN_ENCRYPTION_KEY } from '../helpers/env.js';
@@ -17,6 +18,9 @@ export const serverEnv = {
   ASSISTANT_TOOL_DEBUG: 'true',
   // Voice is on by default and would find a real Codex CLI on PATH; tests never start real Codex.
   ASSISTANT_VOICE_ENABLED: 'false',
+  // The connection status reads the account through Codex; point it at the fake and a scratch home.
+  ASSISTANT_CODEX_BIN: resolve(root, 'tests/helpers/fake-codex/codex'),
+  ASSISTANT_CODEX_HOME: resolve(tmpdir(), 'huspee-test-codex-home'),
   DATABASE_URL,
   PORT: String(TEST_PORT),
   PUBLIC_BASE_URL: API,

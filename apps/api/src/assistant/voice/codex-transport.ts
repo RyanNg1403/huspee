@@ -1,10 +1,8 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { execFile } from 'node:child_process';
-import { mkdir, symlink } from 'node:fs/promises';
-import { homedir } from 'node:os';
-import { resolve } from 'node:path';
 import { createInterface } from 'node:readline';
 import { promisify } from 'node:util';
+import { prepareCodexHome } from './codex-home';
 
 const execFileAsync = promisify(execFile);
 type RpcMessage = { id?: number; method?: string; params?: Record<string, unknown>; result?: unknown; error?: unknown };
@@ -33,13 +31,7 @@ export class CodexTransport {
     const executable = process.env.ASSISTANT_CODEX_BIN || 'codex';
     const { stdout } = await execFileAsync(executable, ['--version'], { timeout: 10000 });
     if (stdout.trim() !== 'codex-cli 0.166.0') throw new Error('Codex CLI version must be 0.166.0');
-    const home = resolve(process.env.ASSISTANT_CODEX_HOME || './.token/assistant-codex');
-    await mkdir(home, { recursive: true, mode: 0o700 });
-    try {
-      await symlink(resolve(homedir(), '.codex/auth.json'), resolve(home, 'auth.json'));
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
-    }
+    const home = await prepareCodexHome();
     const child = spawn(executable, ['app-server'], {
       env: { ...process.env, CODEX_HOME: home },
       stdio: ['pipe', 'pipe', 'pipe'],

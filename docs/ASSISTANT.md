@@ -149,8 +149,8 @@ tap again (see `docs/VOICE.md`).
 ## 5. Voice bridge (backend, `apps/api/src/assistant/voice/`)
 
 Per AGENTS.md section 13 and `docs/VOICE.md`: one long-lived `codex
-app-server` child process (private `CODEX_HOME`, `auth.json` symlinked from the operator's
-`~/.codex`, never read or logged); per conversation an ephemeral thread started with the
+app-server` child process (private `CODEX_HOME` holding the ChatGPT login connected in Seller
+Centre, or a link to the operator's `~/.codex/auth.json`; never read or logged); per conversation an ephemeral thread started with the
 registry's `dynamicTools` and the prompt, then `thread/realtime/start` (v3, WebRTC, configured
 voice, `clientManagedHandoffs: true`, so the backend decides what is spoken); `item/tool/call` requests are answered by
 `AssistantToolRegistry.run`; transcripts go to `ConversationMessage` and SSE. On by default when

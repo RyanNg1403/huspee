@@ -11,6 +11,7 @@ import { PrismaService } from '../common/prisma.service';
 import { unix } from '../common/time';
 import { paging, parseInput, q } from '../common/validation';
 import { pageInfo } from '../buyer/marketplace.controller';
+import { voiceEnabled } from './voice/voice-enabled';
 
 const configSchema = z
   .object({
@@ -51,6 +52,8 @@ export class AssistantController {
         shop_id: shop.id,
         shop_name: shop.name,
         enabled: config?.enabled ?? true,
+        // False until the platform's Codex login is connected; the widget explains instead of failing.
+        connected: voiceEnabled(),
         voice: config.voice,
         greeting: {
           vi: config.greetingVi,

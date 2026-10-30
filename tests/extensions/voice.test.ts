@@ -297,10 +297,13 @@ describe('voice availability', () => {
       process.env.ASSISTANT_CODEX_BIN = 'huspee-no-such-codex';
       expect(voiceEnabled()).toBe(false);
       process.env.ASSISTANT_CODEX_BIN = resolve(__dirname, '../helpers/fake-codex/codex');
+      // No login on the host and none in an unused private home.
       process.env.HOME = home;
+      process.env.ASSISTANT_CODEX_HOME = resolve(home, 'unused-codex-home');
       expect(voiceEnabled()).toBe(false);
     } finally {
       process.env.HOME = saved.home;
+      process.env.ASSISTANT_CODEX_HOME = home;
       if (saved.enabled === undefined) delete process.env.ASSISTANT_VOICE_ENABLED;
       else process.env.ASSISTANT_VOICE_ENABLED = saved.enabled;
       if (saved.bin === undefined) delete process.env.ASSISTANT_CODEX_BIN;

@@ -10,7 +10,7 @@ Huspee is unaffiliated with Shopee.
 flowchart LR
     WEB[Next.js web app<br/>buyer storefront + seller dashboard] -->|session cookie| API
     API[NestJS API<br/>buyer routes, Shopee-compatible seller API,<br/>assistant tools] --> DB[(PostgreSQL)]
-    API -.->|optional voice| CODEX[codex app-server<br/>your Codex login]
+    API -.->|voice| CODEX[codex app-server<br/>ChatGPT login connected in Seller Centre]
 ```
 
 - `apps/web`: Next.js buyer storefront and seller dashboard.
@@ -23,20 +23,27 @@ More detail: [`docs/PLATFORM.md`](docs/PLATFORM.md).
 
 ## Run it with Docker (recommended)
 
-You need Docker. For the voice assistant you also need a Codex login on your machine (see
-[Voice assistant](#voice-assistant)); without one, everything else still works.
+1. Install Docker and start it.
+2. Run:
+   ```bash
+   git clone https://github.com/RyanNg1403/huspee.git
+   cd huspee
+   docker compose up --build
+   ```
+3. Open http://localhost:3001. The shop works right away with mock data; every password is
+   `Password123!`.
 
-```bash
-codex login                       # once, with a ChatGPT Plus or Pro account (skip if no voice)
-git clone https://github.com/RyanNg1403/huspee.git
-cd huspee
-docker compose up --build
-```
+To turn on voice (once per machine, needs ChatGPT Plus or Pro):
 
-Open http://localhost:3001 (the API is on http://localhost:3000). The first build takes a few minutes.
-Every start migrates the database and reloads fresh mock data, so changes do not survive a restart.
+4. At https://chatgpt.com/settings/security, turn on
+   **Enable device code sign-in for Codex, Excel, PowerPoint, and Word**.
+5. Sign in as a seller (`huy.techzone@example.com`) and open **Seller Centre > Assistant**.
+6. Click **Connect ChatGPT account**, open the link and enter the code.
+7. Sign in as a buyer (`an.nguyen@example.com`), open any shop and click **Ask the assistant**.
 
-Compose uses ports 3000, 3001 and 5432; stop anything else on them first (a local Postgres often
+Steps 4 to 6 happen once: the sign-in survives restarts and rebuilds; only `docker compose down -v`
+removes it. The first build takes a few minutes. Every start reloads fresh mock data. Compose uses
+ports 3000 (API), 3001 (web) and 5432; stop anything else on them first (a local Postgres often
 holds 5432).
 
 ## Mock data
@@ -81,24 +88,22 @@ pnpm dev:web                      # web -> http://localhost:3001 (second termina
 ## Voice assistant
 
 Each shop page has an assistant that answers from that shop's data and can add to cart, place
-orders and open returns after the buyer confirms. It runs on your own Codex login
-(`codex-cli 0.166.0`), not an OpenAI API key, and each session uses your subscription.
+orders and open returns after the buyer confirms. It runs on a ChatGPT account through Codex
+(`codex-cli 0.166.0`), not an OpenAI API key, and each session uses that account's subscription.
 
 **Requires a paid ChatGPT plan:** Plus or above (Plus, Pro). Codex voice (`/voice`) is not
 available on the Free plan, so the assistant cannot start a voice session with a Free account.
 
-It is on by default once you have run `codex login` on your machine:
+It is connected once from Seller Centre (steps 4 to 6 above) and then works on every shop. Until
+then, the assistant panel tells buyers it is not connected yet and the rest of the app works.
 
-- **Docker:** the API image includes `codex-cli 0.166.0` and uses the login in your `~/.codex`
-  folder (or `$CODEX_HOME`), mounted into the container. You only need the Codex CLI on your
-  machine to log in. If Codex keeps your login in the system keychain instead of
-  `~/.codex/auth.json`, the assistant shows as unavailable; set `cli_auth_credentials_store = "file"`
-  in `~/.codex/config.toml` and run `codex login` again.
+- **Docker:** the API image includes `codex-cli 0.166.0`; you do not need Codex on your machine.
 - **Local:** install `codex-cli 0.166.0` (`npm install -g @openai/codex@0.166.0`) and start the API.
+  If you have already run `codex login` on this machine, the API uses that login; otherwise connect
+  it from Seller Centre as above.
 
-Without a login, the assistant shows as unavailable and the rest of the app works normally. To turn
-it off, set `ASSISTANT_VOICE_ENABLED=false` (in `apps/api/.env`, or in the shell for Docker). Details:
-[`docs/VOICE.md`](docs/VOICE.md).
+To turn the assistant off, set `ASSISTANT_VOICE_ENABLED=false` (in `apps/api/.env`, or in the shell
+for Docker). Details: [`docs/VOICE.md`](docs/VOICE.md).
 
 ## Tests
 

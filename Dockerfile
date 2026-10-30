@@ -16,7 +16,7 @@ RUN pnpm --filter @huspee/api build
 
 FROM base AS runtime
 ENV NODE_ENV=production
-# The voice assistant runs on the Codex CLI with the login mounted from the host (see docker-compose.yml).
+# The voice assistant runs on the Codex CLI; its login is connected in Seller Centre (see docker-compose.yml).
 RUN npm install -g @openai/codex@0.166.0 && codex --version
 COPY --from=build /app /app
 WORKDIR /app/apps/api

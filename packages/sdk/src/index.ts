@@ -11,7 +11,7 @@
 import { HttpTransport, HuspeeClientOptions } from './http.js';
 import type {
   Address, AssistantInsights,
-  AssistantProfile, AssistantConfig, AssistantConfigInput, AssistantFaq, AssistantFaqInput, AssistantConversation, AssistantConversationDetail, BuyerAssistantConversation, BuyerAssistantConversationDetail, PendingActionView, HandoffTicket, HandoffTicketDetail, HandoffMessage,
+  AssistantProfile, AssistantConnection, AssistantConfig, AssistantConfigInput, AssistantFaq, AssistantFaqInput, AssistantConversation, AssistantConversationDetail, BuyerAssistantConversation, BuyerAssistantConversationDetail, PendingActionView, HandoffTicket, HandoffTicketDetail, HandoffMessage,
   AddressInput,
   BuyerOrder,
   BuyerOrderListQuery,
@@ -175,6 +175,12 @@ export class HuspeeClient {
 
   readonly seller = {
     assistant: {
+      connection: {
+        get: () => this.http.request<AssistantConnection>('GET', '/api/v1/seller/assistant/connection'),
+        login: () => this.http.request<AssistantConnection>('POST', '/api/v1/seller/assistant/connection/login'),
+        cancel: () => this.http.request<AssistantConnection>('POST', '/api/v1/seller/assistant/connection/login/cancel'),
+        disconnect: () => this.http.request<AssistantConnection>('DELETE', '/api/v1/seller/assistant/connection'),
+      },
       insights: (shopId: number, range: { from?: number; to?: number } = {}) => this.http.request<AssistantInsights>('GET', `/api/v1/seller/shops/${shopId}/assistant/insights`, { query: range }),
       summarize: (shopId: number, conversationId: string) => this.http.request<{ scheduled: boolean }>('POST', `/api/v1/seller/shops/${shopId}/assistant/conversations/${encodeURIComponent(conversationId)}/summary`),
       getConfig: (shopId: number) => this.http.request<AssistantConfig>('GET', `/api/v1/seller/shops/${shopId}/assistant/config`),

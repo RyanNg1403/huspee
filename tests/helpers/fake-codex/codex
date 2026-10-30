@@ -1,8 +1,11 @@
 #!/usr/bin/env node
+import { existsSync, unlinkSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import readline from 'node:readline';
 if (process.argv.includes('--version')) { console.log('codex-cli 0.166.0'); process.exit(0); }
 const send = value => process.stdout.write(JSON.stringify(value) + '\n');
 let thread = 0;
+let loginTimer;
 readline.createInterface({ input: process.stdin }).on('line', line => {
   const message = JSON.parse(line);
   if (message.id == null || !message.method) return;
@@ -89,6 +92,22 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
   } else if (method === 'thread/realtime/appendSpeech') {
     send({ id, result: {} });
     send({ method: 'thread/realtime/transcript/done', params: { threadId: params.threadId, role: 'assistant', text: params.text } });
+  } else if (method === 'account/login/start') {
+    // Device-code login: the "user" finishes signing in shortly after, unless the login is cancelled.
+    send({ id, result: { type: 'chatgptDeviceCode', loginId: 'login-1', userCode: 'FAKE-1234', verificationUrl: 'https://auth.example.test/codex/device' } });
+    loginTimer = setTimeout(() => {
+      writeFileSync(join(process.env.CODEX_HOME, 'auth.json'), '{}');
+      send({ method: 'account/login/completed', params: { loginId: 'login-1', success: true, error: null } });
+    }, Number(process.env.FAKE_CODEX_LOGIN_MS ?? 300));
+  } else if (method === 'account/login/cancel') {
+    clearTimeout(loginTimer);
+    send({ id, result: { status: 'canceled' } });
+  } else if (method === 'account/read') {
+    const loggedIn = existsSync(join(process.env.CODEX_HOME, 'auth.json'));
+    send({ id, result: { account: loggedIn ? { type: 'chatgpt', email: null, planType: 'pro' } : null, requiresOpenaiAuth: true } });
+  } else if (method === 'account/logout') {
+    unlinkSync(join(process.env.CODEX_HOME, 'auth.json'));
+    send({ id, result: {} });
   } else if (method === 'thread/realtime/listVoices') send({ id, result: { voices: { v3: ['spruce'] } } });
   else send({ id, result: {} });
 });
