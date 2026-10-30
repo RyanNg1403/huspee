@@ -148,7 +148,7 @@ function NewVoucherContent({ shopId }: { shopId: number }) {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5">
-        {errorMessage && <div className="rounded bg-red-50 p-3 text-sm text-red-700">{errorMessage}</div>}
+        {errorMessage && <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{errorMessage}</div>}
 
         {/* Basic Info */}
         <Card className="space-y-4">
@@ -205,7 +205,7 @@ function NewVoucherContent({ shopId }: { shopId: number }) {
 
           {/* Product selector if product voucher */}
           {voucherType === 2 && (
-            <div className="rounded bg-gray-50 p-3 space-y-2">
+            <div className="rounded-lg bg-gray-50 p-3 space-y-2">
               <label className="block text-xs font-semibold text-gray-700">{t('selectProducts')}</label>
               {productsApi.loading ? (
                 <div className="flex justify-center py-4">

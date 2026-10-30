@@ -88,7 +88,7 @@ export function ReturnRequestModal({
         {/* Item & Quantity Selection */}
         <div>
           <label className="mb-2 block text-sm font-semibold text-gray-800">{t('selectItemsToReturn')}</label>
-          <div className="max-h-60 overflow-y-auto space-y-2 divide-y divide-gray-100 rounded border border-gray-200 p-2">
+          <div className="max-h-60 overflow-y-auto space-y-2 divide-y divide-gray-100 rounded-xl border p-2">
             {order.items.map((item) => {
               const checked = selectedModels.has(item.model_id);
               const qty = quantities[item.model_id] ?? item.quantity;

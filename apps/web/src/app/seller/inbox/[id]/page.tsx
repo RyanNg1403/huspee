@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import type { HandoffMessage } from '@huspee/sdk';
-import { Badge, Button, Card, ErrorState, Modal, Spinner, Textarea, useToast } from '@/components/ui';
+import { Badge, Button, Card, ErrorState, Icon, Modal, Spinner, Textarea, useToast } from '@/components/ui';
 import { useLang, useT } from '@/i18n';
 import { common } from '@/i18n/common';
 import { formatDateTime } from '@/lib/format';
@@ -135,7 +135,8 @@ function TicketDetailContent({ shopId, ticketId }: { shopId: number; ticketId: n
                 variant="outline"
                 className="border-purple-200 text-purple-700 hover:bg-purple-50"
               >
-                💬 {t('viewLinkedConversation')}
+                <Icon name="chat" className="mr-1.5 h-4 w-4" />
+                {t('viewLinkedConversation')}
               </Button>
             </Link>
           )}

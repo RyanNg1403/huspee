@@ -35,7 +35,7 @@ function ReturnsView() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between bg-white p-4 shadow-xs rounded">
+      <div className="flex items-center justify-between rounded-2xl border border-line bg-white p-4 shadow-card">
         <h2 className="text-lg font-semibold text-gray-800">{t('returnsTitle')}</h2>
         <Link href="/orders" className="text-sm font-medium text-primary hover:underline">
           ← {t('ordersTitle')}
@@ -56,7 +56,10 @@ function ReturnsView() {
       ) : (
         <div className="space-y-4">
           {returnsData.data.map((item) => (
-            <div key={item.return_sn} className={`${panel} p-0 overflow-hidden`}>
+            <div
+              key={item.return_sn}
+              className="overflow-hidden rounded-2xl border border-line bg-white shadow-card"
+            >
               {/* Header */}
               <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-gray-50/70 px-4 py-3">
                 <div className="flex items-center gap-2">
@@ -73,7 +76,7 @@ function ReturnsView() {
               <div className="divide-y p-4">
                 {item.items.map((prod, idx) => (
                   <div key={idx} className="flex items-center gap-4 py-3 first:pt-0 last:pb-0">
-                    <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded border bg-gray-100">
+                    <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl border bg-gray-100">
                       {prod.image_url ? (
                         <Image
                           unoptimized

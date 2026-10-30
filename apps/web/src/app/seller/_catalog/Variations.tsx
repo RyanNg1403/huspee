@@ -219,7 +219,7 @@ export function Variations({
             {models.tier_variation.map((tier, i) => (
               <label key={i}>
                 {tier.name}
-                <select name={`tier${i}`} className="block rounded border p-2">
+                <select name={`tier${i}`} className="block rounded-xl border px-3 py-2">
                   {tier.option_list.map((o, index) => (
                     <option value={index} key={index}>
                       {o.option}

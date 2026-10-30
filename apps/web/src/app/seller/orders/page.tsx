@@ -138,7 +138,7 @@ function OrdersContent({ shopId }: { shopId: number }) {
       </div>
 
       {/* Tabs */}
-      <div className="overflow-x-auto bg-white rounded shadow-sm">
+      <div className="overflow-x-auto rounded-2xl border border-line bg-white shadow-card">
         <Tabs items={tabs} value={selectedTab} onChange={handleTabChange} />
       </div>
 
@@ -191,7 +191,7 @@ function OrdersContent({ shopId }: { shopId: number }) {
         {ordersApi.data && (
           <div className="space-y-3">
             {/* Desktop Table View */}
-            <div className="hidden overflow-x-auto rounded bg-white shadow-sm md:block">
+            <div className="hidden overflow-x-auto rounded-2xl border border-line bg-white shadow-card md:block">
               <table className="w-full text-left text-sm">
                 <thead className="border-b bg-gray-50 text-xs font-semibold uppercase text-gray-600">
                   <tr>
@@ -231,7 +231,7 @@ function OrdersContent({ shopId }: { shopId: number }) {
                                     width={28}
                                     height={28}
                                     unoptimized
-                                    className="h-7 w-7 rounded object-cover"
+                                    className="h-7 w-7 rounded-lg object-cover"
                                   />
                                 )}
                                 <span className="truncate text-xs text-gray-800">
@@ -320,7 +320,7 @@ function OrdersContent({ shopId }: { shopId: number }) {
                             width={36}
                             height={36}
                             unoptimized
-                            className="h-9 w-9 rounded object-cover"
+                            className="h-9 w-9 rounded-lg object-cover"
                           />
                         )}
                         <div className="min-w-0 flex-1 text-xs">
@@ -354,7 +354,7 @@ function OrdersContent({ shopId }: { shopId: number }) {
             </div>
 
             {/* Cursor Pagination */}
-            <div className="flex items-center justify-between bg-white p-3 rounded shadow-sm">
+            <div className="flex items-center justify-between rounded-2xl border border-line bg-white p-3 shadow-card">
               <Button
                 variant="outline"
                 size="sm"

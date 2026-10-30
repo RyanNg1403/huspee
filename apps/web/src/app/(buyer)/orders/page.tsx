@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import type { BuyerOrder, OrderStatus, Paginated } from '@huspee/sdk';
 import { RequireRole } from '@/components/session';
-import { Button, Pagination, QueryState, Tabs, useToast } from '@/components/ui';
+import { Button, Icon, Pagination, QueryState, Tabs, useToast } from '@/components/ui';
 import { useT } from '@/i18n';
 import { common } from '@/i18n/common';
 import { getApiClient } from '@/lib/api';
@@ -104,7 +104,7 @@ function OrdersView() {
   return (
     <div className="space-y-4">
       {/* Shopee-style Status Tabs */}
-      <div className="bg-white px-2 shadow-xs rounded">
+      <div className="rounded-2xl border border-line bg-white px-2 shadow-card">
         <div className="overflow-x-auto">
           <Tabs items={tabItems} value={activeTab} onChange={handleTabChange} />
         </div>
@@ -115,7 +115,9 @@ function OrdersView() {
         <QueryState loading={loading} error={error} retry={reload} />
       ) : !ordersData || ordersData.data.length === 0 ? (
         <div className={`${panel} py-16 text-center`}>
-          <div className="mb-4 text-4xl">📦</div>
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary-soft text-primary">
+            <Icon name="box" className="h-7 w-7" />
+          </div>
           <h3 className="mb-2 text-lg font-semibold text-gray-800">{t('noOrders')}</h3>
           <Link href="/">
             <Button>{t('continueShopping')}</Button>
@@ -124,7 +126,10 @@ function OrdersView() {
       ) : (
         <div className="space-y-4">
           {ordersData.data.map((order) => (
-            <div key={order.order_sn} className={`${panel} p-0 overflow-hidden`}>
+            <div
+              key={order.order_sn}
+              className="overflow-hidden rounded-2xl border border-line bg-white shadow-card"
+            >
               {/* Order Card Header */}
               <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-gray-50/70 px-4 py-3">
                 <div className="flex items-center gap-2">
@@ -133,7 +138,7 @@ function OrdersView() {
                       href={`/shops/${order.shop.shop_id}`}
                       className="hover:text-primary transition-colors flex items-center gap-1.5"
                     >
-                      <span>🏪</span>
+                      <Icon name="shop" className="h-4 w-4 text-gray-500" />
                       <span>{order.shop.shop_name}</span>
                     </Link>
                   </span>
@@ -149,7 +154,7 @@ function OrdersView() {
               <div className="divide-y p-4">
                 {order.items.map((item, idx) => (
                   <div key={idx} className="flex items-center gap-4 py-3 first:pt-0 last:pb-0">
-                    <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded border bg-gray-100">
+                    <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl border bg-gray-100">
                       {item.image_url ? (
                         <Image
                           unoptimized

@@ -87,104 +87,131 @@ export function BuyerHeader() {
     const q = new FormData(e.currentTarget).get('q');
     router.push(`/search?q=${encodeURIComponent(String(q ?? ''))}`);
   }
+  const isBuyer = status === 'authenticated' && !!user?.roles.includes('buyer');
+  const iconLink =
+    'relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-gray-700 transition hover:bg-gray-100 hover:text-ink';
+  const dot =
+    'absolute -top-0.5 -right-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-primary px-1 text-[11px] leading-none font-semibold text-white ring-2 ring-white';
+  const menuItem = 'flex w-full items-center justify-between rounded-lg px-3 py-2 text-left hover:bg-gray-50';
   const menu = (mobile: boolean) => (
     <details className="relative">
       <summary
         aria-label={status === 'authenticated' ? user?.name : t('login')}
-        className="flex cursor-pointer list-none items-center gap-1"
+        className="flex cursor-pointer list-none items-center gap-2 rounded-full py-1 pr-2 pl-1 text-sm font-medium text-gray-700 transition hover:bg-gray-100 [&::-webkit-details-marker]:hidden"
       >
-        {mobile ? (
-          <UserIcon className="h-6 w-6" />
-        ) : (
+        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-soft text-primary">
+          {mobile || !user?.name ? (
+            <UserIcon className="h-4 w-4" />
+          ) : (
+            user.name.trim().split(/\s+/).pop()?.[0]
+          )}
+        </span>
+        {!mobile && (
           <>
-            {user?.name}
-            <ChevronIcon className="h-4 w-4" />
+            <span className="max-w-32 truncate">{user?.name}</span>
+            <ChevronIcon className="h-4 w-4 text-gray-400" />
           </>
         )}
       </summary>
-      <div className="absolute right-0 z-30 mt-2 w-48 rounded bg-white p-2 text-sm text-gray-800 shadow-lg">
+      <div className="absolute right-0 z-40 mt-2 w-56 rounded-2xl border border-line bg-white p-1.5 text-sm text-gray-800 shadow-lift">
         {status === 'authenticated' ? (
           <>
-            <Link className="block p-2" href="/orders">
+            <Link className={menuItem} href="/orders">
               {t('orders')}
             </Link>
-            <Link className="block p-2" href="/messages">
-              <span className="flex items-center justify-between">
-                <span>{messagesLabel}</span>
-                {unreadMessages > 0 && (
-                  <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-xs font-medium text-white">
-                    {unreadMessages}
-                  </span>
-                )}
-              </span>
+            <Link className={menuItem} href="/messages">
+              <span>{messagesLabel}</span>
+              {unreadMessages > 0 && (
+                <span className="rounded-full bg-primary px-1.5 py-0.5 text-xs font-semibold text-white">
+                  {unreadMessages}
+                </span>
+              )}
             </Link>
             {user?.roles.includes('seller') && (
-              <Link className="block p-2" href="/seller">
+              <Link className={menuItem} href="/seller">
                 {t('seller')}
               </Link>
             )}
-            <button className="block p-2" onClick={() => void logout().then(() => router.push('/'))}>
+            <div className="my-1 border-t border-line" />
+            <button
+              className={`${menuItem} text-gray-500`}
+              onClick={() => void logout().then(() => router.push('/'))}
+            >
               {t('logout')}
             </button>
           </>
         ) : (
           <>
-            <Link className="block p-2" href="/login">
+            <Link className={menuItem} href="/login">
               {t('login')}
             </Link>
-            <Link className="block p-2" href="/signup">
+            <Link className={menuItem} href="/signup">
               {t('signup')}
             </Link>
           </>
         )}
-        {mobile && <LanguageSwitch />}
+        {mobile && (
+          <div className="border-t border-line px-3 py-2">
+            <LanguageSwitch />
+          </div>
+        )}
       </div>
     </details>
   );
   return (
-    <header className="bg-primary text-white">
-      <div className="mx-auto max-w-7xl px-4 pb-3 pt-2">
-        <div className="hidden items-center justify-end gap-4 text-sm sm:flex">
-          <LanguageSwitch />
+    <header className="sticky top-0 z-40 border-b border-line bg-white/90 backdrop-blur-md">
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 sm:flex-nowrap sm:gap-x-6">
+        <Logo className="text-xl text-ink" />
+        <div className="flex-1 sm:hidden" />
+        <form
+          onSubmit={search}
+          className="relative order-3 w-full min-w-0 sm:order-none sm:max-w-2xl sm:flex-1"
+        >
+          <SearchIcon className="pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <input
+            name="q"
+            aria-label={t('search')}
+            placeholder={t('search')}
+            className="h-11 w-full rounded-full border border-transparent bg-gray-100 pr-24 pl-11 text-sm text-ink transition placeholder:text-gray-500 focus:border-primary/40 focus:bg-white focus:ring-4 focus:ring-primary/10 focus:outline-none"
+          />
+          <button
+            className="absolute top-1/2 right-1.5 h-8 -translate-y-1/2 rounded-full bg-primary px-4 text-sm font-semibold text-white transition hover:bg-primary-hover"
+            aria-label={t('search')}
+          >
+            <span aria-hidden="true">{t('search').split(' ')[0]}</span>
+          </button>
+        </form>
+        <nav className="flex items-center gap-1 sm:ml-auto">
+          <div className="hidden text-sm sm:block">
+            <LanguageSwitch />
+          </div>
+          <Link href="/messages" aria-label={messagesLabel} className={iconLink}>
+            <MessageIcon className="h-[22px] w-[22px]" />
+            {isBuyer && unreadMessages > 0 && <span className={dot}>{unreadMessages}</span>}
+          </Link>
+          <Link href="/cart" aria-label={t('cart')} className={iconLink}>
+            <CartIcon className="h-[22px] w-[22px]" />
+            <span className={isBuyer && count > 0 ? dot : 'sr-only'}>{isBuyer ? count : 0}</span>
+          </Link>
           {status === 'authenticated' ? (
-            menu(false)
+            <>
+              <div className="hidden sm:block">{menu(false)}</div>
+              <div className="sm:hidden">{menu(true)}</div>
+            </>
           ) : (
-            <div className="flex gap-3">
-              <Link href="/login">{t('login')}</Link>
-              <Link href="/signup">{t('signup')}</Link>
+            <div className="ml-1 flex items-center gap-1 text-sm font-semibold">
+              <Link href="/login" className="rounded-full px-3 py-2 text-gray-700 hover:bg-gray-100">
+                {t('login')}
+              </Link>
+              <Link
+                href="/signup"
+                className="hidden rounded-full bg-ink px-4 py-2 text-white hover:bg-gray-800 sm:block"
+              >
+                {t('signup')}
+              </Link>
             </div>
           )}
-        </div>
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-3 pt-2 sm:flex-nowrap sm:py-3">
-          <Logo className="text-2xl" />
-          <div className="flex-1 sm:hidden" />
-          <form onSubmit={search} className="order-3 flex w-full min-w-0 sm:order-none sm:flex-1">
-            <input
-              name="q"
-              aria-label={t('search')}
-              placeholder={t('search')}
-              className="min-w-0 flex-1 rounded-l bg-white px-3 py-2 text-gray-900"
-            />
-            <button className="rounded-r bg-orange-700 px-4" aria-label={t('search')}>
-              <SearchIcon className="h-5 w-5" />
-            </button>
-          </form>
-          <Link href="/messages" aria-label={messagesLabel} className="relative shrink-0">
-            <MessageIcon className="h-7 w-7" />
-            {status === 'authenticated' && user?.roles.includes('buyer') && unreadMessages > 0 && (
-              <span className="absolute -right-2 -top-2 min-w-5 rounded-full bg-white px-1 text-center text-xs font-medium text-orange-700">
-                {unreadMessages}
-              </span>
-            )}
-          </Link>
-          <Link href="/cart" aria-label={t('cart')} className="relative shrink-0">
-            <CartIcon className="h-7 w-7" />
-            <span className="absolute -right-3 -top-2 min-w-5 rounded-full bg-white px-1 text-center text-xs font-medium text-orange-700">
-              {status === 'authenticated' && user?.roles.includes('buyer') ? count : 0}
-            </span>
-          </Link>
-          <div className="ml-2 sm:hidden">{menu(true)}</div>
-        </div>
+        </nav>
       </div>
     </header>
   );

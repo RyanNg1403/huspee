@@ -2,6 +2,14 @@ import { defineMessages } from '@/i18n';
 export const messages = defineMessages({
   vi: {
     categories: 'Danh mục',
+    heroEyebrow: 'Mỗi shop một trợ lý giọng nói',
+    heroTitle: 'Hỏi bằng giọng nói, mua đúng thứ bạn cần',
+    heroBody:
+      'Trợ lý của từng shop trả lời giá, tồn kho, mã giảm giá và chính sách từ dữ liệu thật của shop, rồi giúp bạn đặt hàng sau khi bạn xác nhận.',
+    heroCta: 'Khám phá cửa hàng',
+    heroSecondary: 'Xem gợi ý hôm nay',
+    shopProducts: 'sản phẩm',
+    official: 'Chính hãng',
     shops: 'Cửa hàng nổi bật',
     discover: 'Gợi ý hôm nay',
     more: 'Xem thêm',
@@ -60,6 +68,14 @@ export const messages = defineMessages({
   },
   en: {
     categories: 'Categories',
+    heroEyebrow: 'A voice assistant for every shop',
+    heroTitle: 'Ask out loud, buy exactly what you need',
+    heroBody:
+      "Each shop's assistant answers prices, stock, vouchers and policies from the shop's real data, then places the order once you confirm.",
+    heroCta: 'Browse shops',
+    heroSecondary: "See today's picks",
+    shopProducts: 'products',
+    official: 'Official',
     shops: 'Featured shops',
     discover: 'Daily discover',
     more: 'Load more',

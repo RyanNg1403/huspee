@@ -228,7 +228,7 @@ export function ProductEditor({ itemId }: { itemId?: number }) {
           <label>
             {t('category')}
             <select
-              className="block w-full rounded border p-2"
+              className="block w-full rounded-xl border px-3 py-2"
               name="category"
               required
               value={categoryId || ''}
@@ -258,7 +258,7 @@ export function ProductEditor({ itemId }: { itemId?: number }) {
               <label>
                 {t('brand')}
                 <select
-                  className="block w-full rounded border p-2"
+                  className="block w-full rounded-xl border px-3 py-2"
                   name="brand"
                   defaultValue={item?.brand?.brand_id ?? 0}
                   required={details.data.brands.is_mandatory}
@@ -287,7 +287,7 @@ export function ProductEditor({ itemId }: { itemId?: number }) {
                       />
                     ) : (
                       <select
-                        className="block w-full rounded border p-2"
+                        className="block w-full rounded-xl border px-3 py-2"
                         name={`attribute_${a.attribute_id}`}
                         required={a.mandatory}
                         defaultValue={old?.value_id ?? ''}

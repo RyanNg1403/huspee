@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import type { HandoffTicket, Paginated } from '@huspee/sdk';
 import { RequireRole } from '@/components/session';
-import { Button, Card, Pagination, QueryState, Tabs } from '@/components/ui';
+import { Button, Card, Icon, Pagination, QueryState, Tabs } from '@/components/ui';
 import { useLang, useT } from '@/i18n';
 import { getApiClient } from '@/lib/api';
 import { formatDateTime } from '@/lib/format';
@@ -73,7 +73,7 @@ function MessagesListView() {
       </div>
 
       {/* Status Filter Tabs */}
-      <div className="overflow-x-auto rounded bg-white px-2 shadow-xs">
+      <div className="overflow-x-auto rounded-2xl border border-line bg-white px-2 shadow-card">
         <Tabs items={tabItems} value={activeTab} onChange={handleTabChange} />
       </div>
 
@@ -82,7 +82,9 @@ function MessagesListView() {
         <QueryState loading={loading} error={error} retry={reload} />
       ) : !ticketsData || ticketsData.data.length === 0 ? (
         <Card className="py-16 text-center">
-          <div className="mb-4 text-5xl">💬</div>
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary-soft text-primary">
+            <Icon name="chat" className="h-7 w-7" />
+          </div>
           <h2 className="mb-2 text-lg font-semibold text-gray-800">{t('emptyTitle')}</h2>
           <p className="mx-auto mb-6 max-w-md text-sm text-gray-500">{t('emptyDescription')}</p>
           <Link href="/">
@@ -123,7 +125,7 @@ function MessagesListView() {
                             className="flex h-5 w-5 items-center justify-center rounded-full bg-orange-100 text-xs text-primary"
                             aria-label={ticket.shop_name}
                           >
-                            🏪
+                            <Icon name="shop" className="h-3 w-3" />
                           </span>
                         )}
                         <span className="truncate max-w-[200px]">{ticket.shop_name}</span>

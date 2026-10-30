@@ -1,7 +1,6 @@
 'use client';
 import { useT } from '@/i18n/client';
 import { common } from '@/i18n/common';
-import { Button } from './Button';
 export function Pagination({
   page,
   totalPages,
@@ -12,17 +11,19 @@ export function Pagination({
   onChange: (page: number) => void;
 }) {
   const t = useT(common);
+  const button =
+    'flex h-9 w-9 items-center justify-center rounded-full border border-line bg-white text-gray-700 transition hover:border-gray-300 disabled:opacity-40';
   return (
-    <nav aria-label={t('pagination')} className="flex items-center justify-center gap-3">
-      <Button variant="outline" disabled={page <= 1} onClick={() => onChange(page - 1)}>
+    <nav aria-label={t('pagination')} className="flex items-center justify-center gap-3 text-sm">
+      <button className={button} disabled={page <= 1} onClick={() => onChange(page - 1)}>
         ‹
-      </Button>
-      <span>
+      </button>
+      <span className="min-w-12 text-center text-gray-600 tabular-nums">
         {page} / {totalPages}
       </span>
-      <Button variant="outline" disabled={page >= totalPages} onClick={() => onChange(page + 1)}>
+      <button className={button} disabled={page >= totalPages} onClick={() => onChange(page + 1)}>
         ›
-      </Button>
+      </button>
     </nav>
   );
 }

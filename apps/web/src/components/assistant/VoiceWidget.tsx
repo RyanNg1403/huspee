@@ -20,5 +20,5 @@ const adapter = {
 export function VoiceWidget({ shopId }: { shopId: number }) {
   const profile = useApi(() => getApiClient().assistant.profile(shopId), [shopId]);
   if (profile.loading || profile.data?.enabled === false) return null;
-  return <VoicePanel shopId={shopId} adapter={adapter} />;
+  return <VoicePanel shopId={shopId} adapter={adapter} profile={profile.data ?? undefined} />;
 }

@@ -44,7 +44,7 @@ export function QueryState({
   if (loading) {
     if (spinner) {
       return (
-        <div className="flex h-64 items-center justify-center rounded bg-white shadow-sm">
+        <div className="flex h-64 items-center justify-center rounded-2xl border border-line bg-white text-primary">
           <Spinner />
         </div>
       );

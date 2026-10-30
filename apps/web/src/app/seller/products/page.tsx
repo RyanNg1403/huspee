@@ -4,6 +4,7 @@ import Image from 'next/image';
 import { useState } from 'react';
 import { useSelectedShop } from '@/components/layout';
 import {
+  Badge,
   Button,
   Card,
   EmptyState,
@@ -136,14 +137,19 @@ export default function Products() {
     <div className="space-y-4">
       <div className="flex flex-wrap justify-between gap-2">
         <h1 className="text-2xl font-bold">{t('products')}</h1>
-        <Link href="/seller/products/new" className="text-primary">
-          {t('addProduct')}
+        <Link href="/seller/products/new">
+          <Button>+ {t('addProduct')}</Button>
         </Link>
       </div>
       <Card>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {(['all', 'active', 'hidden'] as const).map((k) => (
-            <Button key={k} variant={status === k ? 'primary' : 'ghost'} onClick={() => setStatus(k)}>
+            <Button
+              key={k}
+              size="sm"
+              variant={status === k ? 'primary' : 'ghost'}
+              onClick={() => setStatus(k)}
+            >
               {t(k)}
             </Button>
           ))}
@@ -169,10 +175,10 @@ export default function Products() {
         ) : !data.data?.length ? (
           <EmptyState title={t('noProducts')} />
         ) : (
-          <div className="space-y-4">
+          <div className="divide-y border-t">
             {data.data.map(({ item, models, sale }) => (
-              <div key={item.item_id} className="border-t py-4">
-                <div className="flex flex-wrap gap-3">
+              <div key={item.item_id} className="py-5">
+                <div className="flex flex-wrap items-start gap-4">
                   {item.image.image_url_list[0] && (
                     <Image
                       src={item.image.image_url_list[0]}
@@ -180,31 +186,38 @@ export default function Products() {
                       width={64}
                       height={64}
                       unoptimized
-                      className="h-16 w-16 object-cover"
+                      className="h-16 w-16 rounded-xl border object-cover"
                     />
                   )}
-                  <div className="grow">
-                    <Link className="font-semibold text-primary" href={`/seller/products/${item.item_id}`}>
+                  <div className="min-w-0 grow space-y-1">
+                    <Link
+                      className="font-semibold text-gray-900 hover:text-primary"
+                      href={`/seller/products/${item.item_id}`}
+                    >
                       {item.item_name}
                     </Link>
-                    <p>
-                      {item.item_sku} · {item.item_status}
-                    </p>
-                    {sale !== undefined && (
-                      <p>
-                        {t('sales')}: {sale}
-                      </p>
-                    )}
-                    <p>
-                      {models.map((m) => formatVnd(m.price_info[0]?.current_price || 0)).join(' – ')} ·{' '}
-                      {t('stock')}:{' '}
-                      {models.reduce(
-                        (n, m) => n + (m.stock_info_v2?.summary_info.total_available_stock || 0),
-                        0,
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-500">
+                      <span className="font-mono text-xs">{item.item_sku}</span>
+                      <Badge tone={item.item_status === 'NORMAL' ? 'success' : 'neutral'}>
+                        {item.item_status}
+                      </Badge>
+                      <span className="font-medium text-gray-900">{priceRange(models)}</span>
+                      <span>
+                        {t('stock')}:{' '}
+                        {models.reduce(
+                          (n, m) => n + (m.stock_info_v2?.summary_info.total_available_stock || 0),
+                          0,
+                        )}
+                      </span>
+                      {sale !== undefined && (
+                        <span>
+                          {t('sales')}: {sale}
+                        </span>
                       )}
-                    </p>
+                    </div>
                   </div>
                   <Button
+                    size="sm"
                     variant="outline"
                     disabled={pending}
                     onClick={() =>
@@ -215,13 +228,26 @@ export default function Products() {
                   >
                     {item.item_status === 'NORMAL' ? t('unlist') : t('relist')}
                   </Button>
-                  <Button variant="ghost" disabled={pending} onClick={() => setDeleting(item.item_id)}>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={pending}
+                    onClick={() => setDeleting(item.item_id)}
+                  >
                     {t('delete')}
                   </Button>
                 </div>
-                {models.map((m) => (
-                  <Quick key={m.model_id} model={m} itemId={item.item_id} pending={pending} action={action} />
-                ))}
+                <div className="mt-4 space-y-2 rounded-xl bg-gray-50 p-3 sm:ml-20">
+                  {models.map((m) => (
+                    <Quick
+                      key={m.model_id}
+                      model={m}
+                      itemId={item.item_id}
+                      pending={pending}
+                      action={action}
+                    />
+                  ))}
+                </div>
               </div>
             ))}
           </div>
@@ -241,6 +267,13 @@ export default function Products() {
     </div>
   );
 }
+function priceRange(models: Model[]) {
+  const prices = models.map((m) => m.price_info[0]?.current_price || 0);
+  if (!prices.length) return '';
+  const low = Math.min(...prices);
+  const high = Math.max(...prices);
+  return low === high ? formatVnd(low) : `${formatVnd(low)} – ${formatVnd(high)}`;
+}
 function Quick({
   model,
   itemId,
@@ -256,7 +289,7 @@ function Quick({
   return (
     <form
       key={`${model.model_id}-${model.price_info[0]?.original_price}-${model.stock_info_v2?.summary_info.total_available_stock}`}
-      className="mt-3 flex flex-wrap items-end gap-2"
+      className="grid grid-cols-2 items-end gap-2 sm:grid-cols-[minmax(0,10rem)_minmax(0,1fr)_minmax(0,1fr)_auto]"
       onSubmit={(e) => {
         e.preventDefault();
         const f = new FormData(e.currentTarget);
@@ -273,8 +306,10 @@ function Quick({
         })();
       }}
     >
-      <span>{model.model_sku || model.model_id}</span>
-      <label>
+      <span className="col-span-2 self-center font-mono text-xs text-gray-600 sm:col-span-1">
+        {model.model_sku || model.model_id}
+      </span>
+      <label className="text-xs text-gray-500">
         {t('price')}
         <Input
           name="price"
@@ -284,7 +319,7 @@ function Quick({
           defaultValue={model.price_info[0]?.original_price}
         />
       </label>
-      <label>
+      <label className="text-xs text-gray-500">
         {t('stock')}
         <Input
           name="stock"
@@ -294,7 +329,7 @@ function Quick({
           defaultValue={model.stock_info_v2?.summary_info.total_available_stock}
         />
       </label>
-      <Button loading={pending} type="submit">
+      <Button size="sm" className="col-span-2 sm:col-span-1" loading={pending} type="submit">
         {t('save')}
       </Button>
     </form>

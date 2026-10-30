@@ -26,149 +26,217 @@ export function AssistantCard({
   ) => Promise<void>;
 }) {
   const t = useT(messages);
+  const thumb = (src: string | null, size = 'h-14 w-14') =>
+    src ? (
+      <Image
+        src={src}
+        alt=""
+        width={112}
+        height={112}
+        unoptimized
+        className={`${size} shrink-0 rounded-xl object-cover ring-1 ring-line`}
+      />
+    ) : (
+      <span className={`${size} shrink-0 rounded-xl bg-gray-100`} />
+    );
+  const row = 'flex items-center gap-3 rounded-xl p-1.5 transition hover:bg-gray-50';
+  const statusTone =
+    card.kind === 'action'
+      ? card.action.status === 'PENDING'
+        ? 'bg-amber-50 text-amber-700'
+        : card.action.status === 'EXECUTED'
+          ? 'bg-emerald-50 text-emerald-700'
+          : 'bg-gray-100 text-gray-600'
+      : '';
   return (
-    <div className="space-y-2 rounded border border-orange-200 bg-white p-3 text-sm break-words">
+    <div
+      className={`space-y-2 rounded-2xl border bg-white p-3 text-sm break-words shadow-card ${
+        card.kind === 'action' && card.action.status === 'PENDING'
+          ? 'border-primary/40 ring-4 ring-primary/5'
+          : 'border-line'
+      }`}
+    >
       {card.kind === 'products' &&
         card.resolution &&
         card.resolution.resolved_from !== card.resolution.resolved_to && (
-          <p>
-            {t('heard')}: {card.resolution.resolved_from} → {card.resolution.resolved_to}
+          <p className="text-xs text-gray-500">
+            {t('heard')}: <span className="line-through">{card.resolution.resolved_from}</span> →{' '}
+            <span className="font-medium text-gray-700">{card.resolution.resolved_to}</span>
           </p>
         )}
-      {card.kind === 'products' && card.items.length === 0 && <p>{t('noProducts')}</p>}
+      {card.kind === 'products' && card.items.length === 0 && (
+        <p className="text-gray-500">{t('noProducts')}</p>
+      )}
       {card.kind === 'products' &&
         card.items.map((item) => (
-          <div key={item.item_id}>
-            {item.image && (
-              <Image
-                src={item.image}
-                alt=""
-                width={64}
-                height={64}
-                unoptimized
-                className="h-16 w-16 object-cover"
-              />
-            )}
-            <Link className="text-[#ee4d2d]" href={`/products/${item.item_id}`}>
-              {item.name}
-            </Link>
-            <p>
-              {formatVnd(item.price_min)}
-              {item.price_max !== item.price_min && ` – ${formatVnd(item.price_max)}`} · {t('stock')}:{' '}
-              {item.stock}
-            </p>
-            {item.rating !== null && <p>★ {item.rating}</p>}
-          </div>
+          <Link key={item.item_id} href={`/products/${item.item_id}`} className={row}>
+            {thumb(item.image)}
+            <span className="min-w-0 flex-1">
+              <span className="line-clamp-2 font-medium text-gray-800">{item.name}</span>
+              <span className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-gray-500">
+                <span className="text-sm font-semibold text-primary tabular-nums">
+                  {formatVnd(item.price_min)}
+                  {item.price_max !== item.price_min && ` – ${formatVnd(item.price_max)}`}
+                </span>
+                <span>
+                  {t('stock')}: {item.stock}
+                </span>
+                {item.rating !== null && (
+                  <span>
+                    <span className="text-amber-400">★</span> {item.rating}
+                  </span>
+                )}
+              </span>
+            </span>
+          </Link>
         ))}
       {card.kind === 'product' && (
         <>
-          {card.image && (
-            <Image
-              src={card.image}
-              alt=""
-              width={64}
-              height={64}
-              unoptimized
-              className="h-16 w-16 object-cover"
-            />
-          )}
-          <Link className="text-[#ee4d2d]" href={`/products/${card.item_id}`}>
-            {card.name}
+          <Link href={`/products/${card.item_id}`} className={row}>
+            {thumb(card.image, 'h-16 w-16')}
+            <span className="line-clamp-2 font-semibold text-gray-800">{card.name}</span>
           </Link>
-          {card.models.map((model) => (
-            <p key={model.model_id}>
-              {model.name} · {formatVnd(model.price)} · {t('stock')}: {model.stock}
-            </p>
-          ))}
+          <ul className="divide-y divide-line rounded-xl bg-gray-50 px-3">
+            {card.models.map((model) => (
+              <li key={model.model_id} className="flex items-center justify-between gap-2 py-2 text-xs">
+                <span className="text-gray-700">{model.name}</span>
+                <span className="flex items-center gap-2">
+                  <span className={model.stock > 0 ? 'text-gray-500' : 'text-red-600'}>
+                    {t('stock')}: {model.stock}
+                  </span>
+                  <span className="font-semibold text-primary tabular-nums">{formatVnd(model.price)}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
         </>
       )}
-      {card.kind === 'compare' && card.items.length === 0 && <p>{t('noProducts')}</p>}
-      {card.kind === 'compare' &&
-        card.items.map((item) => (
-          <div key={item.item_id}>
-            {item.image && (
-              <Image
-                src={item.image}
-                alt=""
-                width={64}
-                height={64}
-                unoptimized
-                className="h-16 w-16 object-cover"
-              />
-            )}
-            <Link className="text-[#ee4d2d]" href={`/products/${item.item_id}`}>
-              {item.name}
+      {card.kind === 'compare' && card.items.length === 0 && (
+        <p className="text-gray-500">{t('noProducts')}</p>
+      )}
+      {card.kind === 'compare' && card.items.length > 0 && (
+        <div className="grid grid-cols-2 gap-2">
+          {card.items.map((item) => (
+            <Link
+              key={item.item_id}
+              href={`/products/${item.item_id}`}
+              className="space-y-1.5 rounded-xl bg-gray-50 p-2 transition hover:bg-gray-100"
+            >
+              {thumb(item.image, 'h-20 w-full')}
+              <span className="line-clamp-2 text-xs font-medium text-gray-800">{item.name}</span>
+              <span className="block text-sm font-semibold text-primary tabular-nums">
+                {formatVnd(item.price_min)}
+              </span>
+              {Object.entries(item.rows).map(([key, value]) => (
+                <span key={key} className="block text-[11px] text-gray-500">
+                  <span className="text-gray-400">{key}:</span> {value}
+                </span>
+              ))}
             </Link>
-            <p>{formatVnd(item.price_min)}</p>
-            {Object.entries(item.rows).map(([key, value]) => (
-              <p key={key}>
-                {key}: {value}
-              </p>
-            ))}
-          </div>
-        ))}
+          ))}
+        </div>
+      )}
       {card.kind === 'cart' && (
         <>
-          {card.lines.length === 0 && <p>{t('emptyCart')}</p>}
+          {card.lines.length === 0 && <p className="text-gray-500">{t('emptyCart')}</p>}
           {card.lines.map((line) => (
-            <p key={`${line.item_id}-${line.model_id}`}>
-              {line.name} × {line.quantity} · {formatVnd(line.price)}
+            <p key={`${line.item_id}-${line.model_id}`} className="flex justify-between gap-3">
+              <span className="min-w-0 text-gray-700">
+                <span className="line-clamp-1">{line.name}</span>
+                <span className="text-xs text-gray-400">× {line.quantity}</span>
+              </span>
+              <span className="shrink-0 tabular-nums">{formatVnd(line.price)}</span>
             </p>
           ))}
-          <strong>
-            {t('total')}: {formatVnd(card.total)}
-          </strong>
+          <p className="flex justify-between border-t border-line pt-2 font-semibold">
+            <span>{t('total')}</span>
+            <span className="text-primary tabular-nums">{formatVnd(card.total)}</span>
+          </p>
         </>
       )}
       {card.kind === 'order' && (
         <>
-          <strong>
-            {card.order_sn} · {card.status}
-          </strong>
+          <p className="flex items-center justify-between gap-2">
+            <strong className="font-mono text-xs">{card.order_sn}</strong>
+            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
+              {card.status}
+            </span>
+          </p>
           {card.items?.map((line) => (
-            <p key={`${line.item_id}-${line.model_id}`}>
-              {line.name}
-              {line.variant ? ` (${line.variant})` : ''} × {line.quantity} · {formatVnd(line.price)}
+            <p key={`${line.item_id}-${line.model_id}`} className="flex justify-between gap-3 text-gray-700">
+              <span>
+                {line.name}
+                {line.variant ? ` (${line.variant})` : ''}{' '}
+                <span className="text-gray-400">× {line.quantity}</span>
+              </span>
+              <span className="shrink-0 tabular-nums">{formatVnd(line.price)}</span>
             </p>
           ))}
-          <p>{t('tracking')}</p>
-          {card.tracking.map((entry, i) => (
-            <p key={`${entry.time}-${i}`}>{entry.description}</p>
-          ))}
+          {card.tracking.length > 0 && (
+            <>
+              <p className="pt-1 text-xs font-semibold tracking-wide text-gray-400 uppercase">
+                {t('tracking')}
+              </p>
+              <ol className="space-y-1.5 border-l-2 border-line pl-3">
+                {card.tracking.map((entry, i) => (
+                  <li
+                    key={`${entry.time}-${i}`}
+                    className={`text-xs ${i === 0 ? 'font-medium text-gray-800' : 'text-gray-500'}`}
+                  >
+                    {entry.description}
+                  </li>
+                ))}
+              </ol>
+            </>
+          )}
         </>
       )}
       {card.kind === 'handoff' && (
-        <Link className="text-[#ee4d2d]" href={`/messages/${card.ticket_id}`}>
+        <Link
+          className="flex items-center justify-between gap-2 font-medium text-primary"
+          href={`/messages/${card.ticket_id}`}
+        >
           {t('handoff')}
+          <span aria-hidden="true">→</span>
         </Link>
       )}
       {card.kind === 'action' && (
         <>
-          <strong>{card.action.summary.title}</strong>
-          <p>
-            {card.action.status === 'PENDING'
-              ? t('pending')
-              : card.action.status === 'EXECUTED'
-                ? t('executed')
-                : card.action.status === 'CANCELLED'
-                  ? t('cancelled')
-                  : card.action.status === 'EXPIRED'
-                    ? t('expired')
-                    : t('failed')}
-          </p>
-          {card.action.result?.order_sn && <p>{card.action.result.order_sn}</p>}
-          {card.action.result?.return_sn && <p>{card.action.result.return_sn}</p>}
-          {card.action.result?.message && <p>{card.action.result.message}</p>}
-          {card.action.summary.lines.map((line, i) => (
-            <p key={`${line.label}-${i}`}>
-              {line.label}: {line.value}
-            </p>
-          ))}
-          {card.action.summary.total !== undefined && (
-            <p>
-              {t('total')}: {formatVnd(card.action.summary.total)}
-            </p>
+          <div className="flex items-start justify-between gap-2">
+            <strong className="font-semibold text-ink">{card.action.summary.title}</strong>
+            <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${statusTone}`}>
+              {card.action.status === 'PENDING'
+                ? t('pending')
+                : card.action.status === 'EXECUTED'
+                  ? t('executed')
+                  : card.action.status === 'CANCELLED'
+                    ? t('cancelled')
+                    : card.action.status === 'EXPIRED'
+                      ? t('expired')
+                      : t('failed')}
+            </span>
+          </div>
+          {card.action.result?.order_sn && <p className="font-mono text-xs">{card.action.result.order_sn}</p>}
+          {card.action.result?.return_sn && (
+            <p className="font-mono text-xs">{card.action.result.return_sn}</p>
           )}
+          {card.action.result?.message && <p className="text-gray-600">{card.action.result.message}</p>}
+          <dl className="space-y-1 rounded-xl bg-gray-50 p-2.5 text-xs">
+            {card.action.summary.lines.map((line, i) => (
+              <div key={`${line.label}-${i}`} className="flex justify-between gap-3">
+                <dt className="text-gray-500">{line.label}</dt>
+                <dd className="text-right font-medium text-gray-800">{line.value}</dd>
+              </div>
+            ))}
+            {card.action.summary.total !== undefined && (
+              <div className="flex justify-between gap-3 border-t border-line pt-1.5 text-sm">
+                <dt className="font-semibold">{t('total')}</dt>
+                <dd className="font-semibold text-primary tabular-nums">
+                  {formatVnd(card.action.summary.total)}
+                </dd>
+              </div>
+            )}
+          </dl>
           {card.action.status === 'PENDING' &&
             (card.action.type === 'ADD_TO_CART' ||
               card.action.type === 'UPDATE_CART_ITEM' ||
@@ -183,17 +251,17 @@ export function AssistantCard({
               />
             )}
           {card.action.status === 'PENDING' && card.action.requires_tap && (
-            <div className="flex gap-2">
+            <div className="flex gap-2 pt-1">
               <button
                 disabled={pending}
-                className="rounded bg-[#ee4d2d] px-3 py-2 text-white disabled:opacity-50"
+                className="h-10 flex-1 rounded-full bg-primary text-sm font-semibold text-white transition hover:bg-primary-hover disabled:opacity-50"
                 onClick={() => onAction(card.action, true)}
               >
                 {t('confirm')}
               </button>
               <button
                 disabled={pending}
-                className="rounded border px-3 py-2 disabled:opacity-50"
+                className="h-10 rounded-full border border-line px-4 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
                 onClick={() => onAction(card.action, false)}
               >
                 {t('cancel')}
@@ -242,7 +310,7 @@ function EditAction({
       <>
         <button
           disabled={pending}
-          className="rounded border px-3 py-2"
+          className="text-xs font-medium text-gray-500 underline-offset-2 hover:text-primary hover:underline"
           onClick={() =>
             void getOptions(action.action_id)
               .then(setOptions)
@@ -256,7 +324,7 @@ function EditAction({
     );
   return (
     <form
-      className="space-y-2"
+      className="space-y-2 rounded-xl border border-line p-2.5 text-xs"
       onSubmit={(event) => {
         event.preventDefault();
         void onEdit(action, {
@@ -270,7 +338,7 @@ function EditAction({
         <label className="block">
           {t('item')}{' '}
           <select
-            className="rounded border"
+            className="ml-1 rounded-lg border border-line bg-white px-2 py-1"
             value={options.line_index}
             onChange={(event) => {
               const line = options.lines.find((entry) => entry.line_index === Number(event.target.value));
@@ -288,7 +356,7 @@ function EditAction({
       <label className="block">
         {t('quantity')}{' '}
         <input
-          className="w-20 rounded border"
+          className="ml-1 w-20 rounded-lg border border-line px-2 py-1"
           type="number"
           min={1}
           max={999}
@@ -299,7 +367,7 @@ function EditAction({
       <label className="block">
         {t('variant')}{' '}
         <select
-          className="rounded border"
+          className="ml-1 rounded-lg border border-line bg-white px-2 py-1"
           value={options.model_id}
           onChange={(event) => setOptions({ ...options, model_id: Number(event.target.value) })}
         >
@@ -311,7 +379,7 @@ function EditAction({
         </select>
       </label>
       <button
-        className="rounded border px-3 py-2"
+        className="h-8 rounded-full bg-ink px-3 text-xs font-semibold text-white disabled:opacity-50"
         disabled={
           pending || !Number.isInteger(options.quantity) || options.quantity < 1 || options.quantity > 999
         }

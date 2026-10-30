@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import type { Cart, CartLine, ProductModel } from '@huspee/sdk';
 import { RequireRole } from '@/components/session';
-import { Button, QuantityStepper, QueryState, Select, useToast } from '@/components/ui';
+import { Button, Icon, QuantityStepper, QueryState, Select, useToast } from '@/components/ui';
 import { useT } from '@/i18n';
 import { common } from '@/i18n/common';
 import { getApiClient } from '@/lib/api';
@@ -49,7 +49,7 @@ function CartVariantPicker({
     return (
       <div className="flex items-center gap-1.5 flex-wrap">
         {item.model_name && (
-          <span className="inline-block rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
+          <span className="inline-block rounded-lg bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
             {t('productVariant')}: {item.model_name}
           </span>
         )}
@@ -72,7 +72,7 @@ function CartVariantPicker({
   if (!models || models.length <= 1) {
     return (
       <div className="flex items-center gap-1.5">
-        <span className="inline-block rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
+        <span className="inline-block rounded-lg bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
           {item.model_name}
         </span>
         <button
@@ -243,7 +243,9 @@ function CartView() {
   if (!cart || cart.shops.length === 0 || cart.item_count === 0) {
     return (
       <div className={`${panel} flex flex-col items-center justify-center py-16 text-center`}>
-        <div className="mb-4 text-5xl">🛒</div>
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary-soft text-primary">
+          <Icon name="cart" className="h-7 w-7" />
+        </div>
         <h2 className="mb-2 text-xl font-semibold text-gray-800">{t('emptyCart')}</h2>
         <p className="mb-6 text-sm text-gray-500">{t('emptyCartSub')}</p>
         <Link href="/">
@@ -256,7 +258,7 @@ function CartView() {
   return (
     <div className="space-y-4 pb-24">
       {/* Table header for desktop */}
-      <div className="hidden grid-cols-12 items-center bg-white p-4 text-sm font-medium text-gray-600 shadow-sm md:grid rounded">
+      <div className="hidden grid-cols-12 items-center rounded-2xl border border-line bg-white p-4 text-sm font-medium text-gray-600 shadow-card md:grid">
         <div className="col-span-6 flex items-center gap-3">
           <input
             type="checkbox"
@@ -280,7 +282,10 @@ function CartView() {
           availableShopItemIds.length > 0 && availableShopItemIds.every((id) => selectedIds.has(id));
 
         return (
-          <div key={shop.shop_id} className={`${panel} p-0 overflow-hidden`}>
+          <div
+            key={shop.shop_id}
+            className="overflow-hidden rounded-2xl border border-line bg-white shadow-card"
+          >
             {/* Shop Header */}
             <div className="flex items-center gap-3 border-b bg-gray-50/70 px-4 py-3">
               <input
@@ -296,7 +301,7 @@ function CartView() {
                   href={`/shops/${shop.shop_id}`}
                   className="hover:text-primary transition-colors flex items-center gap-1.5"
                 >
-                  <span>🏪</span>
+                  <Icon name="shop" className="h-4 w-4 text-gray-500" />
                   <span>{shop.shop_name}</span>
                 </Link>
               </span>
@@ -325,7 +330,7 @@ function CartView() {
                           aria-label={item.item_name}
                         />
                         <div className="flex gap-3">
-                          <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded border bg-gray-100">
+                          <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-xl border bg-gray-100">
                             {item.image_url ? (
                               <Image
                                 unoptimized

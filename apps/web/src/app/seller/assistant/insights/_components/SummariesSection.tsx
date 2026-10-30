@@ -138,7 +138,7 @@ function SummaryItemCard({
                 {summary.topics.map((tp, idx) => (
                   <span
                     key={idx}
-                    className="rounded bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700 border border-indigo-100/60"
+                    className="rounded-lg bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700 border border-indigo-100/60"
                   >
                     {tp}
                   </span>

@@ -16,12 +16,14 @@ export function Button({
 }) {
   const variantClass =
     variant === 'primary'
-      ? 'bg-primary text-white'
+      ? 'bg-primary text-white shadow-sm hover:bg-primary-hover'
       : variant === 'outline'
-        ? 'border border-primary text-primary'
-        : 'text-gray-700';
-  const sizeClass = size === 'sm' ? 'px-3 py-1' : size === 'lg' ? 'px-6 py-3' : 'px-4 py-2';
-  const baseClass = 'inline-flex items-center justify-center gap-2 rounded font-medium disabled:opacity-50';
+        ? 'border border-line bg-white text-ink hover:border-gray-300 hover:bg-gray-50'
+        : 'text-gray-700 hover:bg-gray-100';
+  const sizeClass =
+    size === 'sm' ? 'h-8 px-3 text-sm' : size === 'lg' ? 'h-12 px-6 text-base' : 'h-10 px-4 text-sm';
+  const baseClass =
+    'inline-flex items-center justify-center gap-2 rounded-xl font-semibold whitespace-nowrap transition active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50';
   return (
     <button
       {...props}

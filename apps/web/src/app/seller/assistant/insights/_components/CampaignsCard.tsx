@@ -34,7 +34,7 @@ export function CampaignsCard({ campaigns }: { campaigns: Campaign[] }) {
           {campaigns.map((c) => (
             <li
               key={c.code}
-              className="flex items-center justify-between gap-3 py-3 hover:bg-gray-50/50 px-1 rounded transition-colors"
+              className="flex items-center justify-between gap-3 py-3 hover:bg-gray-50/50 px-2 rounded-lg transition-colors"
             >
               <div className="flex items-center gap-2.5 min-w-0">
                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-orange-100 text-orange-700">

@@ -65,7 +65,7 @@ function ReturnDetailView() {
   return (
     <div className="space-y-4 pb-12">
       {/* Top Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 shadow-xs rounded">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-white p-4 shadow-card">
         <div className="flex items-center gap-3">
           <Link
             href="/returns"
@@ -85,7 +85,7 @@ function ReturnDetailView() {
 
       {/* Seller Offer Banner if present and return is still active */}
       {returnData.seller_offer && returnData.status === 'REQUESTED' && (
-        <div className="border border-orange-200 bg-orange-50 p-4 rounded shadow-xs">
+        <div className="rounded-2xl border border-orange-200 bg-orange-50 p-4">
           <h3 className="mb-2 text-base font-semibold text-orange-900">{t('sellerOffer')}</h3>
           <p className="mb-4 text-sm text-orange-800">
             {t('sellerOfferText', {
@@ -173,12 +173,12 @@ function ReturnDetailView() {
       )}
 
       {/* Return Items */}
-      <div className={`${panel} p-0 overflow-hidden`}>
+      <div className="overflow-hidden rounded-2xl border border-line bg-white shadow-card">
         <div className="border-b bg-gray-50/70 px-4 py-3 font-semibold text-gray-800">{t('items')}</div>
         <div className="divide-y p-4">
           {returnData.items.map((item, idx) => (
             <div key={idx} className="flex items-center gap-4 py-3 first:pt-0 last:pb-0">
-              <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded border bg-gray-100">
+              <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl border bg-gray-100">
                 {item.image_url ? (
                   <Image
                     unoptimized
@@ -213,7 +213,7 @@ function ReturnDetailView() {
 
       {/* Action to cancel return request */}
       {returnData.status === 'REQUESTED' && (
-        <div className="flex justify-end bg-white p-4 shadow-xs rounded">
+        <div className="flex justify-end rounded-2xl border border-line bg-white p-4 shadow-card">
           <Button variant="outline" loading={acting} onClick={handleCancelReturn}>
             {t('cancelReturn')}
           </Button>

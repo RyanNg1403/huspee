@@ -39,7 +39,7 @@ export function UnansweredQuestionsCard({ questions }: { questions: UnansweredQu
           {questions.map((q, i) => (
             <li
               key={`${q.conversation_id}-${q.created_at}-${i}`}
-              className="py-3 hover:bg-gray-50/50 px-1 rounded transition-colors space-y-1.5"
+              className="py-3 hover:bg-gray-50/50 px-2 rounded-lg transition-colors space-y-1.5"
             >
               <div className="flex items-start justify-between gap-2">
                 <p className="text-xs font-medium text-gray-900 leading-snug">

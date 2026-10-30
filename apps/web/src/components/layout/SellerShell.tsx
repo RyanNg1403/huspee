@@ -10,6 +10,19 @@ import { common } from '@/i18n/common';
 import { getApiClient } from '@/lib/api';
 import { Context } from './SelectedShop';
 import { LanguageSwitch } from './LanguageSwitch';
+const NAV_ICONS: Record<string, string> = {
+  '/seller': 'M3 10.5 12 4l9 6.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1v-9.5Z',
+  '/seller/products': 'M20 7 12 3 4 7m16 0v10l-8 4m8-14-8 4m0 10L4 17V7m8 14V11M4 7l8 4',
+  '/seller/orders':
+    'M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2m-6 7h6m-6 4h4',
+  '/seller/returns': 'M9 14 4 9m0 0 5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11',
+  '/seller/vouchers':
+    'M15 5v2m0 4v2m0 4v2M5 5h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-3a2 2 0 0 0 0-4V7a2 2 0 0 1 2-2Z',
+  '/seller/assistant': 'M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Zm7 9a7 7 0 0 1-14 0m7 7v3',
+  '/seller/inbox': 'M4 13h4l1.5 3h5L16 13h4M5.5 5h13L21 13v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5l2.5-8Z',
+  '/seller/shops': 'M3 9 4.5 4h15L21 9M3 9v1a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0V9M3 9h18M5 13v7h14v-7',
+};
+
 export function SellerShell({ children }: { children: ReactNode }) {
   const t = useT(common);
   const { lang } = useLang();
@@ -105,7 +118,7 @@ export function SellerShell({ children }: { children: ReactNode }) {
     else localStorage.setItem('huspee_seller_shop', String(id));
   }
   const asideClass =
-    'fixed inset-y-16 left-0 z-30 w-64 bg-white p-4 shadow md:static md:block md:min-h-screen md:shadow-none';
+    'fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-line bg-white shadow-panel md:sticky md:top-0 md:flex md:h-screen md:shadow-none';
   const navItems = [
     { href: '/seller', label: t('home') },
     { href: '/seller/products', label: t('products') },
@@ -137,23 +150,39 @@ export function SellerShell({ children }: { children: ReactNode }) {
         },
       }}
     >
-      <div className="min-h-screen">
-        <header className="flex items-center gap-4 bg-white p-4 shadow-sm">
-          <button onClick={() => setOpen(!open)} className="md:hidden" aria-label="Menu" aria-expanded={open}>
-            ☰
+      <div className="min-h-screen md:flex">
+        <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-line bg-white/90 px-4 py-3 backdrop-blur-md md:hidden">
+          <button
+            onClick={() => setOpen(!open)}
+            className="flex h-9 w-9 items-center justify-center rounded-lg hover:bg-gray-100"
+            aria-label="Menu"
+            aria-expanded={open}
+          >
+            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M4 7h16M4 12h16M4 17h16" />
+            </svg>
           </button>
-          <Logo className="text-primary text-xl" />
-          <span className="hidden font-semibold sm:inline">{t('seller')}</span>
-          <div className="ml-auto">
-            <LanguageSwitch />
-          </div>
+          <Logo className="text-lg text-ink" />
+          <span className="whitespace-nowrap rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+            {t('seller')}
+          </span>
         </header>
-        <div className="mx-auto flex max-w-7xl">
-          <aside className={`${open ? 'block' : 'hidden'} ${asideClass}`}>
+        {open && (
+          <div className="fixed inset-0 z-30 bg-gray-900/30 md:hidden" onClick={() => setOpen(false)} />
+        )}
+        <aside className={`${open ? 'flex' : 'hidden'} ${asideClass}`}>
+          <div className="flex items-center gap-2 px-5 pt-5 pb-4">
+            <Logo className="text-lg text-ink" />
+            <span className="whitespace-nowrap rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+              {t('seller')}
+            </span>
+          </div>
+          <div className="px-3">
             <Select
               aria-label={t('selectShop')}
               value={selectedShopId ?? ''}
               onChange={(e) => setSelectedShopId(e.target.value ? Number(e.target.value) : null)}
+              className="font-medium"
             >
               <option value="">{loading ? t('loading') : t('noShops')}</option>
               {shops.map((s) => (
@@ -163,39 +192,61 @@ export function SellerShell({ children }: { children: ReactNode }) {
               ))}
             </Select>
             {error && (
-              <button className="text-red-600" onClick={() => setVersion((v) => v + 1)}>
+              <button className="mt-2 text-sm text-red-600" onClick={() => setVersion((v) => v + 1)}>
                 {t('retry')}
               </button>
             )}
-            <nav className="mt-5 flex flex-col gap-1">
-              {navItems.map((item) => {
-                const active =
-                  pathname === item.href || (item.href !== '/seller' && pathname.startsWith(item.href));
-                return (
-                  <Link
-                    key={item.href}
-                    onClick={() => setOpen(false)}
-                    className={`flex items-center justify-between rounded px-3 py-2 text-sm transition-colors hover:bg-orange-50 hover:text-primary ${
-                      active ? 'bg-orange-50 font-medium text-primary' : 'text-gray-700'
-                    }`}
-                    href={item.href}
+          </div>
+          <nav className="mt-4 flex flex-1 flex-col gap-0.5 overflow-y-auto px-3">
+            {navItems.map((item) => {
+              const active =
+                pathname === item.href || (item.href !== '/seller' && pathname.startsWith(item.href));
+              return (
+                <Link
+                  key={item.href}
+                  onClick={() => setOpen(false)}
+                  className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors ${
+                    active
+                      ? 'bg-primary-soft font-semibold text-primary'
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-ink'
+                  }`}
+                  href={item.href}
+                >
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 24 24"
+                    className={`h-[18px] w-[18px] shrink-0 ${active ? 'text-primary' : 'text-gray-400 group-hover:text-gray-600'}`}
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
                   >
-                    <span>{item.label}</span>
-                    {typeof item.badge === 'number' && item.badge > 0 && (
-                      <span className="rounded-full bg-red-600 px-2 py-0.5 text-xs font-semibold text-white">
-                        {item.badge}
-                      </span>
-                    )}
-                  </Link>
-                );
-              })}
-            </nav>
-            <Button variant="ghost" className="mt-4 md:hidden" onClick={() => setOpen(false)}>
-              {t('close')}
-            </Button>
-          </aside>
-          <main className="min-w-0 flex-1 p-4 md:p-8">{children}</main>
-        </div>
+                    <path d={NAV_ICONS[item.href]} />
+                  </svg>
+                  <span className="flex-1">{item.label}</span>
+                  {typeof item.badge === 'number' && item.badge > 0 && (
+                    <span className="rounded-full bg-primary px-2 py-0.5 text-xs font-semibold text-white">
+                      {item.badge}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+          </nav>
+          <div className="space-y-3 border-t border-line px-5 py-4 text-sm">
+            <Link href="/" className="block font-medium text-gray-600 hover:text-primary">
+              {lang === 'vi' ? 'Xem trang mua sắm' : 'View storefront'} →
+            </Link>
+            <LanguageSwitch />
+          </div>
+          <Button variant="ghost" className="mx-3 mb-3 md:hidden" onClick={() => setOpen(false)}>
+            {t('close')}
+          </Button>
+        </aside>
+        <main className="min-w-0 flex-1 px-4 py-6 md:px-10 md:py-8">
+          <div className="mx-auto max-w-6xl">{children}</div>
+        </main>
       </div>
     </Context.Provider>
   );

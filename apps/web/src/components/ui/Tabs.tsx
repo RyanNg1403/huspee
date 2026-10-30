@@ -10,12 +10,12 @@ export function Tabs<T extends string>({
   onChange: (value: T) => void;
 }) {
   return (
-    <div role="tablist" className="flex gap-4 border-b">
+    <div role="tablist" className="flex gap-1 overflow-x-auto border-b border-line">
       {items.map((item) => (
         <button
           role="tab"
           aria-selected={item.value === value}
-          className={`border-b-2 px-2 py-3 ${item.value === value ? 'border-primary text-primary' : 'border-transparent'}`}
+          className={`-mb-px border-b-2 px-3 py-3 text-sm font-medium whitespace-nowrap transition ${item.value === value ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-800'}`}
           key={item.value}
           onClick={() => onChange(item.value)}
         >

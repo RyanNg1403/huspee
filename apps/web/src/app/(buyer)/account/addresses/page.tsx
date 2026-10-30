@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import type { Address } from '@huspee/sdk';
 import { RequireRole } from '@/components/session';
-import { Badge, Button, QueryState, useToast } from '@/components/ui';
+import { Badge, Button, Icon, QueryState, useToast } from '@/components/ui';
 import { useT } from '@/i18n';
 import { common } from '@/i18n/common';
 import { getApiClient } from '@/lib/api';
@@ -68,7 +68,7 @@ function AddressesView() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 shadow-xs rounded">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-white p-4 shadow-card">
         <div>
           <h2 className="text-lg font-semibold text-gray-800">{t('addressesTitle')}</h2>
         </div>
@@ -80,7 +80,9 @@ function AddressesView() {
         <QueryState loading={loading} error={error} retry={reload} />
       ) : !addresses || addresses.length === 0 ? (
         <div className={`${panel} py-16 text-center`}>
-          <div className="mb-4 text-4xl">📍</div>
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary-soft text-primary">
+            <Icon name="pin" className="h-7 w-7" />
+          </div>
           <h3 className="mb-2 text-lg font-semibold text-gray-800">{t('noAddresses')}</h3>
           <Button onClick={handleOpenAdd}>{t('addNewAddress')}</Button>
         </div>

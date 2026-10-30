@@ -37,7 +37,7 @@ export function OrderStatusStepper({ status, order }: { status?: OrderStatus; or
   return (
     <div className="py-4">
       {isCancelled && (
-        <div className="mb-4 rounded bg-red-50 p-2 text-center text-sm font-semibold text-red-600">
+        <div className="mb-4 rounded-xl bg-red-50 p-2 text-center text-sm font-semibold text-red-600">
           {t('statusCancelled')}
           {order?.cancel_reason ? `: ${order.cancel_reason}` : ''}
         </div>

@@ -116,7 +116,7 @@ export function ShipModal({
           </div>
 
           {method === 'pickup' ? (
-            <div className="space-y-3 rounded bg-gray-50 p-3">
+            <div className="space-y-3 rounded-lg bg-gray-50 p-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700">{t('selectPickupAddress')}</label>
                 <Select
@@ -156,7 +156,7 @@ export function ShipModal({
               ) : null}
             </div>
           ) : (
-            <div className="rounded bg-gray-50 p-3 text-sm text-gray-600">
+            <div className="rounded-lg bg-gray-50 p-3 text-sm text-gray-600">
               <p>{t('dropoffDescription')}</p>
             </div>
           )}

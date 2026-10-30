@@ -44,7 +44,58 @@ type Adapter = {
   cancel: (id: string) => Promise<{ action: Action }>;
 };
 
-export function VoicePanel({ shopId, adapter }: { shopId: number; adapter: Adapter }) {
+type TimedCard = { card: Card; at: number };
+/** Cards keep the time they first appeared so they sit in the conversation where they arrived. */
+function upsertTimed(previous: TimedCard[], incoming: Card): TimedCard[] {
+  const next = upsertCard(
+    previous.map((item) => item.card),
+    incoming,
+  );
+  const now = Date.now();
+  return next.map((card, i) => ({ card, at: previous[i]?.at ?? now }));
+}
+type Profile = { shop_name: string; greeting: { vi: string; en: string } };
+
+function MicGlyph({ className = '' }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      aria-hidden="true"
+    >
+      <path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Zm7 9a7 7 0 0 1-14 0m7 7v3" />
+    </svg>
+  );
+}
+function MicOffGlyph({ className = '' }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      aria-hidden="true"
+    >
+      <path d="M15 9.3V6a3 3 0 0 0-5.7-1.3M9 9v3a3 3 0 0 0 4.9 2.3M19 12a7 7 0 0 1-1.2 3.9M5 12a7 7 0 0 0 11 5.7M12 19v3M3 3l18 18" />
+    </svg>
+  );
+}
+
+export function VoicePanel({
+  shopId,
+  adapter,
+  profile,
+}: {
+  shopId: number;
+  adapter: Adapter;
+  profile?: Profile;
+}) {
   const t = useT(messages);
   const pathname = usePathname();
   const { lang } = useLang();
@@ -58,7 +109,8 @@ export function VoicePanel({ shopId, adapter }: { shopId: number; adapter: Adapt
   const [busy, setBusy] = useState(false);
   const [checking, setChecking] = useState(false);
   const [entries, setEntries] = useState<TranscriptEntry[]>([]);
-  const [cards, setCards] = useState<Card[]>([]);
+  const [cards, setCards] = useState<TimedCard[]>([]);
+  const [speaking, setSpeaking] = useState(false);
   const resources = useRef<{
     pc?: RTCPeerConnection;
     stream?: MediaStream;
@@ -97,6 +149,7 @@ export function VoicePanel({ shopId, adapter }: { shopId: number; adapter: Adapt
     if (sendStop && current.conversationId)
       void stopRef.current(current.conversationId).catch(() => undefined);
     setChecking(false);
+    setSpeaking(false);
     setState('idle');
   }
   useEffect(() => {
@@ -127,13 +180,18 @@ export function VoicePanel({ shopId, adapter }: { shopId: number; adapter: Adapt
       (!channelOpened.current || (checkedMode.current && event.role === 'assistant'))
     ) {
       const id = sequence.current++;
-      setEntries((previous) => appendFinalTranscript(previous, event, id));
+      const now = Date.now();
+      setEntries((previous) =>
+        appendFinalTranscript(previous, event, id).map((entry) =>
+          entry.createdAt === undefined ? { ...entry, createdAt: now } : entry,
+        ),
+      );
     }
     if (event.type === 'speak') player.current?.enqueue(event);
     if (event.type === 'tool') setChecking(event.status === 'started');
-    if (event.type === 'card') setCards((previous) => upsertCard(previous, event.card));
+    if (event.type === 'card') setCards((previous) => upsertTimed(previous, event.card));
     if (event.type === 'action')
-      setCards((previous) => upsertCard(previous, { kind: 'action', action: event.action }));
+      setCards((previous) => upsertTimed(previous, { kind: 'action', action: event.action }));
     if (event.type === 'closed') cleanup(false);
     if (event.type === 'error') setError(t('error'));
   }
@@ -224,7 +282,13 @@ export function VoicePanel({ shopId, adapter }: { shopId: number; adapter: Adapt
           analyser.getFloatTimeDomainData(data);
           return Math.sqrt(data.reduce((sum, value) => sum + value * value, 0) / data.length);
         };
+        let wasSpeaking = false;
         resources.current.analyserTimer = window.setInterval(() => {
+          const nowSpeaking = !!player.current?.speaking;
+          if (nowSpeaking !== wasSpeaking) {
+            wasSpeaking = nowSpeaking;
+            setSpeaking(nowSpeaking);
+          }
           const output = checkedMode.current ? player.current?.analyser : remoteAnalyser;
           if (!output) return;
           const remote = rms(output);
@@ -327,19 +391,23 @@ export function VoicePanel({ shopId, adapter }: { shopId: number; adapter: Adapt
       cleanup(true);
     }
   }
-  async function send() {
-    const text = message.trim();
+  async function send(override?: string) {
+    const text = (override ?? message).trim();
     const id = resources.current.conversationId;
     if (!text || !id || busy) return;
     setBusy(true);
     try {
       await adapter.text(id, text);
-      setMessage('');
+      if (override === undefined) setMessage('');
     } catch {
       setError(t('error'));
     } finally {
       setBusy(false);
     }
+  }
+  async function ask(text: string) {
+    if (state === 'idle') await start(true);
+    await send(text);
   }
   async function action(action: Action, confirm: boolean) {
     setBusy(true);
@@ -350,7 +418,7 @@ export function VoicePanel({ shopId, adapter }: { shopId: number; adapter: Adapt
       const result = confirm
         ? await adapter.confirm(action.action_id, key)
         : await adapter.cancel(action.action_id);
-      setCards((previous) => upsertCard(previous, { kind: 'action', action: result.action }));
+      setCards((previous) => upsertTimed(previous, { kind: 'action', action: result.action }));
       window.dispatchEvent(new Event('huspee:cart-changed'));
     } catch {
       setError(t('error'));
@@ -358,34 +426,117 @@ export function VoicePanel({ shopId, adapter }: { shopId: number; adapter: Adapt
       setBusy(false);
     }
   }
+  const shopName = profile?.shop_name ?? t('open');
+  const greeting = (lang === 'en' ? profile?.greeting.en : profile?.greeting.vi) || t('greetingFallback');
+  const voiceActive = state === 'active' && !!resources.current.stream;
+  const status =
+    state === 'connecting'
+      ? t('connecting')
+      : state !== 'active'
+        ? t('subtitle')
+        : checking
+          ? t('checking')
+          : speaking
+            ? t('speaking')
+            : voiceActive
+              ? muted || pushToTalk
+                ? t('muted')
+                : t('listening')
+              : t('online');
+  const timeline: Array<
+    { kind: 'entry'; entry: TranscriptEntry } | { kind: 'card'; card: Card; index: number }
+  > = [];
+  {
+    let c = 0;
+    for (const entry of entries) {
+      while (c < cards.length && entry.createdAt !== undefined && cards[c]!.at < entry.createdAt) {
+        timeline.push({ kind: 'card', card: cards[c]!.card, index: c });
+        c++;
+      }
+      timeline.push({ kind: 'entry', entry });
+    }
+    for (; c < cards.length; c++) timeline.push({ kind: 'card', card: cards[c]!.card, index: c });
+  }
+  const suggestions = [t('suggest1'), t('suggest2'), t('suggest3'), t('suggest4')];
+  const canChat = session.status === 'authenticated';
+  const roundButton =
+    'flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-line bg-white text-gray-700 transition hover:bg-gray-50 disabled:opacity-40';
   return (
-    <div className="fixed bottom-4 right-4 z-50">
+    <div className="fixed right-4 bottom-4 z-50 flex flex-col items-end sm:right-6 sm:bottom-6">
       {open && (
         <section
-          className="mb-2 flex h-[min(70vh,38rem)] w-[min(calc(100vw-2rem),24rem)] flex-col rounded-lg border bg-white shadow-xl"
+          className="mb-3 flex h-[min(78vh,42rem)] w-[min(calc(100vw-2rem),25rem)] flex-col overflow-hidden rounded-3xl border border-line bg-white shadow-panel"
           aria-label={t('open')}
         >
-          <header className="flex items-center justify-between bg-[#ee4d2d] p-3 text-white">
-            <strong>{t('open')}</strong>
+          <header className="flex items-center gap-3 border-b border-line px-4 py-3">
+            <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-white">
+              <MicGlyph className="h-5 w-5" />
+              <span
+                className={`absolute -right-0.5 -bottom-0.5 h-3 w-3 rounded-full ring-2 ring-white ${state === 'active' ? 'bg-emerald-500' : state === 'connecting' ? 'bg-amber-400' : 'bg-gray-300'}`}
+              />
+            </span>
+            <div className="min-w-0 flex-1">
+              <strong className="block truncate text-sm font-semibold text-ink">{shopName}</strong>
+              <span className="flex items-center gap-1.5 text-xs text-gray-500" aria-live="polite">
+                {state === 'active' && (checking || speaking || (voiceActive && !muted && !pushToTalk)) && (
+                  <span className="flex h-3 items-end gap-[2px]" aria-hidden="true">
+                    {[0, 1, 2].map((bar) => (
+                      <span
+                        key={bar}
+                        className="w-[3px] animate-pulse rounded-full bg-primary"
+                        style={{ height: `${[60, 100, 40][bar]}%`, animationDelay: `${bar * 150}ms` }}
+                      />
+                    ))}
+                  </span>
+                )}
+                <span className="truncate">{status}</span>
+              </span>
+            </div>
+            {state === 'active' && (
+              <button
+                onClick={() => cleanup(true)}
+                className="rounded-full px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50"
+              >
+                {t('stop')}
+              </button>
+            )}
             <button
               onClick={() => {
                 cleanup(true);
                 setOpen(false);
               }}
               aria-label={t('close')}
+              className="flex h-9 w-9 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
             >
-              ✕
+              <svg
+                viewBox="0 0 24 24"
+                className="h-5 w-5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                aria-hidden="true"
+              >
+                <path d="M6 6l12 12M18 6 6 18" />
+              </svg>
             </button>
           </header>
           {session.status === 'anonymous' ? (
-            <div className="p-4">
-              <p>{t('signIn')}</p>
-              <Link className="text-[#ee4d2d]" href={`/login?next=${encodeURIComponent(pathname)}`}>
+            <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
+              <span className="flex h-16 w-16 items-center justify-center rounded-full bg-primary-soft text-primary">
+                <MicGlyph className="h-7 w-7" />
+              </span>
+              <p className="text-sm text-gray-600">{t('signIn')}</p>
+              <Link
+                className="rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-hover"
+                href={`/login?next=${encodeURIComponent(pathname)}`}
+              >
                 {t('login')}
               </Link>
             </div>
           ) : session.status === 'authenticated' && !session.user?.roles.includes('buyer') ? (
-            <p className="p-4">{t('buyerOnly')}</p>
+            <p className="flex flex-1 items-center justify-center p-8 text-center text-sm text-gray-600">
+              {t('buyerOnly')}
+            </p>
           ) : (
             <>
               <div
@@ -394,86 +545,181 @@ export function VoicePanel({ shopId, adapter }: { shopId: number; adapter: Adapt
                   const area = event.currentTarget;
                   followConversation.current = area.scrollHeight - area.scrollTop - area.clientHeight < 48;
                 }}
-                className="flex-1 space-y-3 overflow-y-auto p-3"
+                className="flex-1 space-y-3 overflow-y-auto bg-gray-50/60 px-4 py-4"
                 aria-live="polite"
               >
-                {entries.map((entry) => (
-                  <p
-                    key={entry.id}
-                    className={`rounded p-2 text-sm whitespace-pre-wrap ${entry.role === 'user' ? 'bg-orange-50' : 'bg-gray-100'}`}
-                  >
-                    {entry.text}
-                    {entry.cutOff && <span className="text-gray-500"> ({t('cutOff')})</span>}
+                <div className="flex gap-2">
+                  <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary">
+                    <MicGlyph className="h-3.5 w-3.5" />
+                  </span>
+                  <p className="max-w-[85%] rounded-2xl rounded-tl-md bg-white px-3.5 py-2.5 text-sm leading-relaxed text-gray-800 shadow-card ring-1 ring-line">
+                    {greeting}
                   </p>
-                ))}
-                {checking && <p className="text-sm text-gray-500">{t('checking')}</p>}
-                {cards.map((card, index) => (
-                  <AssistantCard
-                    key={index}
-                    card={card}
-                    pending={busy}
-                    onAction={(item, confirm) => void action(item, confirm)}
-                    getOptions={adapter.options}
-                    onEdit={async (item, input) => {
-                      setBusy(true);
-                      try {
-                        const result = await adapter.edit(item.action_id, input);
-                        setCards((previous) =>
-                          upsertCard(previous, { kind: 'action', action: result.action }),
-                        );
-                      } catch {
-                        setError(t('error'));
-                      } finally {
-                        setBusy(false);
-                      }
-                    }}
-                  />
-                ))}
+                </div>
+                {state === 'idle' && entries.length === 0 && cards.length === 0 && (
+                  <div className="flex flex-col items-center gap-3 pt-6 pb-2">
+                    <button
+                      onClick={() => void start()}
+                      disabled={!canChat}
+                      className="group relative flex h-20 w-20 items-center justify-center rounded-full bg-primary text-white shadow-lift transition hover:bg-primary-hover active:scale-95 disabled:opacity-50"
+                    >
+                      <span className="absolute inset-0 animate-ping rounded-full bg-primary/25 [animation-duration:2.2s]" />
+                      <MicGlyph className="relative h-8 w-8" />
+                      <span className="sr-only">{t('start')}</span>
+                    </button>
+                    <span className="text-sm font-medium text-gray-700">{t('tapToTalk')}</span>
+                    <p className="mt-3 text-xs font-medium tracking-wide text-gray-400 uppercase">
+                      {t('orAsk')}
+                    </p>
+                    <div className="flex flex-wrap justify-center gap-2">
+                      {suggestions.map((text) => (
+                        <button
+                          key={text}
+                          disabled={!canChat || busy}
+                          onClick={() => void ask(text)}
+                          className="rounded-full border border-line bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:border-primary/40 hover:text-primary disabled:opacity-50"
+                        >
+                          {text}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {timeline.map((item) =>
+                  item.kind === 'entry' ? (
+                    <div
+                      key={`e-${item.entry.id}`}
+                      className={`flex ${item.entry.role === 'user' ? 'justify-end' : 'gap-2'}`}
+                    >
+                      {item.entry.role === 'assistant' && (
+                        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary">
+                          <MicGlyph className="h-3.5 w-3.5" />
+                        </span>
+                      )}
+                      <p
+                        className={`max-w-[85%] px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
+                          item.entry.role === 'user'
+                            ? 'rounded-2xl rounded-tr-md bg-primary text-white'
+                            : 'rounded-2xl rounded-tl-md bg-white text-gray-800 shadow-card ring-1 ring-line'
+                        } ${item.entry.final ? '' : 'opacity-70'}`}
+                      >
+                        {item.entry.text}
+                        {item.entry.cutOff && (
+                          <span className={item.entry.role === 'user' ? 'text-white/70' : 'text-gray-400'}>
+                            {' '}
+                            ({t('cutOff')})
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  ) : (
+                    <div key={`c-${item.index}`} className="pl-9">
+                      <AssistantCard
+                        card={item.card}
+                        pending={busy}
+                        onAction={(target, confirm) => void action(target, confirm)}
+                        getOptions={adapter.options}
+                        onEdit={async (target, input) => {
+                          setBusy(true);
+                          try {
+                            const result = await adapter.edit(target.action_id, input);
+                            setCards((previous) =>
+                              upsertTimed(previous, { kind: 'action', action: result.action }),
+                            );
+                          } catch {
+                            setError(t('error'));
+                          } finally {
+                            setBusy(false);
+                          }
+                        }}
+                      />
+                    </div>
+                  ),
+                )}
+                {checking && (
+                  <div className="flex items-center gap-2 pl-9 text-xs text-gray-500">
+                    <span className="flex gap-1" aria-hidden="true">
+                      {[0, 1, 2].map((dotIndex) => (
+                        <span
+                          key={dotIndex}
+                          className="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400"
+                          style={{ animationDelay: `${dotIndex * 120}ms` }}
+                        />
+                      ))}
+                    </span>
+                    {t('checking')}
+                  </div>
+                )}
                 {error && (
-                  <p role="alert" className="text-sm text-red-700">
+                  <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">
                     {error}
                   </p>
                 )}
               </div>
-              <div className="space-y-2 border-t p-3">
-                {state === 'idle' && (
-                  <>
+              <div className="border-t border-line bg-white p-3">
+                {state === 'idle' && (entries.length > 0 || cards.length > 0) && (
+                  <div className="flex gap-2">
                     <button
-                      className="rounded bg-[#ee4d2d] px-3 py-2 text-white"
-                      disabled={session.status !== 'authenticated'}
+                      className="flex h-11 flex-1 items-center justify-center gap-2 rounded-full bg-primary text-sm font-semibold text-white transition hover:bg-primary-hover disabled:opacity-50"
+                      disabled={!canChat}
                       onClick={() => void start()}
                     >
+                      <MicGlyph className="h-4 w-4" />
                       {t('start')}
                     </button>
                     <button
-                      className="ml-2 rounded border px-3 py-2"
-                      disabled={session.status !== 'authenticated'}
+                      className="h-11 rounded-full border border-line px-4 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
+                      disabled={!canChat}
                       onClick={() => void start(true)}
                     >
                       {t('type')}
                     </button>
-                  </>
+                  </div>
                 )}
-                {state === 'connecting' && <p>{t('connecting')}</p>}
+                {state === 'idle' && entries.length === 0 && cards.length === 0 && (
+                  <button
+                    className="h-10 w-full rounded-full text-sm font-semibold text-gray-600 transition hover:bg-gray-50 disabled:opacity-50"
+                    disabled={!canChat}
+                    onClick={() => void start(true)}
+                  >
+                    {t('type')}
+                  </button>
+                )}
+                {state === 'connecting' && (
+                  <p className="flex h-11 items-center justify-center gap-2 text-sm text-gray-500">
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-r-transparent" />
+                    {t('connecting')}
+                  </p>
+                )}
                 {state === 'active' && (
-                  <>
-                    <div className="flex gap-2">
-                      {resources.current.stream && (
+                  <div className="space-y-2">
+                    <form
+                      className="flex items-center gap-2"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        void send();
+                      }}
+                    >
+                      {resources.current.stream && !pushToTalk && (
                         <button
-                          className="rounded border px-3 py-2"
-                          aria-pressed={pushToTalk}
+                          type="button"
+                          className={`${roundButton} ${muted ? 'border-red-200 bg-red-50 text-red-600' : ''}`}
+                          aria-label={muted ? t('unmute') : t('mute')}
+                          aria-pressed={muted}
                           onClick={() => {
-                            const next = !pushToTalk;
-                            setMicrophoneEnabled(resources.current.stream, !next && !muted);
-                            setPushToTalk(next);
+                            const next = !muted;
+                            setMicrophoneEnabled(resources.current.stream, !next);
+                            setMuted(next);
                           }}
                         >
-                          {t('pushToTalk')}
+                          {muted ? <MicOffGlyph className="h-5 w-5" /> : <MicGlyph className="h-5 w-5" />}
                         </button>
                       )}
                       {resources.current.stream && pushToTalk && (
                         <button
-                          className="rounded border px-3 py-2"
+                          type="button"
+                          className={`${roundButton} border-primary bg-primary-soft text-primary active:bg-primary active:text-white`}
+                          aria-label={t('holdToTalk')}
                           onPointerDown={(event) => {
                             event.currentTarget.setPointerCapture(event.pointerId);
                             setMicrophoneEnabled(resources.current.stream, true);
@@ -490,47 +736,54 @@ export function VoicePanel({ shopId, adapter }: { shopId: number; adapter: Adapt
                           }}
                           onBlur={() => setMicrophoneEnabled(resources.current.stream, false)}
                         >
-                          {t('holdToTalk')}
+                          <MicGlyph className="h-5 w-5" />
                         </button>
                       )}
-                      {resources.current.stream && !pushToTalk && (
+                      <div className="relative min-w-0 flex-1">
+                        <input
+                          className="h-11 w-full rounded-full border border-transparent bg-gray-100 pr-12 pl-4 text-sm transition placeholder:text-gray-500 focus:border-primary/40 focus:bg-white focus:ring-4 focus:ring-primary/10 focus:outline-none"
+                          value={message}
+                          onChange={(e) => setMessage(e.target.value)}
+                          placeholder={t('placeholder')}
+                          aria-label={t('placeholder')}
+                        />
                         <button
-                          className="rounded border px-3 py-2"
-                          onClick={() => {
-                            const next = !muted;
-                            setMicrophoneEnabled(resources.current.stream, !next);
-                            setMuted(next);
-                          }}
+                          disabled={busy || !message.trim()}
+                          aria-label={t('send')}
+                          className="absolute top-1/2 right-1.5 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-primary text-white transition hover:bg-primary-hover disabled:bg-gray-300"
                         >
-                          {muted ? t('unmute') : t('mute')}
+                          <svg
+                            viewBox="0 0 24 24"
+                            className="h-4 w-4"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2.2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden="true"
+                          >
+                            <path d="M5 12h14M13 6l6 6-6 6" />
+                          </svg>
                         </button>
-                      )}
-                      <button className="rounded border px-3 py-2" onClick={() => cleanup(true)}>
-                        {t('stop')}
-                      </button>
-                    </div>
-                    <form
-                      className="flex gap-2"
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        void send();
-                      }}
-                    >
-                      <input
-                        className="min-w-0 flex-1 rounded border p-2"
-                        value={message}
-                        onChange={(e) => setMessage(e.target.value)}
-                        placeholder={t('placeholder')}
-                        aria-label={t('placeholder')}
-                      />
-                      <button
-                        disabled={busy || !message.trim()}
-                        className="rounded bg-[#ee4d2d] px-3 py-2 text-white disabled:opacity-50"
-                      >
-                        {t('send')}
-                      </button>
+                      </div>
                     </form>
-                  </>
+                    {resources.current.stream && (
+                      <label className="flex cursor-pointer items-center justify-center gap-2 text-xs text-gray-500">
+                        <input
+                          type="checkbox"
+                          className="accent-primary"
+                          checked={pushToTalk}
+                          onChange={() => {
+                            const next = !pushToTalk;
+                            setMicrophoneEnabled(resources.current.stream, !next && !muted);
+                            setPushToTalk(next);
+                          }}
+                        />
+                        {t('pushToTalk')}
+                        {pushToTalk && <span className="text-gray-400">· {t('holdToTalk')}</span>}
+                      </label>
+                    )}
+                  </div>
                 )}
               </div>
             </>
@@ -538,12 +791,33 @@ export function VoicePanel({ shopId, adapter }: { shopId: number; adapter: Adapt
         </section>
       )}
       <button
-        className="ml-auto block rounded-full bg-[#ee4d2d] px-4 py-3 text-white shadow-lg"
+        className={`flex h-14 items-center gap-2.5 rounded-full bg-primary pr-5 pl-4 text-sm font-semibold text-white shadow-lift transition hover:bg-primary-hover active:scale-95 ${open ? 'pr-4' : ''}`}
         onClick={() => setOpen(!open)}
         aria-expanded={open}
         aria-label={t('open')}
       >
-        🎙 {t('open')}
+        {open ? (
+          <svg
+            viewBox="0 0 24 24"
+            className="h-5 w-5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            aria-hidden="true"
+          >
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        ) : (
+          <>
+            <span className="relative flex h-8 w-8 items-center justify-center rounded-full bg-white/20">
+              <MicGlyph className="h-4 w-4" />
+              {state === 'active' && (
+                <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-400 ring-2 ring-primary" />
+              )}
+            </span>
+            {t('launcher')}
+          </>
+        )}
       </button>
     </div>
   );

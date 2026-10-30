@@ -420,7 +420,7 @@ function AssistantFaqsContent({ shopId }: { shopId: number }) {
         <div className="space-y-4 py-2">
           <p className="text-sm text-gray-700">{t('deleteConfirm')}</p>
           {deletingFaq && (
-            <div className="rounded bg-gray-50 p-3 text-xs text-gray-600">
+            <div className="rounded-lg bg-gray-50 p-3 text-xs text-gray-600">
               <p className="font-semibold text-gray-900">{deletingFaq.question}</p>
               <p className="mt-1 line-clamp-2">{deletingFaq.answer}</p>
             </div>

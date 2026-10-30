@@ -116,7 +116,7 @@ export function TrendChart({ daily }: { daily: DailyData[] }) {
       {/* Hover info tooltip box */}
       <div className="h-8">
         {hoveredIdx !== null && daily[hoveredIdx] ? (
-          <div className="flex flex-wrap items-center gap-3 text-xs text-gray-700 bg-gray-50 px-3 py-1.5 rounded border border-gray-200">
+          <div className="flex flex-wrap items-center gap-3 text-xs text-gray-700 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-200">
             <span className="font-semibold text-gray-900">{daily[hoveredIdx].date}:</span>
             <span>
               {t('metricConversations')}: <strong>{daily[hoveredIdx].conversations}</strong>

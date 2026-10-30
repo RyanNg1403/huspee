@@ -254,7 +254,7 @@ function AssistantSettingsForm({
         <Card className="space-y-4">
           <div className="flex items-center justify-between border-b border-gray-100 pb-3">
             <h3 className="font-semibold text-gray-900 text-sm">{t('previewTitle')}</h3>
-            <div className="flex gap-1 rounded bg-gray-100 p-0.5 text-xs">
+            <div className="flex gap-1 rounded-lg bg-gray-100 p-0.5 text-xs">
               <button
                 type="button"
                 onClick={() => setPreviewLangOverride('vi')}
@@ -301,7 +301,9 @@ function AssistantSettingsForm({
                 <span className={`h-2 w-2 rounded-full ${enabled ? 'bg-green-500' : 'bg-gray-400'}`} />
                 {enabled ? t('active') : t('disabled')}
               </span>
-              <span className="rounded bg-orange-100/70 px-1.5 py-0.5 text-primary font-medium">{tone}</span>
+              <span className="rounded-lg bg-orange-100/70 px-1.5 py-0.5 text-primary font-medium">
+                {tone}
+              </span>
             </div>
           </div>
         </Card>

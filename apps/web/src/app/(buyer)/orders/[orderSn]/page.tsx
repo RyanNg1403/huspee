@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { useParams } from 'next/navigation';
 import type { BuyerOrder, OrderTracking } from '@huspee/sdk';
 import { RequireRole } from '@/components/session';
-import { Button, QueryState, useToast } from '@/components/ui';
+import { Button, Icon, QueryState, useToast } from '@/components/ui';
 import { useLang, useT } from '@/i18n';
 import { common } from '@/i18n/common';
 import { getApiClient } from '@/lib/api';
@@ -74,7 +74,7 @@ function OrderDetailView() {
   return (
     <div className="space-y-4 pb-12">
       {/* Top Bar with Back and Status */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 shadow-xs rounded">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-white p-4 shadow-card">
         <div className="flex items-center gap-3">
           <Link
             href="/orders"
@@ -109,7 +109,7 @@ function OrderDetailView() {
       {/* Recipient Address */}
       <div className={panel}>
         <h3 className="mb-3 flex items-center gap-2 text-base font-semibold text-gray-800">
-          <span>📍</span>
+          <Icon name="pin" className="h-5 w-5 text-primary" />
           <span>{t('shippingAddress')}</span>
         </h3>
         <div className="space-y-1 text-sm text-gray-700">
@@ -132,14 +132,14 @@ function OrderDetailView() {
       </div>
 
       {/* Items Section */}
-      <div className={`${panel} p-0 overflow-hidden`}>
+      <div className="overflow-hidden rounded-2xl border border-line bg-white shadow-card">
         {/* Shop Header */}
         <div className="border-b bg-gray-50/70 px-4 py-3 flex items-center justify-between">
           <Link
             href={`/shops/${order.shop.shop_id}`}
             className="font-semibold text-gray-900 hover:text-primary transition-colors flex items-center gap-1.5"
           >
-            <span>🏪</span>
+            <Icon name="shop" className="h-4 w-4 text-gray-500" />
             <span>{order.shop.shop_name}</span>
           </Link>
           <span className="text-xs text-gray-500">
@@ -155,7 +155,7 @@ function OrderDetailView() {
               className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 py-3 first:pt-0 last:pb-0"
             >
               <div className="flex items-center gap-3">
-                <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded border bg-gray-100">
+                <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl border bg-gray-100">
                   {item.image_url ? (
                     <Image
                       unoptimized
@@ -264,7 +264,7 @@ function OrderDetailView() {
       </div>
 
       {/* Actions Bar */}
-      <div className="flex flex-wrap items-center justify-end gap-3 bg-white p-4 shadow-xs rounded">
+      <div className="flex flex-wrap items-center justify-end gap-3 rounded-2xl border border-line bg-white p-4 shadow-card">
         {order.actions.can_cancel && (
           <Button variant="outline" onClick={() => setCancelModalOpen(true)}>
             {t('cancelOrder')}

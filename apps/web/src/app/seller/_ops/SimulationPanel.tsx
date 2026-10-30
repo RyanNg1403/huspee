@@ -46,7 +46,7 @@ export function SimulationPanel({
     <Card className="border border-amber-200 bg-amber-50/50">
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-2">
-          <span className="rounded bg-amber-200 px-2 py-0.5 text-xs font-semibold uppercase text-amber-900">
+          <span className="rounded-lg bg-amber-200 px-2 py-0.5 text-xs font-semibold uppercase text-amber-900">
             {t('simulationBadge')}
           </span>
           <h3 className="text-lg font-bold text-gray-900">{t('simulationTool')}</h3>

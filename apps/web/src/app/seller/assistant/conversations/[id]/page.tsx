@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import type { AssistantSummary } from '@huspee/sdk';
-import { Badge, Card, EmptyState, ErrorState, Spinner } from '@/components/ui';
+import { Badge, Card, EmptyState, ErrorState, Icon, Spinner } from '@/components/ui';
 import { useLang, useT } from '@/i18n';
 import { formatDateTime } from '@/lib/format';
 import { getApiClient } from '@/lib/api';
@@ -254,7 +254,7 @@ function ConversationDetailContent({ shopId, conversationId }: { shopId: number;
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-indigo-100/70 pb-3">
             <div className="flex items-center gap-2">
               <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-xs text-white">
-                ✨
+                <Icon name="sparkle" className="h-3.5 w-3.5" />
               </span>
               <h2 className="text-sm font-semibold text-gray-900">{t('detailSummaryTitle')}</h2>
               <Badge tone="info">{t('aiSummaryBadge')}</Badge>
@@ -331,7 +331,8 @@ function ConversationDetailContent({ shopId, conversationId }: { shopId: number;
                               rel="noreferrer"
                               className="ml-1.5 inline-flex items-center text-primary font-medium hover:underline"
                             >
-                              📦 {t('itemLink', { id: s.item_id })}
+                              <Icon name="box" className="mr-1 h-3.5 w-3.5" />
+                              {t('itemLink', { id: s.item_id })}
                             </Link>
                           )}
                         </span>
@@ -358,10 +359,11 @@ function ConversationDetailContent({ shopId, conversationId }: { shopId: number;
                 href={`/products/${itemId}`}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-1 rounded bg-white px-2.5 py-1 text-xs font-medium text-primary shadow-xs border border-orange-200 hover:bg-orange-50"
+                className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-xs font-medium text-primary shadow-xs border border-orange-200 hover:bg-orange-50"
               >
                 <span>
-                  📦 {t('viewItem')} #{itemId}
+                  <Icon name="box" className="mr-1 inline h-3.5 w-3.5 align-[-2px]" />
+                  {t('viewItem')} #{itemId}
                 </span>
               </Link>
             ))}
@@ -369,10 +371,11 @@ function ConversationDetailContent({ shopId, conversationId }: { shopId: number;
               <Link
                 key={orderSn}
                 href={`/seller/orders/${encodeURIComponent(orderSn)}`}
-                className="inline-flex items-center gap-1 rounded bg-white px-2.5 py-1 text-xs font-medium text-gray-800 shadow-xs border border-gray-200 hover:bg-gray-50"
+                className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-xs font-medium text-gray-800 shadow-xs border border-gray-200 hover:bg-gray-50"
               >
                 <span>
-                  🧾 {t('viewOrder')} {orderSn}
+                  <Icon name="receipt" className="mr-1 inline h-3.5 w-3.5 align-[-2px]" />
+                  {t('viewOrder')} {orderSn}
                 </span>
               </Link>
             ))}
@@ -440,7 +443,7 @@ function ConversationDetailContent({ shopId, conversationId }: { shopId: number;
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <span className="font-mono font-semibold text-gray-900">⚡ {event.tool}</span>
+                      <span className="font-mono font-semibold text-gray-900">{event.tool}</span>
                       <Badge tone={event.success ? 'success' : 'error'}>
                         {event.success ? t('success') : t('error')}
                       </Badge>
@@ -461,13 +464,13 @@ function ConversationDetailContent({ shopId, conversationId }: { shopId: number;
                     <div className="mt-3 space-y-2 border-t border-gray-200 pt-2 font-mono text-[11px]">
                       <div>
                         <span className="font-semibold text-gray-700">{t('toolArgs')}:</span>
-                        <pre className="mt-1 overflow-x-auto rounded bg-gray-100 p-2 text-gray-800">
+                        <pre className="mt-1 overflow-x-auto rounded-lg bg-gray-100 p-2 text-gray-800">
                           {JSON.stringify(event.args, null, 2)}
                         </pre>
                       </div>
                       <div>
                         <span className="font-semibold text-gray-700">{t('toolResult')}:</span>
-                        <pre className="mt-1 overflow-x-auto rounded bg-gray-100 p-2 text-gray-800">
+                        <pre className="mt-1 overflow-x-auto rounded-lg bg-gray-100 p-2 text-gray-800">
                           {JSON.stringify(event.result, null, 2)}
                         </pre>
                       </div>

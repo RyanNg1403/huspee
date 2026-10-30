@@ -162,10 +162,10 @@ function OrderDetailContent({ shopId, orderSn }: { shopId: number; orderSn: stri
                         width={48}
                         height={48}
                         unoptimized
-                        className="h-12 w-12 rounded object-cover"
+                        className="h-12 w-12 rounded-lg object-cover"
                       />
                     ) : (
-                      <div className="h-12 w-12 rounded bg-gray-100" />
+                      <div className="h-12 w-12 rounded-lg bg-gray-100" />
                     )}
                     <div className="min-w-0">
                       <p className="truncate font-medium text-gray-900">{item.item_name}</p>
@@ -266,7 +266,7 @@ function OrderDetailContent({ shopId, orderSn }: { shopId: number; orderSn: stri
               )}
 
               {order.message_to_seller && (
-                <div className="rounded bg-yellow-50 p-2 text-xs text-yellow-800">
+                <div className="rounded-lg bg-yellow-50 p-2 text-xs text-yellow-800">
                   <span className="font-semibold">{t('buyerMessage')}:</span> {order.message_to_seller}
                 </div>
               )}
@@ -306,7 +306,7 @@ function OrderDetailContent({ shopId, orderSn }: { shopId: number; orderSn: stri
               </div>
 
               {order.order_status === 'CANCELLED' && (
-                <div className="mt-3 rounded bg-red-50 p-2 text-xs text-red-800">
+                <div className="mt-3 rounded-lg bg-red-50 p-2 text-xs text-red-800">
                   <p className="font-semibold">{t('cancelReason')}:</p>
                   <p>{order.cancel_reason || order.buyer_cancel_reason || t('unknownReason')}</p>
                   {order.cancel_by && (

@@ -201,7 +201,7 @@ function VouchersContent({ shopId }: { shopId: number }) {
       </div>
 
       {/* Tabs */}
-      <div className="overflow-x-auto rounded bg-white shadow-sm">
+      <div className="overflow-x-auto rounded-2xl border border-line bg-white shadow-card">
         <Tabs items={tabs} value={selectedTab} onChange={handleTabChange} />
       </div>
 
@@ -219,7 +219,7 @@ function VouchersContent({ shopId }: { shopId: number }) {
         {vouchersApi.data && (
           <div className="space-y-3">
             {/* Desktop Table View */}
-            <div className="hidden overflow-x-auto rounded bg-white shadow-sm md:block">
+            <div className="hidden overflow-x-auto rounded-2xl border border-line bg-white shadow-card md:block">
               <table className="w-full text-left text-sm">
                 <thead className="border-b bg-gray-50 text-xs font-semibold uppercase text-gray-600">
                   <tr>
@@ -239,7 +239,7 @@ function VouchersContent({ shopId }: { shopId: number }) {
                     return (
                       <tr key={v.voucher_id} className="hover:bg-gray-50/50">
                         <td className="px-4 py-3">
-                          <span className="rounded bg-orange-50 px-2 py-1 font-mono font-bold text-primary">
+                          <span className="rounded-lg bg-orange-50 px-2 py-1 font-mono font-bold text-primary">
                             {v.voucher_code}
                           </span>
                         </td>
@@ -306,7 +306,7 @@ function VouchersContent({ shopId }: { shopId: number }) {
                 return (
                   <Card key={v.voucher_id} className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className="rounded bg-orange-50 px-2 py-1 font-mono font-bold text-primary">
+                      <span className="rounded-lg bg-orange-50 px-2 py-1 font-mono font-bold text-primary">
                         {v.voucher_code}
                       </span>
                       <VoucherStatusBadge status={status} />
@@ -395,10 +395,10 @@ function VouchersContent({ shopId }: { shopId: number }) {
           </div>
         ) : (
           <div className="space-y-4 py-2">
-            {editError && <div className="rounded bg-red-50 p-2 text-xs text-red-700">{editError}</div>}
+            {editError && <div className="rounded-xl bg-red-50 p-2 text-xs text-red-700">{editError}</div>}
 
             {editStatus === 'ongoing' && (
-              <p className="rounded bg-amber-50 p-2 text-xs text-amber-800">{t('ongoingNotice')}</p>
+              <p className="rounded-lg bg-amber-50 p-2 text-xs text-amber-800">{t('ongoingNotice')}</p>
             )}
 
             <div>

@@ -288,10 +288,10 @@ function ReturnDetailContent({ shopId, returnSn }: { shopId: number; returnSn: s
                         width={48}
                         height={48}
                         unoptimized
-                        className="h-12 w-12 rounded object-cover"
+                        className="h-12 w-12 rounded-lg object-cover"
                       />
                     ) : (
-                      <div className="h-12 w-12 rounded bg-gray-100" />
+                      <div className="h-12 w-12 rounded-lg bg-gray-100" />
                     )}
                     <div>
                       <p className="font-medium text-gray-900">{i.name}</p>
@@ -316,7 +316,7 @@ function ReturnDetailContent({ shopId, returnSn }: { shopId: number; returnSn: s
           <Card>
             <h2 className="mb-3 text-base font-bold text-gray-900">{t('reason')}</h2>
             <div className="space-y-3 text-sm">
-              <div className="rounded bg-gray-50 p-3">
+              <div className="rounded-lg bg-gray-50 p-3">
                 <p className="font-semibold text-gray-800">{detail.reason}</p>
                 {detail.text_reason && <p className="mt-1 text-gray-600">{detail.text_reason}</p>}
               </div>
@@ -349,7 +349,7 @@ function ReturnDetailContent({ shopId, returnSn }: { shopId: number; returnSn: s
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-base font-bold text-gray-900">{t('reverseTracking')}</h2>
               {reverseTrackingInfo?.reverse_logistics_status && (
-                <span className="rounded bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
+                <span className="rounded-lg bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
                   {t('reverseLogisticsStatus', { status: reverseTrackingInfo.reverse_logistics_status })}
                 </span>
               )}

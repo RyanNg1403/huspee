@@ -16,3 +16,4 @@ export { Price } from './Price';
 export { Rating } from './Rating';
 export { ToastProvider, useToast } from './Toast';
 export { QueryState, ApiState, type QueryStateProps } from './QueryState';
+export { Icon, type IconName } from './Icon';

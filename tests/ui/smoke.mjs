@@ -248,7 +248,7 @@ async function run() {
 
     // Check if connect button exists for shop 880001 (exact match, avoiding "Ngắt kết nối")
     const connectBtn = sellerPage.locator(
-      'button:text-is("Kết nối"), button:text-is("Connect")',
+      'button:text-is("Kết nối shop"), button:text-is("Connect shop")',
     );
     if ((await connectBtn.count()) > 0) {
       log('2.2 Shop needs connection. Clicking connect...');

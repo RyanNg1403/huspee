@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import type { HandoffTicketDetail } from '@huspee/sdk';
 import { RequireRole } from '@/components/session';
-import { Button, Card, QueryState, Textarea, useToast } from '@/components/ui';
+import { Button, Card, Icon, QueryState, Textarea, useToast } from '@/components/ui';
 import { useLang, useT } from '@/i18n';
 import { common } from '@/i18n/common';
 import { errorMessageKey, getApiClient } from '@/lib/api';
@@ -117,7 +117,7 @@ function TicketDetailView() {
             <div className="flex flex-wrap items-center justify-between gap-3 pt-3">
               <div className="flex items-center gap-2">
                 <div className="flex h-9 w-9 items-center justify-center rounded-full bg-orange-100 text-base text-primary">
-                  🏪
+                  <Icon name="shop" className="h-5 w-5" />
                 </div>
                 <div>
                   <div className="text-xs text-gray-500">{t('shop')}</div>
@@ -167,7 +167,7 @@ function TicketDetailView() {
                       <div key={msg.id} className="flex flex-col items-start">
                         <div className="mb-1 flex items-center gap-2 text-xs text-gray-500">
                           <span className="flex items-center gap-1 font-semibold text-gray-800">
-                            <span>🏪</span>
+                            <Icon name="shop" className="h-3.5 w-3.5" />
                             <span>{ticket.shop_name}</span>
                             <span className="text-gray-400 font-normal">({t('authorSeller')})</span>
                           </span>
@@ -188,10 +188,10 @@ function TicketDetailView() {
                         <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2 border-b border-purple-200/60 pb-1.5 text-xs text-purple-800">
                           <div className="flex items-center gap-1.5 font-semibold">
                             <span className="flex h-5 w-5 items-center justify-center rounded-full bg-purple-200 text-xs">
-                              🤖
+                              <Icon name="bot" className="h-3.5 w-3.5" />
                             </span>
                             <span>{t('authorAssistant')}</span>
-                            <span className="rounded bg-purple-200/80 px-1.5 py-0.5 text-[10px] font-normal text-purple-900">
+                            <span className="rounded-lg bg-purple-200/80 px-1.5 py-0.5 text-[10px] font-normal text-purple-900">
                               {t('assistantNotice')}
                             </span>
                           </div>
@@ -211,7 +211,7 @@ function TicketDetailView() {
           {ticket.status === 'CLOSED' ? (
             <Card className="border-gray-200 bg-gray-100 p-4 text-center">
               <div className="flex items-center justify-center gap-2 text-sm text-gray-600">
-                <span className="text-base">🔒</span>
+                <Icon name="lock" />
                 <span>{t('ticketClosedNotice')}</span>
               </div>
             </Card>

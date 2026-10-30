@@ -1,11 +1,12 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import type { Address, CheckoutQuote, PaymentMethod } from '@huspee/sdk';
+import type { Address, Cart, CheckoutQuote, PaymentMethod } from '@huspee/sdk';
 import { RequireRole } from '@/components/session';
-import { Button, Input, QueryState, Select, Spinner, useToast } from '@/components/ui';
+import { Button, Icon, Input, QueryState, Select, Spinner, useToast } from '@/components/ui';
 import { useT } from '@/i18n';
 import { common } from '@/i18n/common';
 import { getApiClient } from '@/lib/api';
@@ -30,6 +31,15 @@ function CheckoutView() {
       .map((s) => parseInt(s.trim(), 10))
       .filter((n) => !isNaN(n) && n > 0);
   }, [itemsParam]);
+
+  // The quote has no images; take them from the cart lines being checked out.
+  const { data: cart } = useApi<Cart>(() => getApiClient().cart.get(), []);
+  const lineImages = useMemo(() => {
+    const images = new Map<number, string>();
+    for (const shop of cart?.shops ?? [])
+      for (const line of shop.items) if (line.image_url) images.set(line.model_id, line.image_url);
+    return images;
+  }, [cart]);
 
   // Addresses
   const {
@@ -172,7 +182,9 @@ function CheckoutView() {
   if (cartItemIds.length === 0) {
     return (
       <div className={`${panel} py-12 text-center`}>
-        <div className="mb-4 text-4xl">⚠️</div>
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary-soft text-primary">
+          <Icon name="alert" className="h-7 w-7" />
+        </div>
         <h2 className="mb-2 text-xl font-semibold text-gray-800">{t('noItemsSelected')}</h2>
         <Link href="/cart">
           <Button>{t('backToCart')}</Button>
@@ -184,10 +196,10 @@ function CheckoutView() {
   return (
     <div className="space-y-4 pb-20">
       {/* Address Block */}
-      <div className={`${panel} border-t-4 border-primary`}>
+      <div className={panel}>
         <div className="flex items-center justify-between pb-3">
           <h2 className="flex items-center gap-2 text-base font-semibold text-primary">
-            <span>📍</span>
+            <Icon name="pin" className="h-5 w-5" />
             <span>{t('shippingAddress')}</span>
           </h2>
           <Button variant="outline" size="sm" onClick={() => setAddressModalOpen(true)}>
@@ -241,10 +253,13 @@ function CheckoutView() {
       ) : quote ? (
         quote.groups.map((group) => {
           return (
-            <div key={group.shop_id} className={`${panel} p-0 overflow-hidden`}>
+            <div
+              key={group.shop_id}
+              className="overflow-hidden rounded-2xl border border-line bg-white shadow-card"
+            >
               {/* Shop Header */}
               <div className="border-b bg-gray-50/70 px-4 py-3 font-semibold text-gray-800 flex items-center gap-2">
-                <span>🏪</span>
+                <Icon name="shop" className="h-4 w-4 text-gray-500" />
                 <span>{group.shop_name}</span>
               </div>
 
@@ -252,8 +267,19 @@ function CheckoutView() {
               <div className="divide-y p-4">
                 {group.lines.map((line, idx) => (
                   <div key={idx} className="flex items-center gap-4 py-3 first:pt-0 last:pb-0">
-                    <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded border bg-orange-50 text-xs font-bold text-primary">
-                      🛍️
+                    <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl border bg-gray-50 text-primary">
+                      {lineImages.get(line.model_id) ? (
+                        <Image
+                          unoptimized
+                          width={56}
+                          height={56}
+                          src={lineImages.get(line.model_id)!}
+                          alt=""
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <Icon name="bag" className="h-5 w-5" />
+                      )}
                     </div>
                     <div className="flex-1 space-y-1">
                       <div className="line-clamp-2 text-sm font-medium text-gray-800">{line.item_name}</div>
@@ -351,7 +377,7 @@ function CheckoutView() {
 
                 {/* Group issues if any */}
                 {group.issues.length > 0 && (
-                  <div className="rounded bg-red-50 p-2 text-xs text-red-700">
+                  <div className="rounded-xl bg-red-50 p-2 text-xs text-red-700">
                     {group.issues.map((iss) => formatIssue(iss, t)).join(', ')}
                   </div>
                 )}
@@ -373,7 +399,7 @@ function CheckoutView() {
           ].map((pm) => (
             <label
               key={pm.id}
-              className={`flex cursor-pointer items-start gap-3 rounded border p-3 transition-colors ${
+              className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition-colors ${
                 paymentMethod === pm.id
                   ? 'border-primary bg-orange-50/30'
                   : 'border-gray-200 hover:border-gray-300'
@@ -429,7 +455,7 @@ function CheckoutView() {
 
           {/* Validation errors/issues */}
           {quote.issues.length > 0 && (
-            <div className="mt-4 rounded bg-red-50 p-3 text-xs text-red-700">
+            <div className="mt-4 rounded-xl bg-red-50 p-3 text-xs text-red-700">
               <ul className="list-disc pl-4 space-y-1">
                 {quote.issues.map((iss, i) => (
                   <li key={i}>{iss}</li>

@@ -2,6 +2,8 @@ import { defaultAssistantConfig } from '../src/assistant/assistant-defaults';
 /* Deterministic demo seed. Truncates all tables, then recreates the fixed dataset. */
 import { Prisma, PrismaClient } from '@prisma/client';
 import { scryptSync } from 'node:crypto';
+import { existsSync, readFileSync } from 'node:fs';
+import path from 'node:path';
 import {
   ATTRIBUTES,
   BRANDS,
@@ -39,6 +41,28 @@ function svgImage(title: string, subtitle: string, color: string, variant: numbe
       `<circle cx="300" cy="250" r="${120 - variant * 15}" fill="#ffffff" fill-opacity="0.35"/>` +
       `<text x="300" y="270" font-family="Arial, sans-serif" font-size="44" font-weight="700" fill="#222" text-anchor="middle">${safe(title)}</text>` +
       `<text x="300" y="520" font-family="Arial, sans-serif" font-size="26" fill="#333" text-anchor="middle">${safe(subtitle)}</text>` +
+      `</svg>`,
+    'utf8',
+  );
+}
+
+/** Openly licensed product photos (sources and licenses in seed-images/credits.json); one or two per item. */
+const SEED_IMAGE_DIR = path.join(__dirname, 'seed-images');
+function productPhotos(itemId: number): Buffer[] {
+  return [0, 1]
+    .map((n) => path.join(SEED_IMAGE_DIR, `${itemId}-${n}.jpg`))
+    .filter((file) => existsSync(file))
+    .map((file) => readFileSync(file));
+}
+
+function logoSvg(name: string, color: string): Buffer {
+  const words = name.split(/\s+/);
+  const capitals = words[0]!.replace(/[^A-Z]/g, '');
+  const initials = capitals.length >= 2 ? capitals.slice(0, 2) : words.slice(0, 2).map((word) => word[0]!.toUpperCase()).join('');
+  return Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="0 0 240 240">` +
+      `<rect width="240" height="240" rx="120" fill="${color}"/>` +
+      `<text x="120" y="150" font-family="Helvetica, Arial, sans-serif" font-size="92" font-weight="700" fill="#fff" text-anchor="middle">${initials}</text>` +
       `</svg>`,
     'utf8',
   );
@@ -104,7 +128,7 @@ async function main() {
   await prisma.buyerAddress.createMany({ data: BUYER_ADDRESSES.map((a) => ({ ...a, createdAt: SEED_BASE_TIME })) });
 
   for (const s of SHOPS) {
-    const logoId = `seed-logo-${s.id}`;
+    const logoId = `seed-shoplogo-${s.id}`;
     await prisma.shop.create({
       data: {
         id: s.id,
@@ -132,21 +156,22 @@ async function main() {
       { shopId: s.id, question: 'What is the return policy?', answer: s.policy.returnPolicy, lang: 'en' },
     ] });
     await prisma.mediaImage.create({
-      data: { imageId: logoId, shopId: s.id, mimeType: 'image/svg+xml', data: new Uint8Array(svgImage(s.name, s.city, s.color, 0)), createdAt: SEED_BASE_TIME },
+      data: { imageId: logoId, shopId: s.id, mimeType: 'image/svg+xml', data: new Uint8Array(logoSvg(s.name, s.color)), createdAt: SEED_BASE_TIME },
     });
   }
 
   const collections = new Map<string, number>();
   for (const [idx, item] of ITEMS.entries()) {
     const shop = SHOPS.find((s) => s.id === item.shopId)!;
-    const imageIds = [0, 1].map((n) => `seed-${item.id}-${n}`);
+    const photos = productPhotos(item.id);
+    const imageIds = (photos.length ? photos : [undefined]).map((_, n) => `seed-photo-${item.id}-${n}`);
     for (const [n, imageId] of imageIds.entries()) {
       await prisma.mediaImage.create({
         data: {
           imageId,
           shopId: item.shopId,
-          mimeType: 'image/svg+xml',
-          data: new Uint8Array(svgImage(item.short, n === 0 ? shop.name : 'Huspee Mall', shop.color, n + 1)),
+          mimeType: photos[n] ? 'image/jpeg' : 'image/svg+xml',
+          data: new Uint8Array(photos[n] ?? svgImage(item.short, shop.name, shop.color, n + 1)),
           createdAt: SEED_BASE_TIME,
         },
       });
@@ -282,7 +307,7 @@ async function main() {
             modelName: tierNames,
             itemSku: item.sku,
             modelSku: model.sku,
-            imageUrl: `${process.env.PUBLIC_BASE_URL ?? 'http://localhost:3000'}/media/seed-${item.id}-0`,
+            imageUrl: `${process.env.PUBLIC_BASE_URL ?? 'http://localhost:3000'}/media/seed-photo-${item.id}-0`,
             quantity: h.quantity,
             originalPrice: new Prisma.Decimal(model.price),
             discountedPrice: new Prisma.Decimal(unit),

@@ -76,7 +76,7 @@ export function CancelOrderModal({
         </div>
 
         {reason === 'OUT_OF_STOCK' && (
-          <p className="rounded bg-amber-50 p-2 text-xs text-amber-800">{t('outOfStockNotice')}</p>
+          <p className="rounded-lg bg-amber-50 p-2 text-xs text-amber-800">{t('outOfStockNotice')}</p>
         )}
 
         <div className="flex justify-end gap-2 pt-2">

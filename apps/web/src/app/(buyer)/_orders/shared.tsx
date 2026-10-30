@@ -7,7 +7,7 @@ import { common } from '@/i18n/common';
 import { errorMessageKey, isApiError } from '@/lib/api';
 import { messages } from './messages';
 
-export const panel = 'bg-white p-4 shadow-sm sm:p-6 rounded';
+export const panel = 'rounded-2xl border border-line bg-white p-4 shadow-card sm:p-6';
 
 export { QueryState as State, QueryState, ApiState } from '@/components/ui';
 

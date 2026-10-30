@@ -35,7 +35,7 @@ export function TopProductsCard({ products }: { products: TopProduct[] }) {
           {products.map((p, idx) => (
             <li
               key={p.item_id}
-              className="flex items-center justify-between gap-3 py-3 hover:bg-gray-50/50 px-1 rounded transition-colors"
+              className="flex items-center justify-between gap-3 py-3 hover:bg-gray-50/50 px-2 rounded-lg transition-colors"
             >
               <div className="flex items-center gap-3 min-w-0">
                 <span

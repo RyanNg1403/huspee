@@ -57,7 +57,7 @@ function SellerInboxContent({ shopId }: { shopId: number }) {
       </div>
 
       {/* Tabs Filter */}
-      <div className="overflow-x-auto rounded bg-white shadow-xs">
+      <div className="overflow-x-auto rounded-2xl border border-line bg-white shadow-card">
         <Tabs items={tabs} value={statusTab} onChange={handleTabChange} />
       </div>
 
@@ -114,7 +114,7 @@ function SellerInboxContent({ shopId }: { shopId: number }) {
                           {ticket.conversation_id && (
                             <span
                               title={t('viewLinkedConversation')}
-                              className="rounded bg-purple-50 px-1.5 py-0.5 text-[11px] font-medium text-purple-700"
+                              className="rounded-lg bg-purple-50 px-1.5 py-0.5 text-[11px] font-medium text-purple-700"
                             >
                               AI
                             </span>
@@ -177,7 +177,7 @@ function SellerInboxContent({ shopId }: { shopId: number }) {
                           </span>
                         )}
                         {ticket.conversation_id && (
-                          <span className="rounded bg-purple-50 px-1.5 py-0.2 text-[10px] font-medium text-purple-700">
+                          <span className="rounded-lg bg-purple-50 px-1.5 py-0.2 text-[10px] font-medium text-purple-700">
                             AI
                           </span>
                         )}
