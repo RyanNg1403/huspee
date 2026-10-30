@@ -21,6 +21,8 @@ describe('assistant platform extensions', () => {
     const id = '00000000-0000-4000-8000-000000000001';
     const seller = `/api/v1/seller/shops/${shopId}`;
     const routes: Array<[string, string]> = [
+      ['GET', `/api/v1/assistant/actions/${id}/options`],
+      ['PATCH', `/api/v1/assistant/actions/${id}`],
       ['POST', `/api/v1/assistant/actions/${id}/confirm`],
       ['POST', `/api/v1/assistant/actions/${id}/cancel`],
       ['GET', '/api/v1/buyer/messages'],
@@ -78,6 +80,90 @@ describe('assistant platform extensions', () => {
     await expect(client.seller.assistant.faqs.update(newShop, faq.id, { answer: 'No' })).rejects.toMatchObject({ status: 404 });
   });
 
+  it('orders equal-time pending actions by id and records requested variant misses', async () => {
+    const { client, email } = await newBuyer();
+    const buyer = await db().query<{ id: number }>('SELECT id FROM users WHERE email = $1', [email]);
+    const conversationId = randomUUID();
+    await db().query('INSERT INTO conversations (id, shop_id, buyer_id, channel, status, started_at) VALUES ($1, $2, $3, $4, $5, NOW())', [conversationId, shopId, buyer.rows[0]!.id, 'TEXT', 'ACTIVE']);
+    const run = <T>(name: string, args: unknown) => client.http.request<T>('POST', `/api/v1/assistant/_debug/tools/${name}`, { body: { conversation_id: conversationId, args } });
+    const missing = await run<{ missing: { attribute: string; value: string } }>('get_product_details', { item_id: SEED.items.iphone.itemId, requested_attributes: { color: 'nonexistent-color-xyz' } });
+    expect(missing.missing).toEqual({ attribute: 'color', value: 'nonexistent-color-xyz' });
+    const translated = await run<{ missing?: unknown }>('get_product_details', { item_id: SEED.items.iphone.itemId, requested_attributes: { color: ' BLACK ' } });
+    expect(translated.missing).toBeUndefined();
+    const capacity = await run<{ missing?: unknown }>('get_product_details', { item_id: 2000102, requested_attributes: { 'dung luong': '128 GB' } });
+    expect(capacity.missing).toBeUndefined();
+    const variant = await db().query<{ tier_variation: Array<{ option_list: Array<{ option: string }> }>; tier_index: number[]; stock: number }>('SELECT i.tier_variation, m.tier_index, m.stock FROM items i JOIN models m ON m.item_id = i.id WHERE m.id = $1', [SEED.items.iphone.blackModel]);
+    const row = variant.rows[0]!;
+    const option = row.tier_variation[0]!.option_list[row.tier_index[0]!]!.option;
+    try {
+      await db().query('UPDATE models SET stock = 0 WHERE id = $1', [SEED.items.iphone.blackModel]);
+      const unavailable = await run<{ out_of_stock?: boolean }>('get_product_details', { item_id: SEED.items.iphone.itemId, requested_attributes: { color: option } });
+      expect(unavailable.out_of_stock).toBe(true);
+    } finally {
+      await db().query('UPDATE models SET stock = $1 WHERE id = $2', [row.stock, SEED.items.iphone.blackModel]);
+    }
+    const add = () => run<{ card: { action: { action_id: string } } }>('add_to_cart', { item_id: SEED.items.iphone.itemId, model_id: SEED.items.iphone.blackModel, quantity: 1 });
+    const a = await add();
+    const b = await add();
+    const ids = [a.card.action.action_id, b.card.action.action_id].sort();
+    await db().query('UPDATE pending_actions SET created_at = $1 WHERE id = ANY($2::uuid[])', [new Date('2026-01-01T00:00:00Z'), ids]);
+    expect((await run<{ success: boolean }>('confirm_action', {})).success).toBe(true);
+    const states = await db().query<{ id: string; status: string }>('SELECT id, status FROM pending_actions WHERE id = ANY($1::uuid[]) ORDER BY id', [ids]);
+    expect(states.rows.map((row) => row.status)).toEqual(['PENDING', 'EXECUTED']);
+  });
+
+  it('reissues edited cart actions with shop-scoped options and invalidates old consent', async () => {
+    const { client, email } = await newBuyer();
+    const other = await newBuyer();
+    const buyer = await db().query<{ id: number }>('SELECT id FROM users WHERE email = $1', [email]);
+    const conversationId = randomUUID();
+    await db().query('INSERT INTO conversations (id, shop_id, buyer_id, channel, status, started_at) VALUES ($1, $2, $3, $4, $5, NOW())', [conversationId, shopId, buyer.rows[0]!.id, 'TEXT', 'ACTIVE']);
+    const run = <T>(name: string, args: unknown) => client.http.request<T>('POST', `/api/v1/assistant/_debug/tools/${name}`, { body: { conversation_id: conversationId, args } });
+    const prepared = await run<{ card: { action: { action_id: string } } }>('add_to_cart', { item_id: SEED.items.iphone.itemId, model_id: SEED.items.iphone.blackModel, quantity: 'hai' });
+    const id = prepared.card.action.action_id;
+    const options = await client.assistant.actions.options(id);
+    expect(options.quantity).toBe(2);
+    await expect(other.client.assistant.actions.options(id)).rejects.toMatchObject({ status: 404 });
+    await expect(other.client.assistant.actions.edit(id, { quantity: 3, model_id: options.model_id })).rejects.toMatchObject({ status: 404 });
+    await expect(client.http.request('PATCH', `/api/v1/assistant/actions/${id}`, { body: { quantity: 3, model_id: options.model_id, price: 1 } })).rejects.toMatchObject({ status: 400 });
+    const next = await client.assistant.actions.edit(id, { quantity: 3, model_id: options.model_id });
+    expect(next.action.action_id).not.toBe(id);
+    expect(next.action.summary.lines.some((line) => line.value === '3')).toBe(true);
+    expect((await run<{ success: boolean }>('confirm_action', { action_id: id })).success).toBe(false);
+    expect((await run<{ success: boolean }>('confirm_action', { action_id: next.action.action_id })).success).toBe(true);
+  });
+
+  it('lets the buyer edit a cart line on the order card and requires a fresh tap for the new order', async () => {
+    const { client, email, addressId } = await newBuyer();
+    const other = await newBuyer();
+    const buyer = await db().query<{ id: number }>('SELECT id FROM users WHERE email = $1', [email]);
+    const conversationId = randomUUID();
+    await db().query('INSERT INTO conversations (id, shop_id, buyer_id, channel, status, started_at) VALUES ($1, $2, $3, $4, $5, NOW())', [conversationId, shopId, buyer.rows[0]!.id, 'TEXT', 'ACTIVE']);
+    const run = <T>(name: string, args: unknown) => client.http.request<T>('POST', `/api/v1/assistant/_debug/tools/${name}`, { body: { conversation_id: conversationId, args } });
+    await client.cart.addItem(SEED.items.iphone.blackModel, 1);
+    const order = await run<{ text: string; card: { action: { action_id: string } } }>('place_order', { address_id: addressId });
+    // The spoken read-back keeps variant, quantity and unit price.
+    expect(order.text).toMatch(/readback_vi: .*Đen.*số lượng 1, đơn giá \d+ VND/);
+    expect(order.text).toMatch(/readback_en: .*quantity 1, unit price \d+ VND/);
+    const id = order.card.action.action_id;
+    const options = await client.assistant.actions.options(id);
+    expect(options.lines).toHaveLength(1);
+    expect(options).toMatchObject({ quantity: 1, model_id: SEED.items.iphone.blackModel });
+    await expect(other.client.assistant.actions.options(id)).rejects.toMatchObject({ status: 404 });
+    await expect(other.client.assistant.actions.edit(id, { quantity: 2, model_id: options.model_id })).rejects.toMatchObject({ status: 404 });
+    await expect(client.assistant.actions.edit(id, { quantity: 2, model_id: 999999 })).rejects.toMatchObject({ status: 404 });
+    const next = await client.assistant.actions.edit(id, { quantity: 2, model_id: options.model_id, line_index: 0 });
+    expect(next.action).toMatchObject({ type: 'PLACE_ORDER', status: 'PENDING', requires_tap: true });
+    expect(next.action.action_id).not.toBe(id);
+    expect(next.action.summary.lines.some((line) => line.value.includes('× 2'))).toBe(true);
+    const cart = await db().query<{ quantity: number }>('SELECT quantity FROM cart_items WHERE user_id = $1 AND model_id = $2', [buyer.rows[0]!.id, SEED.items.iphone.blackModel]);
+    expect(cart.rows[0]!.quantity).toBe(2);
+    const old = await db().query<{ status: string }>('SELECT status FROM pending_actions WHERE id = $1', [id]);
+    expect(old.rows[0]!.status).toBe('CANCELLED');
+    // The new order action still cannot be executed by a tool call alone.
+    expect((await run<{ success: boolean }>('confirm_action', { action_id: next.action.action_id })).success).toBe(false);
+  });
+
   it('scopes search and executes a spoken cart confirmation only once', async () => {
     const { client, email, addressId } = await newBuyer();
     const buyer = await db().query<{ id: number }>('SELECT id FROM users WHERE email = $1', [email]);
@@ -91,6 +177,11 @@ describe('assistant platform extensions', () => {
     ]);
     const run = <T>(name: string, args: unknown) =>
       client.http.request<T>('POST', `/api/v1/assistant/_debug/tools/${name}`, { body: { conversation_id: conversationId, args } });
+    expect((await run<{ success: boolean }>('confirm_action', {})).success).toBe(false);
+    const otherConversation = randomUUID();
+    await db().query('INSERT INTO conversations (id, shop_id, buyer_id, channel, status, started_at) VALUES ($1, $2, $3, $4, $5, NOW())', [otherConversation, shopId, buyer.rows[0]!.id, 'TEXT', 'ACTIVE']);
+    await client.http.request('POST', '/api/v1/assistant/_debug/tools/add_to_cart', { body: { conversation_id: otherConversation, args: { item_id: SEED.items.iphone.itemId, model_id: SEED.items.iphone.blackModel, quantity: 1 } } });
+    expect((await run<{ success: boolean }>('confirm_action', {})).success).toBe(false);
     const search = await run<{ success: boolean; card: { items: Array<{ item_id: number }> } }>('search_products', { query: '' });
     expect(search.success).toBe(true);
     expect(search.card.items.some((item) => item.item_id === SEED.items.cocoon.itemId)).toBe(false);
@@ -104,6 +195,9 @@ describe('assistant platform extensions', () => {
     expect((await run<{ success: boolean }>('get_return_policy', {})).success).toBe(true);
     expect((await run<{ success: boolean }>('get_shipping_info', { item_id: SEED.items.iphone.itemId })).success).toBe(true);
     expect((await run<{ success: boolean }>('get_vouchers', {})).success).toBe(true);
+    const fuzzy = await run<{ card: { items: Array<{ name: string }>; resolution?: { resolved_from: string } } }>('search_products', { query: 'iphon' });
+    expect(fuzzy.card.items.some((item) => item.name.toLowerCase().includes('iphone'))).toBe(true);
+    expect((await run<{ success: boolean; text: string }>('place_order', { voucher_code: 'nonexistent', address_id: addressId })).success).toBe(false);
     expect((await run<{ success: boolean }>('get_cart', {})).success).toBe(true);
     expect((await run<{ success: boolean }>('get_order_status', {})).success).toBe(true);
     expect(
@@ -136,19 +230,24 @@ describe('assistant platform extensions', () => {
     expect(
       (await db().query<{ status: string }>('SELECT status FROM pending_actions WHERE id = $1', [expired.card.action.action_id])).rows[0]?.status,
     ).toBe('EXPIRED');
-    const prepared = await run<{ success: boolean; card: { action: { action_id: string; requires_tap: boolean } } }>('add_to_cart', {
+    const prepared = await run<{ success: boolean; text: string; card: { action: { action_id: string; requires_tap: boolean } } }>('add_to_cart', {
       item_id: SEED.items.iphone.itemId,
       model_id: SEED.items.iphone.blackModel,
       quantity: 1,
     });
     expect(prepared.success).toBe(true);
     expect(prepared.card.action.requires_tap).toBe(false);
+    expect(prepared.text).toContain(prepared.card.action.action_id);
     const id = prepared.card.action.action_id;
     expect((await run<{ success: boolean }>('confirm_action', { action_id: id })).success).toBe(true);
     expect((await run<{ success: boolean }>('confirm_action', { action_id: id })).success).toBe(true);
     const cart = await client.cart.get();
     const item = cart.shops.flatMap((shop) => shop.items).find((line) => line.model_id === SEED.items.iphone.blackModel);
     expect(item?.quantity).toBe(1);
+    const voucherAction = await run<{ success: boolean; card: { action: { action_id: string; summary: { lines: Array<{ value: string }> } } } }>('place_order', { address_id: addressId, voucher_code: 'tech năm mươi k' });
+    expect(voucherAction.success).toBe(true);
+    expect(voucherAction.card.action.summary.lines.some((line) => line.value.includes('tech năm mươi k → TECH50K'))).toBe(true);
+    await client.assistant.actions.cancel(voucherAction.card.action.action_id);
     const stale = await run<{ card: { action: { action_id: string } } }>('place_order', { address_id: addressId, payment_method: 'COD' });
     await client.cart.updateItem(item!.cart_item_id, { quantity: 2 });
     await expect(client.assistant.actions.confirm(stale.card.action.action_id, 'stale-test-key')).rejects.toMatchObject({ status: 409 });
@@ -158,7 +257,7 @@ describe('assistant platform extensions', () => {
       quantity: 2,
     });
     expect(update.success).toBe(true);
-    expect((await run<{ success: boolean }>('confirm_action', { action_id: update.card.action.action_id })).success).toBe(true);
+    expect((await run<{ success: boolean }>('confirm_action', {})).success).toBe(true);
     expect(
       (await client.cart.get()).shops.flatMap((shop) => shop.items).find((line) => line.model_id === SEED.items.iphone.blackModel)?.quantity,
     ).toBe(2);
@@ -166,6 +265,7 @@ describe('assistant platform extensions', () => {
     const cancel = await run<{ card: { action: { action_id: string } } }>('place_order', { address_id: addressId });
     expect((await client.assistant.actions.cancel(cancel.card.action.action_id)).action.status).toBe('CANCELLED');
     await expect(client.assistant.actions.confirm(cancel.card.action.action_id, 'cancel-test-key')).rejects.toMatchObject({ status: 409 });
+    const older = await run<{ card: { action: { action_id: string } } }>('add_to_cart', { item_id: SEED.items.iphone.itemId, model_id: SEED.items.iphone.blackModel, quantity: 1 });
     const place = await run<{ success: boolean; card: { action: { action_id: string; requires_tap: boolean } } }>('place_order', {
       address_id: addressId,
       payment_method: 'COD',
@@ -173,6 +273,8 @@ describe('assistant platform extensions', () => {
     expect(place.success).toBe(true);
     expect(place.card.action.requires_tap).toBe(true);
     const orderAction = place.card.action.action_id;
+    expect((await run<{ success: boolean; text: string }>('confirm_action', {})).text).toMatch(/tap/i);
+    expect((await db().query<{ status: string }>('SELECT status FROM pending_actions WHERE id = $1', [older.card.action.action_id])).rows[0]?.status).toBe('PENDING');
     expect((await run<{ success: boolean; text: string }>('confirm_action', { action_id: orderAction })).text).toMatch(/tap/i);
     const [order, replay] = await Promise.all([
       client.assistant.actions.confirm(orderAction, 'checkout-test-key'),
@@ -194,7 +296,13 @@ describe('assistant platform extensions', () => {
     await db().query("UPDATE orders SET status = 'COMPLETED', completed_at = NOW() WHERE order_sn = $1", [orderSn]);
     const openReturn = await run<{ success: boolean; card: { action: { action_id: string } } }>('open_return', returnArgs);
     expect(openReturn.success).toBe(true);
-    const returnAction = openReturn.card.action.action_id;
+    const originalReturn = openReturn.card.action.action_id;
+    const returnOptions = await client.assistant.actions.options(originalReturn);
+    expect(returnOptions.lines[0]?.model_id).toBe(SEED.items.iphone.blackModel);
+    const replacementReturn = await client.assistant.actions.edit(originalReturn, { quantity: 1, model_id: SEED.items.iphone.blackModel, line_index: 0 });
+    const returnAction = replacementReturn.action.action_id;
+    expect(returnAction).not.toBe(originalReturn);
+    await expect(client.assistant.actions.confirm(originalReturn, 'old-return-key')).rejects.toMatchObject({ status: 409 });
     expect((await run<{ success: boolean }>('confirm_action', { action_id: returnAction })).success).toBe(false);
     await expect(client.assistant.actions.confirm(returnAction, 'checkout-test-key')).rejects.toMatchObject({ status: 409 });
     const createdReturn = await client.assistant.actions.confirm(returnAction, 'return-test-key');

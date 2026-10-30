@@ -1,5 +1,5 @@
 import { defaultAssistantConfig } from './assistant-defaults';
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Put, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Put, Query, UseGuards } from '@nestjs/common';
 import type { User } from '@prisma/client';
 import { z } from 'zod';
 import { AssistantToolRegistry } from './tools/assistant-tool.registry';
@@ -71,6 +71,19 @@ export class AssistantController {
     });
     if (!conversation) throw notFound('Conversation');
     return { data: await this.tools.run(name, input.args, { conversationId: input.conversation_id, buyerId: user.id, shopId: conversation.shopId }) };
+  }
+
+  @RequireRole('BUYER')
+  @Get('assistant/actions/:actionId/options')
+  async actionOptions(@CurrentUser() user: User, @Param('actionId') actionId: string) {
+    return { data: await this.actions.editOptions(actionId, user.id) };
+  }
+
+  @RequireRole('BUYER')
+  @Patch('assistant/actions/:actionId')
+  async editAction(@CurrentUser() user: User, @Param('actionId') actionId: string, @Body() body: unknown) {
+    const input = parseInput(z.object({ quantity: z.number().int().min(1).max(999), model_id: z.number().int().nonnegative(), line_index: z.number().int().nonnegative().optional() }).strict(), body);
+    return { data: { action: await this.actions.edit(actionId, user.id, input) } };
   }
 
   @RequireRole('BUYER')

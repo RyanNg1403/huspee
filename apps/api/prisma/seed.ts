@@ -228,7 +228,11 @@ async function main() {
   }
 
   // Completed historical orders + verified reviews.
-  for (const h of HISTORY_ORDERS) {
+  // This order stays return-eligible after every demo reset.
+  const demoNow = Date.now();
+  const recentOrder = { orderSn: 'DEMOSEEDZ001', buyerId: 2, shopId: 880001, modelId: 3000151, quantity: 1, dayOffset: -5, rating: 5, comment: '' };
+  for (const h of [...HISTORY_ORDERS, recentOrder]) {
+    const orderAt = h === recentOrder ? (offset: number) => new Date(demoNow + offset * 86400000) : at;
     const item = ITEMS.find((i) => i.models.some((m) => m.id === h.modelId))!;
     const model = item.models.find((m) => m.id === h.modelId)!;
     const address = BUYER_ADDRESSES.find((a) => a.userId === h.buyerId && a.isDefault)!;
@@ -236,8 +240,8 @@ async function main() {
     const subtotal = unit * h.quantity;
     const channel = LOGISTICS_CHANNELS[0]!;
     const shippingFee = channel.baseFee;
-    const created = at(h.dayOffset);
-    const delivered = at(h.dayOffset + 3);
+    const created = orderAt(h.dayOffset);
+    const delivered = orderAt(h.dayOffset + 3);
     const tierNames = (item.tiers ?? []).map((t, i) => t.options[model.tierIndex[i]!]).filter(Boolean).join(', ');
     await prisma.order.create({
       data: {
@@ -265,10 +269,10 @@ async function main() {
         logisticsChannelId: channel.id,
         shippingCarrier: channel.name,
         daysToShip: 2,
-        shipByDate: at(h.dayOffset + 2),
-        completedAt: at(h.dayOffset + 4),
+        shipByDate: orderAt(h.dayOffset + 2),
+        completedAt: orderAt(h.dayOffset + 4),
         createdAt: created,
-        updatedAt: at(h.dayOffset + 4),
+        updatedAt: orderAt(h.dayOffset + 4),
         items: {
           create: {
             itemId: item.id,
@@ -291,14 +295,14 @@ async function main() {
             logisticsStatus: 'LOGISTICS_DELIVERY_DONE',
             trackingNumber: `${channel.trackingPrefix}SEED${h.orderSn.slice(-4)}`,
             shipMethod: 'pickup',
-            shippedAt: at(h.dayOffset + 1),
+            shippedAt: orderAt(h.dayOffset + 1),
             deliveredAt: delivered,
             createdAt: created,
             events: {
               create: [
                 { logisticsStatus: 'LOGISTICS_NOT_START', description: 'Đơn hàng đã được đặt', createdAt: created },
-                { logisticsStatus: 'LOGISTICS_REQUEST_CREATED', description: 'Người bán đã sắp xếp lấy hàng', createdAt: at(h.dayOffset + 0.5) },
-                { logisticsStatus: 'LOGISTICS_PICKUP_DONE', description: 'Đơn vị vận chuyển đã lấy hàng thành công', createdAt: at(h.dayOffset + 1) },
+                { logisticsStatus: 'LOGISTICS_REQUEST_CREATED', description: 'Người bán đã sắp xếp lấy hàng', createdAt: orderAt(h.dayOffset + 0.5) },
+                { logisticsStatus: 'LOGISTICS_PICKUP_DONE', description: 'Đơn vị vận chuyển đã lấy hàng thành công', createdAt: orderAt(h.dayOffset + 1) },
                 { logisticsStatus: 'LOGISTICS_DELIVERY_DONE', description: 'Giao hàng thành công', createdAt: delivered },
               ],
             },
@@ -306,7 +310,7 @@ async function main() {
         },
       },
     });
-    await prisma.review.create({
+    if (h !== recentOrder) await prisma.review.create({
       data: {
         itemId: item.id,
         modelId: model.id,
@@ -315,8 +319,8 @@ async function main() {
         rating: h.rating,
         comment: h.comment,
         imageUrls: [],
-        createdAt: at(h.dayOffset + 5),
-        ...(h.rating <= 3 ? { sellerReply: 'Cảm ơn bạn đã phản hồi, shop sẽ cải thiện hình ảnh sản phẩm ạ!', repliedAt: at(h.dayOffset + 6) } : {}),
+        createdAt: orderAt(h.dayOffset + 5),
+        ...(h.rating <= 3 ? { sellerReply: 'Cảm ơn bạn đã phản hồi, shop sẽ cải thiện hình ảnh sản phẩm ạ!', repliedAt: orderAt(h.dayOffset + 6) } : {}),
       },
     });
   }

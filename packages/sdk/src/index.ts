@@ -10,7 +10,7 @@
  */
 import { HttpTransport, HuspeeClientOptions } from './http.js';
 import type {
-  Address,
+  Address, AssistantInsights,
   AssistantProfile, AssistantConfig, AssistantConfigInput, AssistantFaq, AssistantFaqInput, AssistantConversation, AssistantConversationDetail, PendingActionView, HandoffTicket, HandoffTicketDetail, HandoffMessage,
   AddressInput,
   BuyerOrder,
@@ -112,12 +112,14 @@ export class HuspeeClient {
       start: (input: { shop_id: number; lang?: string }) => this.http.request<{ conversation_id: string }>('POST', '/api/v1/assistant/text/sessions', { body: input }),
     },
     voice: {
-      start: (input: { shop_id: number; sdp_offer: string; lang?: string }) => this.http.request<{ conversation_id: string; sdp_answer: string }>('POST', '/api/v1/assistant/voice/sessions', { body: input }),
+      start: (input: { shop_id: number; sdp_offer: string; lang?: string }) => this.http.request<{ conversation_id: string; sdp_answer: string; voice_output?: 'checked' | 'codex' }>('POST', '/api/v1/assistant/voice/sessions', { body: input }),
       text: (conversationId: string, text: string) => this.http.request<{ ok: true }>('POST', `/api/v1/assistant/voice/sessions/${encodeURIComponent(conversationId)}/text`, { body: { text } }),
       stop: (conversationId: string) => this.http.request<{ ok: true }>('POST', `/api/v1/assistant/voice/sessions/${encodeURIComponent(conversationId)}/stop`),
       eventsUrl: (conversationId: string) => this.http.url(`/api/v1/assistant/voice/sessions/${encodeURIComponent(conversationId)}/events`),
     },
     actions: {
+      options: (actionId: string) => this.http.request<{ line_index: number; name: string; quantity: number; model_id: number; models: Array<{ model_id: number; name: string; stock: number }>; lines: Array<{ line_index: number; name: string; quantity: number; model_id: number; models: Array<{ model_id: number; name: string; stock: number }> }> }>('GET', `/api/v1/assistant/actions/${encodeURIComponent(actionId)}/options`),
+      edit: (actionId: string, input: { quantity: number; model_id: number; line_index?: number }) => this.http.request<{ action: PendingActionView }>('PATCH', `/api/v1/assistant/actions/${encodeURIComponent(actionId)}`, { body: input }),
       confirm: (actionId: string, idempotencyKey: string) => this.http.request<{ action: PendingActionView }>('POST', `/api/v1/assistant/actions/${encodeURIComponent(actionId)}/confirm`, { body: { idempotency_key: idempotencyKey } }),
       cancel: (actionId: string) => this.http.request<{ action: PendingActionView }>('POST', `/api/v1/assistant/actions/${encodeURIComponent(actionId)}/cancel`),
     },
@@ -169,6 +171,8 @@ export class HuspeeClient {
 
   readonly seller = {
     assistant: {
+      insights: (shopId: number, range: { from?: number; to?: number } = {}) => this.http.request<AssistantInsights>('GET', `/api/v1/seller/shops/${shopId}/assistant/insights`, { query: range }),
+      summarize: (shopId: number, conversationId: string) => this.http.request<{ scheduled: boolean }>('POST', `/api/v1/seller/shops/${shopId}/assistant/conversations/${encodeURIComponent(conversationId)}/summary`),
       getConfig: (shopId: number) => this.http.request<AssistantConfig>('GET', `/api/v1/seller/shops/${shopId}/assistant/config`),
       updateConfig: (shopId: number, input: AssistantConfigInput) => this.http.request<AssistantConfig>('PUT', `/api/v1/seller/shops/${shopId}/assistant/config`, { body: input }),
       faqs: {

@@ -1,3 +1,8 @@
+import { SummaryService } from './insights/summary.service';
+import { InsightsService } from './insights/insights.service';
+import { InsightsController } from './insights/insights.controller';
+import { SessionGuard } from '../auth/session.guard';
+import { SessionService } from '../auth/session.service';
 import { Module } from '@nestjs/common';
 import { ReturnService } from '../domain/return.service';
 import { OrderService } from '../domain/order.service';
@@ -13,7 +18,9 @@ import { ConversationService } from './conversation.service';
 import { AssistantToolRegistry } from './tools/assistant-tool.registry';
 
 @Module({
+  controllers: [InsightsController],
   providers: [
+    SessionGuard, SessionService, SummaryService, InsightsService,
     PrismaService,
     CatalogService,
     OrderService,

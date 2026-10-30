@@ -11,6 +11,9 @@ const adapter = {
   stop: (id: string) => getApiClient().assistant.voice.stop(id),
   eventsUrl: (id: string) => getApiClient().assistant.voice.eventsUrl(id),
   confirm: (id: string, key: string) => getApiClient().assistant.actions.confirm(id, key),
+  options: (id: string) => getApiClient().assistant.actions.options(id),
+  edit: (id: string, input: { quantity: number; model_id: number; line_index?: number }) =>
+    getApiClient().assistant.actions.edit(id, input),
   cancel: (id: string) => getApiClient().assistant.actions.cancel(id),
 };
 

@@ -10,6 +10,7 @@ import { parseInput } from '../../common/validation';
 import { VoiceCatalogRegistry } from '../voice-catalog';
 import { ConversationService } from '../conversation.service';
 import { VoiceService } from './voice.service';
+import { voiceOutputMode } from './voice-runtime';
 
 const startSchema = z.object({
   shop_id: z.number().int().positive(),
@@ -67,7 +68,7 @@ export class VoiceController {
         },
         input.sdp_offer,
       );
-      return res.status(201).json({ data: { conversation_id: conversation.id, sdp_answer: sdp } });
+      return res.status(201).json({ data: { conversation_id: conversation.id, sdp_answer: sdp, voice_output: voiceOutputMode() } });
     } catch (error) {
       await this.conversations.end(conversation.id);
       const busy = error instanceof Error && error.message === 'assistant_busy';

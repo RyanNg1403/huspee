@@ -258,10 +258,12 @@ These `/api/v1` routes use platform sessions and the browser-safe `@huspee/sdk` 
 | GET | `/assistant/shops/:shopId/profile` | public | `assistant.profile` | implemented; assistant tests |
 | GET | `/assistant/voices` | public | `assistant.voices` | voice module; voice tests |
 | POST | `/assistant/text/sessions` | buyer session | `assistant.text.start` | custom text thread; voice tests |
-| POST | `/assistant/voice/sessions` | buyer session | `assistant.voice.start` | voice module; voice tests |
-| GET | `/assistant/voice/sessions/:conversationId/events` | buyer session | `assistant.voice.eventsUrl` | voice module; voice tests |
+| POST | `/assistant/voice/sessions` | buyer session | `assistant.voice.start` | voice module; returns `voice_output` (checked or codex); voice tests |
+| GET | `/assistant/voice/sessions/:conversationId/events` | buyer session | `assistant.voice.eventsUrl` | voice module; SSE incl. `speak` (checked text and optional audio); voice tests |
 | POST | `/assistant/voice/sessions/:conversationId/text` | buyer session | `assistant.voice.text` | voice module; voice tests |
 | POST | `/assistant/voice/sessions/:conversationId/stop` | buyer session | `assistant.voice.stop` | voice module; voice tests |
+| GET | `/assistant/actions/:actionId/options` | buyer session | `assistant.actions.options` | custom; pending cart, order or return edit options; assistant tests |
+| PATCH | `/assistant/actions/:actionId` | buyer session | `assistant.actions.edit` | custom; replaces pending cart, order or return action; assistant tests |
 | POST | `/assistant/actions/:actionId/confirm` | buyer session | `assistant.actions.confirm` | implemented; assistant tests |
 | POST | `/assistant/actions/:actionId/cancel` | buyer session | `assistant.actions.cancel` | implemented; assistant tests |
 | GET | `/buyer/messages`, `/buyer/messages/unread-count`, `/buyer/messages/:ticketId` | buyer session | `buyer.messages.list`, `.unreadCount`, `.get` | implemented; messages tests |
@@ -273,3 +275,5 @@ These `/api/v1` routes use platform sessions and the browser-safe `@huspee/sdk` 
 | GET | `/seller/shops/:shopId/inbox`, `/seller/shops/:shopId/inbox/:ticketId` | seller membership | `seller.inbox.list`, `.get` | implemented; messages tests |
 | POST | `/seller/shops/:shopId/inbox/:ticketId/replies`, `/seller/shops/:shopId/inbox/:ticketId/close` | seller membership | `seller.inbox.reply`, `.close` | implemented; messages tests |
 | POST | `/assistant/_debug/tools/:name` | buyer session; `ASSISTANT_TOOL_DEBUG=true` | low-level test transport only | test-only; disabled by default |
+| GET | `/seller/shops/:shopId/assistant/insights` | seller membership | `seller.assistant.insights` | custom; insights tests |
+| POST | `/seller/shops/:shopId/assistant/conversations/:id/summary` | seller membership | `seller.assistant.summarize` | custom; insights tests |

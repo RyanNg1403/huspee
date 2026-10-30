@@ -127,6 +127,35 @@ describe('auth.token.get / auth.access_token.get', () => {
     expect(afterReplay.body.error).toBe('invalid_access_token');
   });
 
+  it('concurrent refresh requests with the same refresh token revoke the token family', async () => {
+    const seller = await newSellerWithShop();
+    const sdk = await connectUpstream(seller.shopId, seller.email);
+    const token = (await sdk.getAuthToken())!;
+
+    const [res1, res2] = await Promise.all([
+      signedCall('/auth/access_token/get', {
+        method: 'POST',
+        body: { refresh_token: token.refresh_token, partner_id: PARTNER_ID, shop_id: seller.shopId },
+      }),
+      signedCall('/auth/access_token/get', {
+        method: 'POST',
+        body: { refresh_token: token.refresh_token, partner_id: PARTNER_ID, shop_id: seller.shopId },
+      }),
+    ]);
+
+    const errors = [res1, res2].filter((r) => r.status === 403 && r.body.error === 'error_param');
+    expect(errors.length).toBeGreaterThanOrEqual(1);
+
+    const success = [res1, res2].find((r) => r.status === 200);
+    if (success) {
+      const probe = await signedCall('/shop/get_profile', {
+        accessToken: success.body.access_token,
+        shopId: seller.shopId,
+      });
+      expect(probe.body.error).toBe('invalid_access_token');
+    }
+  });
+
   it('issues independent tokens per shop for the one shared Partner', async () => {
     const a = await newSellerWithShop();
     const b = await newSellerWithShop();

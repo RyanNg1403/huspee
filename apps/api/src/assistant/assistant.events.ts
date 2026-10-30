@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { PendingActionView } from './types';
 
-type ActionEvent = { conversationId: string; action: PendingActionView };
+type ActionEvent = { conversationId: string; action: PendingActionView; replaces?: string };
 
 @Injectable()
 export class AssistantEvents {

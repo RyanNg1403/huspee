@@ -4,14 +4,24 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useLang, useT } from '@/i18n';
 import { useSession } from '@/components/session';
-import { AssistantCard, type Action, type Card } from './cards';
+import { AssistantCard, type Action, type Card, type EditOptions } from './cards';
 import { messages } from './messages';
-import { mergeTranscript, type TranscriptEntry } from './transcript';
+import { upsertCard } from './card-state';
+import { InterruptionDetector } from './interruption';
+import { setMicrophoneEnabled } from './microphone';
+import { SpeechPlayer, type SpeechItem } from './speech-player';
+import {
+  appendFinalTranscript,
+  applyChannelEvent,
+  type ChannelEvent,
+  type TranscriptEntry,
+} from './transcript';
 
 type LiveEvent =
   | { type: 'transcript'; role: 'user' | 'assistant'; text: string; final: boolean; item_id?: string }
   | { type: 'tool'; name: string; status: 'started' | 'done' | 'error' }
   | { type: 'card'; card: Card }
+  | ({ type: 'speak' } & SpeechItem)
   | { type: 'action'; action: Action }
   | { type: 'closed'; reason: string | null }
   | { type: 'error'; message: string };
@@ -20,12 +30,17 @@ type Adapter = {
     shop_id: number;
     sdp_offer: string;
     lang: string;
-  }) => Promise<{ conversation_id: string; sdp_answer: string }>;
+  }) => Promise<{ conversation_id: string; sdp_answer: string; voice_output?: 'checked' | 'codex' }>;
   startText: (input: { shop_id: number; lang: string }) => Promise<{ conversation_id: string }>;
   text: (id: string, text: string) => Promise<unknown>;
   stop: (id: string) => Promise<unknown>;
   eventsUrl: (id: string) => string;
   confirm: (id: string, key: string) => Promise<{ action: Action }>;
+  options: (id: string) => Promise<EditOptions>;
+  edit: (
+    id: string,
+    input: { quantity: number; model_id: number; line_index?: number },
+  ) => Promise<{ action: Action }>;
   cancel: (id: string) => Promise<{ action: Action }>;
 };
 
@@ -38,6 +53,7 @@ export function VoicePanel({ shopId, adapter }: { shopId: number; adapter: Adapt
   const [state, setState] = useState<'idle' | 'connecting' | 'active'>('idle');
   const [error, setError] = useState('');
   const [muted, setMuted] = useState(false);
+  const [pushToTalk, setPushToTalk] = useState(false);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const [checking, setChecking] = useState(false);
@@ -49,10 +65,16 @@ export function VoicePanel({ shopId, adapter }: { shopId: number; adapter: Adapt
     events?: EventSource;
     conversationId?: string;
     audio?: HTMLAudioElement;
+    audioContext?: AudioContext;
+    analyserTimer?: number;
   }>({});
   const scrollArea = useRef<HTMLDivElement>(null);
   const followConversation = useRef(true);
   const sequence = useRef(0);
+  const channelOpened = useRef(false);
+  // Checked output: the server sends only verified assistant text; the voice model's own text is never shown or played.
+  const checkedMode = useRef(false);
+  const player = useRef<SpeechPlayer | undefined>(undefined);
   const actionKeys = useRef(new Map<string, string>());
   const generation = useRef(0);
   const stopRef = useRef(adapter.stop);
@@ -61,6 +83,10 @@ export function VoicePanel({ shopId, adapter }: { shopId: number; adapter: Adapt
     generation.current++;
     const current = resources.current;
     resources.current = {};
+    player.current?.stop();
+    player.current = undefined;
+    if (current.analyserTimer !== undefined) window.clearInterval(current.analyserTimer);
+    void current.audioContext?.close().catch(() => undefined);
     current.events?.close();
     current.pc?.close();
     current.stream?.getTracks().forEach((track) => track.stop());
@@ -81,6 +107,9 @@ export function VoicePanel({ shopId, adapter }: { shopId: number; adapter: Adapt
     () => () => {
       generation.current++;
       const current = resources.current;
+      player.current?.stop();
+      if (current.analyserTimer !== undefined) window.clearInterval(current.analyserTimer);
+      void current.audioContext?.close().catch(() => undefined);
       current.events?.close();
       current.pc?.close();
       current.stream?.getTracks().forEach((track) => track.stop());
@@ -93,18 +122,18 @@ export function VoicePanel({ shopId, adapter }: { shopId: number; adapter: Adapt
     [],
   );
   function onEvent(event: LiveEvent) {
-    if (event.type === 'transcript')
-      setEntries((previous) => mergeTranscript(previous, event, sequence.current++));
+    if (
+      event.type === 'transcript' &&
+      (!channelOpened.current || (checkedMode.current && event.role === 'assistant'))
+    ) {
+      const id = sequence.current++;
+      setEntries((previous) => appendFinalTranscript(previous, event, id));
+    }
+    if (event.type === 'speak') player.current?.enqueue(event);
     if (event.type === 'tool') setChecking(event.status === 'started');
-    if (event.type === 'card') setCards((previous) => [...previous, event.card]);
+    if (event.type === 'card') setCards((previous) => upsertCard(previous, event.card));
     if (event.type === 'action')
-      setCards((previous) =>
-        previous.map((card) =>
-          card.kind === 'action' && card.action.action_id === event.action.action_id
-            ? { kind: 'action', action: event.action }
-            : card,
-        ),
-      );
+      setCards((previous) => upsertCard(previous, { kind: 'action', action: event.action }));
     if (event.type === 'closed') cleanup(false);
     if (event.type === 'error') setError(t('error'));
   }
@@ -128,6 +157,8 @@ export function VoicePanel({ shopId, adapter }: { shopId: number; adapter: Adapt
     setError('');
     setState('connecting');
     setEntries([]);
+    channelOpened.current = false;
+    checkedMode.current = false;
     setCards([]);
     const token = ++generation.current;
     try {
@@ -145,7 +176,9 @@ export function VoicePanel({ shopId, adapter }: { shopId: number; adapter: Adapt
       if (!window.RTCPeerConnection) throw new Error('microphone');
       let stream: MediaStream | undefined;
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        });
       } catch {
         throw new Error('microphone');
       }
@@ -167,12 +200,93 @@ export function VoicePanel({ shopId, adapter }: { shopId: number; adapter: Adapt
       };
       if (stream) pc.addTrack(stream.getAudioTracks()[0], stream);
       else pc.addTransceiver('audio', { direction: 'recvonly' });
-      pc.createDataChannel('oai-events');
+      let assistantPlaying = false;
+      let speechStart: number | undefined;
+      let micAnalyser: AnalyserNode | undefined;
+      let remoteAnalyser: AnalyserNode | undefined;
+      let context: AudioContext | undefined;
+      try {
+        context = new AudioContext();
+        resources.current.audioContext = context;
+        micAnalyser = context.createAnalyser();
+        micAnalyser.fftSize = 1024;
+        context.createMediaStreamSource(stream).connect(micAnalyser);
+        await context.resume();
+        if (generation.current !== token) {
+          void context.close().catch(() => undefined);
+          return;
+        }
+        player.current = new SpeechPlayer(context);
+        const detector = new InterruptionDetector();
+        const rms = (analyser: AnalyserNode | undefined) => {
+          if (!analyser) return 0;
+          const data = new Float32Array(analyser.fftSize);
+          analyser.getFloatTimeDomainData(data);
+          return Math.sqrt(data.reduce((sum, value) => sum + value * value, 0) / data.length);
+        };
+        resources.current.analyserTimer = window.setInterval(() => {
+          const output = checkedMode.current ? player.current?.analyser : remoteAnalyser;
+          if (!output) return;
+          const remote = rms(output);
+          const playing = checkedMode.current ? !!player.current?.speaking : assistantPlaying;
+          const detected = detector.sample(Date.now(), rms(micAnalyser), remote, playing || remote > 0.01);
+          if (detected !== undefined) {
+            speechStart = detected;
+            if (checkedMode.current) player.current?.stop();
+          }
+        }, 50);
+      } catch {
+        void context?.close().catch(() => undefined);
+        context = undefined;
+      }
+      const channel = pc.createDataChannel('oai-events');
+      channel.onopen = () => {
+        if (generation.current !== token) return;
+        channelOpened.current = true;
+        setEntries([]);
+      };
+      channel.onmessage = (event) => {
+        if (generation.current !== token || typeof event.data !== 'string') return;
+        try {
+          const payload = JSON.parse(event.data) as ChannelEvent;
+          const now = Date.now();
+          const role = 'turn' in payload ? (payload.turn as { role?: string } | undefined)?.role : undefined;
+          if (checkedMode.current) {
+            // Only the buyer's turns come from the channel; a new buyer turn interrupts playback.
+            if (role !== 'user' && payload.type !== 'turn.delta') return;
+            if (payload.type === 'turn.created') player.current?.stop();
+          }
+          if (
+            (payload.type === 'turn.created' || payload.type === 'turn.done') &&
+            (payload.turn as { role?: string } | undefined)?.role === 'assistant'
+          ) {
+            assistantPlaying = payload.type === 'turn.created';
+          }
+          const detection = {
+            available: context?.state === 'running' && !!micAnalyser && !!remoteAnalyser,
+            speechStart,
+          };
+          setEntries((previous) => applyChannelEvent(previous, payload, now, detection));
+        } catch {
+          // Ignore non-JSON protocol messages.
+        }
+      };
       const audio = new Audio();
       audio.autoplay = true;
       resources.current.audio = audio;
       pc.ontrack = (event) => {
+        // Checked output: the realtime model's own audio is never played; only checked speech is.
+        if (checkedMode.current) return;
         audio.srcObject = event.streams[0];
+        if (context && event.streams[0]) {
+          try {
+            remoteAnalyser = context.createAnalyser();
+            remoteAnalyser.fftSize = 1024;
+            context.createMediaStreamSource(event.streams[0]).connect(remoteAnalyser);
+          } catch {
+            remoteAnalyser = undefined;
+          }
+        }
         void audio.play().catch(() => setError(t('error')));
       };
       await pc.setLocalDescription(await pc.createOffer());
@@ -196,9 +310,11 @@ export function VoicePanel({ shopId, adapter }: { shopId: number; adapter: Adapt
         return;
       }
       resources.current.conversationId = result.conversation_id;
+      checkedMode.current = result.voice_output === 'checked';
       await pc.setRemoteDescription({ type: 'answer', sdp: result.sdp_answer });
       connectEvents(result.conversation_id);
       setMuted(false);
+      setPushToTalk(false);
       setState('active');
     } catch (e) {
       if (generation.current !== token) return;
@@ -234,13 +350,7 @@ export function VoicePanel({ shopId, adapter }: { shopId: number; adapter: Adapt
       const result = confirm
         ? await adapter.confirm(action.action_id, key)
         : await adapter.cancel(action.action_id);
-      setCards((previous) =>
-        previous.map((card) =>
-          card.kind === 'action' && card.action.action_id === action.action_id
-            ? { kind: 'action', action: result.action }
-            : card,
-        ),
-      );
+      setCards((previous) => upsertCard(previous, { kind: 'action', action: result.action }));
       window.dispatchEvent(new Event('huspee:cart-changed'));
     } catch {
       setError(t('error'));
@@ -303,6 +413,20 @@ export function VoicePanel({ shopId, adapter }: { shopId: number; adapter: Adapt
                     card={card}
                     pending={busy}
                     onAction={(item, confirm) => void action(item, confirm)}
+                    getOptions={adapter.options}
+                    onEdit={async (item, input) => {
+                      setBusy(true);
+                      try {
+                        const result = await adapter.edit(item.action_id, input);
+                        setCards((previous) =>
+                          upsertCard(previous, { kind: 'action', action: result.action }),
+                        );
+                      } catch {
+                        setError(t('error'));
+                      } finally {
+                        setBusy(false);
+                      }
+                    }}
                   />
                 ))}
                 {error && (
@@ -337,11 +461,44 @@ export function VoicePanel({ shopId, adapter }: { shopId: number; adapter: Adapt
                       {resources.current.stream && (
                         <button
                           className="rounded border px-3 py-2"
+                          aria-pressed={pushToTalk}
+                          onClick={() => {
+                            const next = !pushToTalk;
+                            setMicrophoneEnabled(resources.current.stream, !next && !muted);
+                            setPushToTalk(next);
+                          }}
+                        >
+                          {t('pushToTalk')}
+                        </button>
+                      )}
+                      {resources.current.stream && pushToTalk && (
+                        <button
+                          className="rounded border px-3 py-2"
+                          onPointerDown={(event) => {
+                            event.currentTarget.setPointerCapture(event.pointerId);
+                            setMicrophoneEnabled(resources.current.stream, true);
+                          }}
+                          onPointerUp={() => setMicrophoneEnabled(resources.current.stream, false)}
+                          onPointerCancel={() => setMicrophoneEnabled(resources.current.stream, false)}
+                          onKeyDown={(event) => {
+                            if (event.key === ' ' || event.key === 'Enter')
+                              setMicrophoneEnabled(resources.current.stream, true);
+                          }}
+                          onKeyUp={(event) => {
+                            if (event.key === ' ' || event.key === 'Enter')
+                              setMicrophoneEnabled(resources.current.stream, false);
+                          }}
+                          onBlur={() => setMicrophoneEnabled(resources.current.stream, false)}
+                        >
+                          {t('holdToTalk')}
+                        </button>
+                      )}
+                      {resources.current.stream && !pushToTalk && (
+                        <button
+                          className="rounded border px-3 py-2"
                           onClick={() => {
                             const next = !muted;
-                            resources.current.stream?.getAudioTracks().forEach((track) => {
-                              track.enabled = !next;
-                            });
+                            setMicrophoneEnabled(resources.current.stream, !next);
                             setMuted(next);
                           }}
                         >

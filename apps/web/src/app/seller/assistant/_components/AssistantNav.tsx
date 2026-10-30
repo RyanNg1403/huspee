@@ -25,6 +25,11 @@ export function AssistantNav() {
       label: t('tabConversations'),
       active: pathname.startsWith('/seller/assistant/conversations'),
     },
+    {
+      href: '/seller/assistant/insights',
+      label: t('tabInsights'),
+      active: pathname.startsWith('/seller/assistant/insights'),
+    },
   ];
 
   return (

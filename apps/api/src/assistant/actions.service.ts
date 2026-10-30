@@ -28,12 +28,13 @@ export class ActionsService {
       ...(action.result ? { result: action.result as PendingActionView['result'] } : {}),
     };
   }
-  private emit(action: PendingAction) {
+  /** `replaces`: the action the buyer edited on screen; the voice reads the new summary back. */
+  private emit(action: PendingAction, replaces?: string) {
     const view = this.view(action);
-    this.events.emitAction({ conversationId: action.conversationId, action: view });
+    this.events.emitAction({ conversationId: action.conversationId, action: view, ...(replaces ? { replaces } : {}) });
     return view;
   }
-  async prepareAdd(ctx: { conversationId: string; buyerId: number; shopId: number }, input: { item_id: number; model_id: number; quantity: number }) {
+  async prepareAdd(ctx: { conversationId: string; buyerId: number; shopId: number }, input: { item_id: number; model_id: number; quantity: number; quantity_resolution?: { resolved_from: string; resolved_to: string; confidence: number } }, replaces?: string) {
     const model = await this.prisma.model.findFirst({
       where: {
         id: input.model_id,
@@ -53,6 +54,7 @@ export class ActionsService {
         { label: 'Sản phẩm / Item', value: model.item.name },
         { label: 'Phân loại / Variant', value: modelName(model.item, model.tierIndex) || 'Mặc định / Default' },
         { label: 'Số lượng / Quantity', value: String(input.quantity) },
+        ...(input.quantity_resolution ? [{ label: 'Nghe được / Heard', value: `${input.quantity_resolution.resolved_from} → ${input.quantity_resolution.resolved_to}` }] : []),
         { label: 'Đơn giá / Unit price', value: String(price) },
         { label: 'Mã giảm giá / Voucher', value: 'Không có / None' },
       ],
@@ -68,11 +70,12 @@ export class ActionsService {
         expiresAt: new Date(Date.now() + 300000),
       },
     });
-    return this.emit(action);
+    return this.emit(action, replaces);
   }
   async prepareUpdate(
     ctx: { conversationId: string; buyerId: number; shopId: number },
-    input: { model_id: number; quantity?: number; new_model_id?: number },
+    input: { model_id: number; quantity?: number; new_model_id?: number; quantity_resolution?: { resolved_from: string; resolved_to: string; confidence: number } },
+    replaces?: string,
   ) {
     const line = await this.prisma.cartItem.findFirst({
       where: { userId: ctx.buyerId, modelId: input.model_id, model: { item: { shopId: ctx.shopId } } },
@@ -98,6 +101,7 @@ export class ActionsService {
         { label: 'Sản phẩm / Item', value: model.item.name },
         { label: 'Phân loại / Variant', value: modelName(model.item, model.tierIndex) || 'Mặc định / Default' },
         { label: 'Số lượng / Quantity', value: String(quantity) },
+        ...(input.quantity_resolution ? [{ label: 'Nghe được / Heard', value: `${input.quantity_resolution.resolved_from} → ${input.quantity_resolution.resolved_to}` }] : []),
         { label: 'Đơn giá / Unit price', value: String(price) },
         { label: 'Mã giảm giá / Voucher', value: 'Không có / None' },
       ],
@@ -122,11 +126,12 @@ export class ActionsService {
         expiresAt: new Date(Date.now() + 300000),
       },
     });
-    return this.emit(action);
+    return this.emit(action, replaces);
   }
   async prepareOrder(
     ctx: { conversationId: string; buyerId: number; shopId: number },
-    input: { voucher_code?: string; address_id?: number; payment_method?: PaymentMethod },
+    input: { voucher_code?: string; address_id?: number; payment_method?: PaymentMethod; resolution?: { resolved_from: string; resolved_to: string; confidence: number } },
+    replaces?: string,
   ) {
     const lines = await this.prisma.cartItem.findMany({
       where: { userId: ctx.buyerId, model: { item: { shopId: ctx.shopId } } },
@@ -156,9 +161,10 @@ export class ActionsService {
       lines: [
         ...group.lines.map((line) => ({
           label: line.item_name,
-          value: `${line.model_name || 'Mặc định / Default'} × ${line.quantity} @ ${line.unit_price} VND`,
+          value: `${line.model_name ? `${line.model_name} ` : ''}× ${line.quantity} @ ${line.unit_price} VND`,
         })),
         { label: 'Mã giảm giá / Voucher', value: group.voucher?.code ?? 'Không có / None' },
+        ...(input.resolution && input.resolution.resolved_from !== input.resolution.resolved_to ? [{ label: 'Nghe được / Heard', value: `${input.resolution.resolved_from} → ${input.resolution.resolved_to}` }] : []),
         {
           label: 'Địa chỉ / Address',
           value: [address.name, address.phone, address.address, address.town, address.district, address.city, address.state]
@@ -183,9 +189,9 @@ export class ActionsService {
         expiresAt: new Date(Date.now() + 300000),
       },
     });
-    return this.emit(action);
+    return this.emit(action, replaces);
   }
-  async prepareReturn(ctx: { conversationId: string; buyerId: number; shopId: number }, input: CreateReturnInput) {
+  async prepareReturn(ctx: { conversationId: string; buyerId: number; shopId: number }, input: CreateReturnInput, resolutions: Array<{ resolved_from: string; resolved_to: string; confidence: number }> = [], replaces?: string) {
     const { order, lines, refund } = await this.returns.preview(ctx.buyerId, input);
     if (order.shopId !== ctx.shopId) throw notFound('Order');
     const snapshot = returnSnapshot(lines, refund);
@@ -198,6 +204,7 @@ export class ActionsService {
           label: line.name,
           value: `${line.variant || 'Mặc định / Default'} × ${line.quantity} @ ${line.price} VND`,
         })),
+        ...resolutions.map((resolution) => ({ label: 'Nghe được / Heard', value: `${resolution.resolved_from} → ${resolution.resolved_to}` })),
         { label: 'Lý do / Reason', value: input.reason },
         { label: 'Phương án / Solution', value: input.solution },
         { label: 'Mã giảm giá / Voucher', value: order.voucherCode ?? 'Không có / None' },
@@ -214,7 +221,101 @@ export class ActionsService {
         expiresAt: new Date(Date.now() + 300000),
       },
     });
-    return this.emit(action);
+    return this.emit(action, replaces);
+  }
+  async editOptions(id: string, buyerId: number) {
+    const action = await this.prisma.pendingAction.findFirst({ where: { id, buyerId, status: 'PENDING', expiresAt: { gt: new Date() }, type: { in: ['ADD_TO_CART', 'UPDATE_CART_ITEM', 'OPEN_RETURN', 'PLACE_ORDER'] } } });
+    if (!action) throw notFound('Pending action');
+    if (action.type === 'PLACE_ORDER') {
+      const { checkout } = action.payload as unknown as { checkout: CheckoutInput & { cart_item_ids: number[] } };
+      const cart = await this.prisma.cartItem.findMany({
+        where: { id: { in: checkout.cart_item_ids }, userId: buyerId, model: { item: { shopId: action.shopId } } },
+        include: { model: { include: { item: { include: { models: { where: { status: 'MODEL_NORMAL' }, orderBy: { id: 'asc' } } } } } } },
+      });
+      const lines = checkout.cart_item_ids.map((cartItemId, index) => {
+        const line = cart.find((entry) => entry.id === cartItemId);
+        if (!line) throw invalidState('Cart changed; ask for a new order summary');
+        const item = line.model.item;
+        return { line_index: index, name: item.name, quantity: line.quantity, model_id: line.modelId,
+          models: item.models.filter((model) => model.isDefault !== item.hasModel).map((model) => ({ model_id: model.id, name: modelName(item, model.tierIndex) || 'Default', stock: model.stock })) };
+      });
+      return { ...lines[0]!, lines };
+    }
+    if (action.type === 'OPEN_RETURN') {
+      const payload = action.payload as unknown as { input: CreateReturnInput };
+      const order = await this.prisma.order.findFirst({ where: { orderSn: payload.input.order_sn, buyerId, shopId: action.shopId }, include: { items: true } });
+      if (!order || !payload.input.items?.length) throw notFound('Return items');
+      const lines = payload.input.items.map((line, index) => {
+        const purchased = order.items.find((item) => item.itemId === line.item_id && (line.model_id === 0 ? item.isDefaultModel : item.modelId === line.model_id));
+        if (!purchased) throw notFound('Order item');
+        return { line_index: index, name: purchased.itemName, quantity: line.quantity, model_id: line.model_id,
+          models: order.items.filter((item) => item.itemId === line.item_id).map((item) => ({ model_id: item.isDefaultModel ? 0 : item.modelId, name: item.modelName || 'Default', stock: item.quantity })) };
+      });
+      return { ...lines[0]!, lines };
+    }
+    const payload = action.payload as { item_id: number; model_id: number; new_model_id?: number; quantity: number };
+    const models = await this.prisma.model.findMany({
+      where: { itemId: payload.item_id, status: 'MODEL_NORMAL', item: { shopId: action.shopId, status: 'NORMAL', shop: { status: 'NORMAL', holidayMode: false } } },
+      include: { item: true }, orderBy: { id: 'asc' },
+    });
+    const line = { line_index: 0, name: models[0]?.item.name ?? '', quantity: payload.quantity, model_id: payload.new_model_id ?? payload.model_id,
+      models: models.filter((model) => model.isDefault !== model.item.hasModel).map((model) => ({ model_id: model.id, name: modelName(model.item, model.tierIndex) || 'Default', stock: model.stock })) };
+    return { ...line, lines: [line] };
+  }
+  async edit(id: string, buyerId: number, input: { quantity: number; model_id: number; line_index?: number }) {
+    const action = await this.prisma.pendingAction.findFirst({ where: { id, buyerId, status: 'PENDING', expiresAt: { gt: new Date() }, type: { in: ['ADD_TO_CART', 'UPDATE_CART_ITEM', 'OPEN_RETURN', 'PLACE_ORDER'] }, conversation: { status: 'ACTIVE' } } });
+    if (!action) throw notFound('Pending action');
+    const options = await this.editOptions(id, buyerId);
+    const selected = options.lines.find((line) => line.line_index === (input.line_index ?? 0));
+    if (!selected || !selected.models.some((model) => model.model_id === input.model_id)) throw notFound('Product variation');
+    let updatedReturn: CreateReturnInput | undefined;
+    if (action.type === 'OPEN_RETURN') {
+      const original = (action.payload as unknown as { input: CreateReturnInput }).input;
+      const items = original.items!.map((line, index) => index === selected.line_index ? { ...line, model_id: input.model_id, quantity: input.quantity } : line);
+      if (new Set(items.map((line) => `${line.item_id}:${line.model_id}`)).size !== items.length) throw invalidState('The same item cannot be returned twice');
+      updatedReturn = { ...original, items };
+      const preview = await this.returns.preview(buyerId, updatedReturn);
+      if (preview.order.shopId !== action.shopId) throw notFound('Order');
+    }
+    // Invalidate old consent atomically before issuing a new action. A concurrent confirm wins or loses, never both.
+    const cancelled = await this.prisma.pendingAction.updateMany({ where: { id, buyerId, status: 'PENDING', expiresAt: { gt: new Date() } }, data: { status: 'CANCELLED' } });
+    if (!cancelled.count) throw invalidState('Action is no longer pending');
+    this.emit(await this.prisma.pendingAction.findUniqueOrThrow({ where: { id } }));
+    const ctx = { conversationId: action.conversationId, buyerId, shopId: action.shopId };
+    if (action.type === 'PLACE_ORDER') {
+      // The buyer edits their own cart line on screen, like on the cart page; the order still needs a fresh tap.
+      const { checkout } = action.payload as unknown as { checkout: CheckoutInput & { cart_item_ids: number[] } };
+      await this.prisma.$transaction(
+        async (tx) => {
+          const line = await tx.cartItem.findFirst({ where: { id: checkout.cart_item_ids[selected.line_index], userId: buyerId } });
+          if (!line) throw invalidState('Cart changed; ask for a new order summary');
+          const model = await tx.model.findUniqueOrThrow({ where: { id: input.model_id } });
+          if (input.quantity > Math.min(model.stock, 999)) throw invalidState('Requested quantity is unavailable');
+          if (model.id !== line.modelId && (await tx.cartItem.findUnique({ where: { userId_modelId: { userId: buyerId, modelId: model.id } } })))
+            throw invalidState('Target variant already exists in cart; please update it separately');
+          await tx.cartItem.update({ where: { id: line.id }, data: { modelId: model.id, quantity: input.quantity } });
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      );
+      const voucher = checkout.shops?.[0]?.voucher_code;
+      return this.prepareOrder(ctx, { address_id: checkout.address_id, payment_method: checkout.payment_method, ...(voucher ? { voucher_code: voucher } : {}) }, id);
+    }
+    if (updatedReturn) return this.prepareReturn(ctx, updatedReturn, [], id);
+    const payload = action.payload as { item_id: number; model_id: number };
+    return action.type === 'ADD_TO_CART'
+      ? this.prepareAdd(ctx, { item_id: payload.item_id, model_id: input.model_id, quantity: input.quantity }, id)
+      : this.prepareUpdate(ctx, { model_id: payload.model_id, new_model_id: input.model_id, quantity: input.quantity }, id);
+  }
+  async latestPendingId(ctx: { conversationId: string; buyerId: number; shopId: number }): Promise<string> {
+    const candidates = await this.prisma.pendingAction.findMany({
+      where: { ...ctx, status: 'PENDING', expiresAt: { gt: new Date() } },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: 1,
+    });
+    const [action] = candidates;
+    if (!action) throw notFound('Pending action');
+    if (action.requiresTap) throw invalidState('Ask the buyer to tap the confirmation card');
+    return action.id;
   }
   async cancel(id: string, buyerId: number) {
     const action = await this.prisma.pendingAction.findFirst({ where: { id, buyerId } });

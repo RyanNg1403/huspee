@@ -1,0 +1,349 @@
+#!/usr/bin/env node
+import readline from "node:readline";
+if (process.argv.includes("--version")) {
+  console.log("codex-cli 0.166.0");
+  process.exit(0);
+}
+const send = (value) => process.stdout.write(JSON.stringify(value) + "\n");
+const { test, items, target } = JSON.parse(
+  process.env.HUSPEE_EVAL_FAKE || "{}",
+);
+let threadId;
+let lastData;
+let turnCount = 0;
+const wrongField = process.env.HUSPEE_EVAL_FAKE_WRONG_FIELD;
+function wrongValue(field, original) {
+  if (typeof original === "number") return original + 1;
+  if (typeof original === "boolean") return !original;
+  if (field === "order_status") return "CANCELLED";
+  if (field === "voucher_code") return "WRONG999";
+  return "WRONG";
+}
+function answer(text) {
+  if (process.env.HUSPEE_EVAL_FAKE_FAIL_TURN && turnCount === 1) {
+    send({
+      method: "turn/completed",
+      params: {
+        threadId,
+        turn: {
+          id: "eval-turn",
+          status: "failed",
+          error: { message: "rate limit" },
+        },
+      },
+    });
+    return;
+  }
+  if (wrongField && turnCount === 1 && lastData) {
+    if (wrongField === "faq") text += " Returns are allowed for 999 days.";
+    if (wrongField === "handoff_offered") text = "I do not know.";
+    if (["shipping_days_min", "shipping_days_max"].includes(wrongField))
+      text += " Delivery takes 999 days.";
+    if (wrongField === "return_status") text += " Return status: CANCELLED.";
+    if (wrongField === "return_eligible") text += " Eligible for return.";
+    if (wrongField === "voucher_eligible") text += " Voucher eligible.";
+    if (wrongField === "availability") text += " Out of stock.";
+    const data = lastData;
+    const values = {
+      price: data[0]?.price_min,
+      stock: (
+        (test.mustReportAvailability &&
+          data.models?.find((m) => m.stock === 0)) ||
+        data.models?.[0]
+      )?.stock,
+      voucher_code: data[0]?.code,
+      voucher_value: data[0]?.percentage ?? data[0]?.discount_amount,
+      voucher_min_spend: data[0]?.min_spend,
+      shipping_fee: data.channels?.[0]?.base_fee,
+      return_days: data.return_window_days,
+      order_status: data[0]?.status,
+      policy: data.return_policy,
+    };
+    const value = values[wrongField];
+    if (value !== undefined)
+      text = text.replace(String(value), String(wrongValue(wrongField, value)));
+  } else if (wrongField && turnCount === 2) {
+    try {
+      const claims = JSON.parse(text);
+      if (Array.isArray(claims)) {
+        if (wrongField === "faq")
+          claims.push({
+            entity: "return",
+            field: "faq",
+            value: "Returns are allowed for 999 days",
+            unit: null,
+          });
+        if (["shipping_days_min", "shipping_days_max"].includes(wrongField))
+          claims.push({
+            entity: lastData.channels?.[0]?.name ?? "shipping",
+            field: wrongField,
+            value: 999,
+            unit: "days",
+          });
+        if (
+          [
+            "return_status",
+            "return_eligible",
+            "voucher_eligible",
+            "availability",
+          ].includes(wrongField)
+        )
+          claims.push({
+            entity: wrongField === "availability" ? lastData.name : "return",
+            field: wrongField,
+            value:
+              wrongField === "return_status"
+                ? "CANCELLED"
+                : wrongField === "availability"
+                  ? false
+                  : true,
+            unit: null,
+          });
+        text = JSON.stringify(
+          claims.map((c) =>
+            c.field === wrongField &&
+            ![
+              "faq",
+              "shipping_days_min",
+              "shipping_days_max",
+              "return_status",
+              "return_eligible",
+              "voucher_eligible",
+              "availability",
+            ].includes(wrongField)
+              ? { ...c, value: wrongValue(wrongField, c.value) }
+              : c,
+          ),
+        );
+      }
+    } catch {
+      /* normal non-JSON responses are untouched */
+    }
+  }
+  send({
+    method: "item/completed",
+    params: { threadId, item: { type: "agentMessage", id: "answer", text } },
+  });
+  send({
+    method: "turn/completed",
+    params: { threadId, turn: { id: "eval-turn", status: "completed" } },
+  });
+}
+readline.createInterface({ input: process.stdin }).on("line", (line) => {
+  const message = JSON.parse(line);
+  if (message.id === 9877 && !message.method)
+    return answer("Your question has been sent to the seller.");
+  if (message.id === 9876 && !message.method) {
+    const vi = test.language === "vi";
+    let data;
+    try {
+      data = JSON.parse(message.result.contentItems[0].text);
+    } catch {
+      data = null;
+    }
+    if (test.requiredTool === "search_products" && Array.isArray(data?.items))
+      data = data.items;
+    lastData = data;
+    if (test.mustHandoff)
+      return send({
+        id: 9877,
+        method: "item/tool/call",
+        params: {
+          threadId,
+          tool: "handoff_to_seller",
+          arguments: {
+            question: test.question,
+            reason: "Information unavailable",
+          },
+        },
+      });
+    if (test.mustOfferHandoff)
+      return answer("I do not know. Would you like me to ask the seller?");
+    if (test.requiredTool === "search_products" && data?.length)
+      return answer(
+        vi
+          ? `Giá ${data[0].price_min} đồng.`
+          : `The price is ${data[0].price_min} VND.`,
+      );
+    if (test.requiredTool === "get_product_details" && data?.models?.length) {
+      const model =
+        (test.mustReportAvailability &&
+          data.models.find((m) => m.stock === 0)) ||
+        data.models[0];
+      const prefix = test.mustReportAvailability
+        ? data.models.some((m) => m.stock === 0)
+          ? "Phiên bản này hết hàng. "
+          : "Phiên bản này còn hàng. "
+        : "";
+      return answer(
+        vi
+          ? `${prefix}số lượng còn ${model.stock} sản phẩm.`
+          : `There are ${model.stock} items in stock.`,
+      );
+    }
+    if (test.requiredTool === "get_vouchers" && data?.length) {
+      const voucher = data[0];
+      const discount =
+        voucher.percentage == null
+          ? `${voucher.discount_amount} ${vi ? "đồng" : "VND"}`
+          : `${voucher.percentage}%`;
+      return answer(
+        vi
+          ? `Mã ${voucher.code}. Giảm ${discount}. Đơn tối thiểu ${voucher.min_spend} đồng.`
+          : `Voucher ${voucher.code}. Discount ${discount}. Minimum spend ${voucher.min_spend} VND.`,
+      );
+    }
+    if (test.requiredTool === "get_shipping_info" && data?.channels?.length) {
+      const ch = data.channels[0];
+      return answer(
+        vi
+          ? `Phí giao hàng ${ch.base_fee} đồng.`
+          : `Shipping fee is ${ch.base_fee} VND.`,
+      );
+    }
+    if (test.requiredTool === "get_shop_faqs" && data?.length) {
+      const faq = data.find((f) => f.lang === test.language) || data[0];
+      return answer(
+        vi
+          ? `Cửa hàng cho biết: ${faq.answer}`
+          : `The seller says: ${faq.answer}`,
+      );
+    }
+    if (test.requiredTool === "get_order_status" && data?.length)
+      return answer(
+        vi
+          ? `Trạng thái đơn hàng: ${data[0].status}.`
+          : `Your order status is ${data[0].status}.`,
+      );
+    if (test.requiredTool === "compare_products" && data?.length)
+      return answer(
+        vi
+          ? `Giá từ ${data[0].price_min} đồng. Còn ${data[0].rows.stock} sản phẩm.`
+          : `The price starts at ${data[0].price_min} VND. ${data[0].rows.stock} items in stock.`,
+      );
+    if (
+      test.requiredTool === "get_return_policy" &&
+      data &&
+      test.id.includes("return-text")
+    )
+      return answer(data.return_policy);
+    if (test.requiredTool === "get_return_policy" && data)
+      return answer(
+        vi
+          ? `Chính sách đổi trả trong ${data.return_window_days} ngày.`
+          : `The return policy allows ${data.return_window_days} days.`,
+      );
+    return answer(
+      vi
+        ? "Tôi đã tìm thông tin của cửa hàng. Bạn có thể xem chi tiết trên thẻ thông tin."
+        : "I found the shop information. You can view the details on the information card.",
+    );
+  }
+  if (message.id == null || !message.method) return;
+  const { method, params, id } = message;
+  if (method === "thread/start") {
+    threadId = "eval-thread";
+    return send({ id, result: { thread: { id: threadId } } });
+  }
+  if (method === "turn/start") {
+    send({ id, result: { turn: { id: "eval-turn" } } });
+    if (++turnCount === 2) {
+      const d = lastData;
+      const c = (entity, field, value, unit = null) => ({
+        entity,
+        field,
+        value,
+        unit,
+      });
+      let claims = [];
+      if (test.mustRefuse) claims = [c("request", "refused", true)];
+      else if (test.mustHandoff)
+        claims = [c("request", "handoff_offered", true)];
+      else if (test.mustOfferHandoff)
+        claims = [c("request", "handoff_offered", true)];
+      else if (test.requiredTool === "search_products" && d?.length)
+        claims = [c(d[0].name, "price", d[0].price_min)];
+      else if (
+        test.requiredTool === "get_product_details" &&
+        d?.models?.length
+      ) {
+        const m =
+          (test.mustReportAvailability &&
+            d.models.find((m) => m.stock === 0)) ||
+          d.models[0];
+        claims = [c(m.name || d.name, "stock", m.stock)];
+        if (test.mustReportAvailability || test.language === "en")
+          claims.push(c(m.name || d.name, "availability", m.stock > 0));
+      } else if (test.requiredTool === "get_vouchers" && d?.length) {
+        const v = d[0];
+        claims = [
+          c(v.code, "voucher_code", v.code),
+          c(v.code, "voucher_value", v.percentage ?? v.discount_amount),
+          c(v.code, "voucher_min_spend", v.min_spend),
+        ];
+      } else if (
+        test.requiredTool === "get_shipping_info" &&
+        d?.channels?.length
+      )
+        claims = [
+          c(d.channels[0].name, "shipping_fee", d.channels[0].base_fee, "VND"),
+        ];
+      else if (test.requiredTool === "get_order_status" && d?.length)
+        claims = [c(d[0].order_sn, "order_status", d[0].status)];
+      else if (
+        test.requiredTool === "get_return_policy" &&
+        d &&
+        test.id.includes("return-text")
+      )
+        claims = [
+          { ...c("return", "policy", d.return_policy), key: "return_policy" },
+        ];
+      else if (test.requiredTool === "get_return_policy" && d)
+        claims = [c("return", "return_days", d.return_window_days)];
+      else if (test.requiredTool === "get_shop_faqs" && d?.length) {
+        const faq = d.find((f) => f.lang === test.language) || d[0];
+        claims = [c(faq.question, "faq", faq.answer)];
+      } else if (test.requiredTool === "compare_products" && d?.length)
+        claims = [
+          c(d[0].name, "price", d[0].price_min),
+          c(d[0].name, "stock", d[0].rows.stock),
+          ...(test.language === "en"
+            ? [c(d[0].name, "availability", d[0].rows.stock > 0)]
+            : []),
+        ];
+      return setTimeout(() => answer(JSON.stringify(claims)), 10);
+    }
+    if (test.mustRefuse)
+      return setTimeout(
+        () =>
+          answer(
+            wrongField === "refused"
+              ? "I promise a 50% discount."
+              : "Tôi không thể cung cấp thông tin đó hoặc hứa giảm giá ngoài chính sách của cửa hàng.",
+          ),
+        10,
+      );
+    if (!test.requiredTool)
+      return setTimeout(() => answer("Tôi chưa có thông tin này."), 10);
+    const input =
+      test.requiredTool === "search_products"
+        ? { query: target?.name || "" }
+        : test.requiredTool === "get_product_details"
+          ? { item_id: target?.id }
+          : test.requiredTool === "get_shipping_info"
+            ? { item_id: target?.id }
+            : test.requiredTool === "compare_products"
+              ? { item_ids: items.map((item) => item.id) }
+              : {};
+    return setTimeout(
+      () =>
+        send({
+          id: 9876,
+          method: "item/tool/call",
+          params: { threadId, tool: test.requiredTool, arguments: input },
+        }),
+      10,
+    );
+  }
+  send({ id, result: {} });
+});

@@ -284,10 +284,13 @@ Phase 2 adds a per-shop, real-time voice assistant for buyers and seller-side co
   offer to our API and receives the answer from it; it never talks to Codex or OpenAI directly.
   No OpenAI API keys and no paid API calls. Pin the Codex CLI version: the realtime API is
   experimental (tested: codex-cli 0.166.0). Tools are registered as `dynamicTools` on the Codex
-  thread (`thread/start`); the realtime v3 voice hands questions off to that thread automatically
-  (`clientManagedHandoffs: false`), and the backend answers `item/tool/call` requests. Realtime
-  start has no tool field. Expect several seconds before a tool-backed answer is spoken: the UI
-  shows tool status and cards as soon as a tool returns. Details in `docs/VOICE.md`.
+  thread (`thread/start`); the realtime v3 voice hands questions off to that thread
+  (`clientManagedHandoffs: true`), and the backend answers `item/tool/call` requests. Realtime
+  start has no tool field. By default (`ASSISTANT_VOICE_OUTPUT=checked`) Codex realtime only
+  listens: the backend checks every sentence against tool results before it is spoken, and speaks
+  it with local text-to-speech (macOS `say`, else the browser's speech synthesis). Expect several
+  seconds before a tool-backed answer is spoken: the UI shows tool status and cards as soon as a
+  tool returns. Details in `docs/VOICE.md`.
 - **Tool layer.** Typed tools (e.g. `search_products`, `compare_products`, `get_product_details`,
   `get_vouchers`, `get_shipping_info`, `get_return_policy`, `get_order_status`, `add_to_cart`,
   `update_cart_item`, `place_order`, `open_return`, `handoff_to_seller`) implemented in the backend

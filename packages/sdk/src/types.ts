@@ -444,7 +444,7 @@ export interface AssistantFaq { id: number; shop_id: number; question: string; a
 export type AssistantFaqInput = Pick<AssistantFaq, 'question' | 'answer' | 'lang' | 'enabled'>;
 export interface PendingActionView { action_id: string; type: 'ADD_TO_CART' | 'UPDATE_CART_ITEM' | 'PLACE_ORDER' | 'OPEN_RETURN'; status: 'PENDING' | 'EXECUTED' | 'CANCELLED' | 'EXPIRED' | 'FAILED'; requires_tap: boolean; expires_at: number; summary: { title: string; lines: Array<{label: string; value: string}>; total?: number }; result?: { order_sn?: string; return_sn?: string; message?: string } }
 export type AssistantCard =
-  | { kind: 'products'; items: Array<{ item_id: number; name: string; image: string | null; price_min: number; price_max: number; stock: number; rating: number | null }> }
+  | { kind: 'products'; resolution?: { resolved_from: string; resolved_to: string; confidence: number }; items: Array<{ item_id: number; name: string; image: string | null; price_min: number; price_max: number; stock: number; rating: number | null }> }
   | { kind: 'product'; item_id: number; name: string; image: string | null; models: Array<{ model_id: number; name: string; price: number; stock: number }> }
   | { kind: 'compare'; items: Array<{ item_id: number; name: string; image: string | null; price_min: number; rows: Record<string, string> }> }
   | { kind: 'cart'; lines: Array<{ item_id: number; model_id: number; name: string; quantity: number; price: number }>; total: number }
@@ -463,3 +463,7 @@ export interface HandoffTicket { ticket_id: number; shop_id: number; shop_name: 
 export interface HandoffTicketDetail extends HandoffTicket { messages: HandoffMessage[] }
 export interface AssistantConversation { conversation_id: string; shop_id: number; buyer_id: number; channel: 'VOICE' | 'TEXT'; status: 'ACTIVE' | 'ENDED'; started_at: number; ended_at: number | null; language: string | null; summary: unknown }
 export interface AssistantConversationDetail extends AssistantConversation { messages: Array<{ id: number; role: 'USER' | 'ASSISTANT'; text: string; created_at: number }>; tool_calls: Array<{ id: number; tool: string; args: unknown; result: unknown; success: boolean; error: string | null; latency_ms: number; created_at: number }> }
+
+export interface AssistantInsightsTotals { conversations: number; voice: number; text: number; handoffs: number; orders_placed: number; returns_opened: number }
+export type AssistantSummary = { topics: string[]; hesitations: string[]; listing_suggestions: Array<{ item_id?: number; text: string }>; language: string; model: string; created_at: number } | { error: string };
+export interface AssistantInsights { source: 'logs'; from: number; to: number; totals: AssistantInsightsTotals; top_products: Array<{ item_id: number; name: string; count: number }>; missing_requests: Array<{ conversation_id: string; question: string; tool: string; created_at: number }>; unanswered_questions: Array<{ conversation_id: string; question: string; tool: string; created_at: number }>; daily: Array<AssistantInsightsTotals & { date: string }>; campaigns: Array<{ code: string; count: number }>; summaries: Array<{ conversation_id: string; source: 'model'; summary: AssistantSummary }> }

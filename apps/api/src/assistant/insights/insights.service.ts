@@ -1,0 +1,240 @@
+import { Injectable } from "@nestjs/common";
+import { PrismaService } from "../../common/prisma.service";
+
+const sec = (d: Date) => Math.floor(d.getTime() / 1000);
+const totals = () => ({
+  conversations: 0,
+  voice: 0,
+  text: 0,
+  handoffs: 0,
+  orders_placed: 0,
+  returns_opened: 0,
+});
+type Totals = ReturnType<typeof totals>;
+function walk(
+  value: unknown,
+  visit: (key: string, value: unknown) => void,
+): void {
+  if (Array.isArray(value)) {
+    value.forEach((v) => {
+      visit("", v);
+      walk(v, visit);
+    });
+    return;
+  }
+  if (!value || typeof value !== "object") return;
+  for (const [key, v] of Object.entries(value)) {
+    visit(key, v);
+    walk(v, visit);
+  }
+}
+function parsed(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  try {
+    return JSON.parse(value) as unknown;
+  } catch {
+    return value;
+  }
+}
+@Injectable()
+export class InsightsService {
+  constructor(private readonly prisma: PrismaService) {}
+  async get(shopId: number, from: number, to: number) {
+    const dates = { gte: new Date(from * 1000), lt: new Date((to + 1) * 1000) };
+    const [conversations, calls, tickets, actions] = await Promise.all([
+      this.prisma.conversation.findMany({
+        where: { shopId, startedAt: dates },
+        orderBy: { startedAt: "desc" },
+      }),
+      this.prisma.conversationToolCall.findMany({
+        where: {
+          conversation: { shopId },
+          createdAt: dates,
+          tool: { not: "speech_check" },
+        },
+        include: {
+          conversation: {
+            include: {
+              messages: {
+                where: { role: "USER" },
+                orderBy: { createdAt: "asc" },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: "asc" },
+      }),
+      this.prisma.handoffTicket.findMany({
+        where: { shopId, conversationId: { not: null }, createdAt: dates },
+      }),
+      this.prisma.pendingAction.findMany({
+        where: {
+          shopId,
+          status: "EXECUTED",
+          type: { in: ["PLACE_ORDER", "OPEN_RETURN"] },
+          updatedAt: dates,
+        },
+      }),
+    ]);
+    const total = totals();
+    const days = new Map<string, Totals>();
+    const inc = (date: Date, key: keyof Totals) => {
+      total[key]++;
+      const day = date.toISOString().slice(0, 10);
+      const entry = days.get(day) ?? totals();
+      entry[key]++;
+      days.set(day, entry);
+    };
+    for (const c of conversations) {
+      inc(c.startedAt, "conversations");
+      inc(c.startedAt, c.channel === "VOICE" ? "voice" : "text");
+    }
+    for (const t of tickets) inc(t.createdAt, "handoffs");
+    for (const a of actions)
+      inc(
+        a.updatedAt,
+        a.type === "PLACE_ORDER" ? "orders_placed" : "returns_opened",
+      );
+    const products = new Map<number, number>();
+    const campaigns = new Map<string, number>();
+    const missing: Array<{
+      conversation_id: string;
+      question: string;
+      tool: string;
+      created_at: number;
+    }> = [];
+    const unanswered = tickets.map((t) => ({
+      conversation_id: t.conversationId!,
+      question: t.subject,
+      tool: "handoff_to_seller",
+      created_at: sec(t.createdAt),
+    }));
+    for (const call of calls) {
+      const result = call.result as Record<string, unknown> | null;
+      const body = parsed(result?.text);
+      const card = result?.card;
+      const before = call.conversation.messages.filter(
+        (m) => m.createdAt <= call.createdAt,
+      );
+      // A variant lookup can land a turn after the question; prefer the recent message naming the value.
+      const missValue = (result?.missing as { value?: string } | undefined)
+        ?.value;
+      const question =
+        (missValue &&
+          before
+            .slice(-5)
+            .reverse()
+            .find((m) => plain(m.text ?? "").includes(plain(missValue)))
+            ?.text) ||
+        (before.at(-1)?.text ?? "");
+      const row = {
+        conversation_id: call.conversationId,
+        question,
+        tool: call.tool,
+        created_at: sec(call.createdAt),
+      };
+      if (
+        !call.success ||
+        body == null ||
+        body === "" ||
+        (Array.isArray(body) && body.length === 0)
+      )
+        unanswered.push(row);
+      const structuredMiss = Boolean(result?.missing || result?.out_of_stock);
+      if (
+        ["search_products", "get_product_details", "compare_products"].includes(
+          call.tool,
+        )
+      ) {
+        const ids = new Set<number>();
+        let zero = false;
+        const inspect = (key: string, v: unknown) => {
+          if (key === "item_id" && typeof v === "number") ids.add(v);
+          if (key === "item_ids" && Array.isArray(v))
+            v.forEach((id: unknown) => {
+              if (typeof id === "number") ids.add(id);
+            });
+          if (key === "stock" && (v === 0 || v === "0")) zero = true;
+        };
+        walk(call.args, inspect);
+        walk(body, inspect);
+        walk(card, inspect);
+        for (const id of ids) products.set(id, (products.get(id) ?? 0) + 1);
+        if (structuredMiss || zero || (call.success && Array.isArray(body) && body.length === 0))
+          missing.push(row);
+      }
+      if (
+        ["add_to_cart", "update_cart_item"].includes(call.tool) &&
+        (structuredMiss || (!call.success && body === "Product variation not found"))
+      )
+        missing.push(row);
+      if (["get_vouchers", "place_order"].includes(call.tool)) {
+        const codes = new Set<string>();
+        const inspect = (key: string, v: unknown) => {
+          if (
+            ["voucher_code", "code"].includes(key) &&
+            typeof v === "string" &&
+            v
+          )
+            codes.add(v);
+        };
+        walk(body, inspect);
+        walk(card, inspect);
+        const findVoucherLine = (_key: string, v: unknown) => {
+          if (v && typeof v === "object" && !Array.isArray(v)) {
+            const line = v as Record<string, unknown>;
+            if (
+              line.label === "Mã giảm giá / Voucher" &&
+              typeof line.value === "string" &&
+              line.value !== "Không có / None"
+            )
+              codes.add(line.value);
+          }
+        };
+        walk(body, findVoucherLine);
+        walk(card, findVoucherLine);
+        for (const code of codes)
+          campaigns.set(code, (campaigns.get(code) ?? 0) + 1);
+      }
+    }
+    const items = await this.prisma.item.findMany({
+      where: { shopId, id: { in: [...products.keys()] } },
+      select: { id: true, name: true },
+    });
+    const top_products = items
+      .map((i) => ({ item_id: i.id, name: i.name, count: products.get(i.id)! }))
+      .sort((a, b) => b.count - a.count || a.item_id - b.item_id);
+    return {
+      source: "logs" as const,
+      from,
+      to,
+      totals: total,
+      top_products,
+      missing_requests: missing,
+      unanswered_questions: unanswered,
+      daily: [...days]
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([date, counts]) => ({ date, ...counts })),
+      campaigns: [...campaigns]
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([code, count]) => ({ code, count })),
+      summaries: conversations
+        .filter((c) => c.summary !== null)
+        .map((c) => ({
+          conversation_id: c.id,
+          source: "model" as const,
+          summary: c.summary,
+        })),
+    };
+  }
+}
+
+function plain(value: string): string {
+  return value
+    .toLocaleLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}

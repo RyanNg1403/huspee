@@ -15,6 +15,7 @@ export const serverEnv = {
   ...process.env,
   NODE_ENV: 'test',
   ASSISTANT_TOOL_DEBUG: 'true',
+  ASSISTANT_TTS: 'browser',
   DATABASE_URL,
   PORT: String(TEST_PORT),
   PUBLIC_BASE_URL: API,

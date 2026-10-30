@@ -139,32 +139,50 @@ export class OAuthService {
   async refresh(partnerId: number, refreshToken: string, shopId: number | undefined): Promise<IssuedTokens> {
     if (!refreshToken) throw new ShopeeError('error_param', 'Missing refresh_token', 400);
     if (!shopId) throw new ShopeeError('error_param', 'shop_id is required (merchant_id flow is not supported)', 400);
-    const existing = await this.prisma.refreshToken.findUnique({ where: { tokenHash: sha256Hex(refreshToken) } });
-    if (existing && existing.usedAt && !existing.revokedAt && existing.partnerId === partnerId && existing.shopId === shopId) {
-      // Reuse of a rotated refresh token: treat as compromise and revoke the whole token family.
-      await this.prisma.$transaction((tx) => revokeTokens(tx, existing.authorizationId));
-      throw new ShopeeError('error_param', 'refresh_token has already been used', 403);
-    }
-    return this.prisma.$transaction(async (tx) => {
+    const tokenHash = sha256Hex(refreshToken);
+
+    const result = await this.prisma.$transaction(async (tx) => {
       const record = await tx.refreshToken.findUnique({
-        where: { tokenHash: sha256Hex(refreshToken) },
+        where: { tokenHash },
         include: { authorization: true },
       });
       if (!record || record.partnerId !== partnerId || record.shopId !== shopId) {
-        throw new ShopeeError('error_param', 'Invalid refresh_token', 403);
+        return { kind: 'error' as const, error: new ShopeeError('error_param', 'Invalid refresh_token', 403) };
       }
-      if (record.revokedAt) throw new ShopeeError('error_param', 'refresh_token has been revoked', 403);
-      if (record.usedAt) throw new ShopeeError('error_param', 'refresh_token has already been used', 403);
-      if (record.expiresAt <= new Date()) throw new ShopeeError('error_param', 'refresh_token has expired', 403);
-      assertGrantUsable(record.authorization);
+      if (record.revokedAt) {
+        return { kind: 'error' as const, error: new ShopeeError('error_param', 'refresh_token has been revoked', 403) };
+      }
+      if (record.usedAt) {
+        return { kind: 'compromise' as const, authorizationId: record.authorizationId };
+      }
+      if (record.expiresAt <= new Date()) {
+        return { kind: 'error' as const, error: new ShopeeError('error_param', 'refresh_token has expired', 403) };
+      }
+      if (record.authorization.status !== 'ACTIVE' || record.authorization.expiresAt <= new Date()) {
+        return { kind: 'error' as const, error: new ShopeeError('error_auth', 'Shop authorization has been revoked or expired', 403) };
+      }
 
       const used = await tx.refreshToken.updateMany({
-        where: { tokenHash: record.tokenHash, usedAt: null },
+        where: { tokenHash, usedAt: null },
         data: { usedAt: new Date() },
       });
-      if (used.count !== 1) throw new ShopeeError('error_param', 'refresh_token has already been used', 403);
-      return issueTokens(tx, record.authorization);
+      if (used.count !== 1) {
+        return { kind: 'compromise' as const, authorizationId: record.authorizationId };
+      }
+
+      const issued = await issueTokens(tx, record.authorization);
+      return { kind: 'success' as const, tokens: issued };
     });
+
+    if (result.kind === 'error') {
+      throw result.error;
+    }
+    if (result.kind === 'compromise') {
+      // Reuse of a rotated refresh token: treat as compromise and revoke the whole token family.
+      await this.prisma.$transaction((tx) => revokeTokens(tx, result.authorizationId));
+      throw new ShopeeError('error_param', 'refresh_token has already been used', 403);
+    }
+    return result.tokens;
   }
 
   /**

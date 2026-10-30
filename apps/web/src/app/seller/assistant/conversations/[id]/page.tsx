@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useMemo, useState } from 'react';
+import type { AssistantSummary } from '@huspee/sdk';
 import { Badge, Card, EmptyState, ErrorState, Spinner } from '@/components/ui';
 import { useLang, useT } from '@/i18n';
 import { formatDateTime } from '@/lib/format';
@@ -198,6 +199,9 @@ function ConversationDetailContent({ shopId, conversationId }: { shopId: number;
       ? Math.max(0, Math.floor(detail.ended_at - detail.started_at))
       : null;
 
+  const summary =
+    detail.summary && typeof detail.summary === 'object' ? (detail.summary as AssistantSummary) : null;
+
   return (
     <div className="space-y-6">
       {/* Header and Back Link */}
@@ -243,6 +247,105 @@ function ConversationDetailContent({ shopId, conversationId }: { shopId: number;
           <p className="mt-0.5 font-medium text-gray-900">{durationSec !== null ? `${durationSec}s` : '-'}</p>
         </div>
       </Card>
+
+      {/* AI Summary Block (Read-only) */}
+      {summary ? (
+        <Card className="space-y-4 border-indigo-100 bg-linear-to-br from-indigo-50/40 via-white to-purple-50/30 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-indigo-100/70 pb-3">
+            <div className="flex items-center gap-2">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-xs text-white">
+                ✨
+              </span>
+              <h2 className="text-sm font-semibold text-gray-900">{t('detailSummaryTitle')}</h2>
+              <Badge tone="info">{t('aiSummaryBadge')}</Badge>
+            </div>
+            {'model' in summary && (
+              <span className="text-[11px] text-gray-500">
+                {t('modelAttribution', { model: summary.model })}
+                {'created_at' in summary && typeof summary.created_at === 'number'
+                  ? ` • ${formatDateTime(summary.created_at, lang)}`
+                  : ''}
+              </span>
+            )}
+          </div>
+
+          {'error' in summary ? (
+            <p className="text-xs text-amber-700">
+              {t('summaryFailed')}: {summary.error}
+            </p>
+          ) : (
+            <div className="grid gap-4 text-xs sm:grid-cols-3">
+              {/* Topics */}
+              <div className="space-y-1.5">
+                <span className="font-semibold uppercase tracking-wider text-indigo-900">
+                  {t('topicsLabel')}
+                </span>
+                {Array.isArray(summary.topics) && summary.topics.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {summary.topics.map((topic, i) => (
+                      <span
+                        key={i}
+                        className="rounded-md bg-white px-2 py-0.5 text-xs font-medium text-indigo-700 shadow-2xs border border-indigo-100"
+                      >
+                        {topic}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-400">{t('summaryEmptyTopics')}</p>
+                )}
+              </div>
+
+              {/* Hesitations */}
+              <div className="space-y-1.5">
+                <span className="font-semibold uppercase tracking-wider text-amber-900">
+                  {t('hesitationsLabel')}
+                </span>
+                {Array.isArray(summary.hesitations) && summary.hesitations.length > 0 ? (
+                  <ul className="list-disc list-inside space-y-1 pt-1 text-gray-700">
+                    {summary.hesitations.map((h, i) => (
+                      <li key={i}>{h}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-gray-400">{t('summaryEmptyHesitations')}</p>
+                )}
+              </div>
+
+              {/* Suggestions */}
+              <div className="space-y-1.5">
+                <span className="font-semibold uppercase tracking-wider text-emerald-900">
+                  {t('suggestionsLabel')}
+                </span>
+                {Array.isArray(summary.listing_suggestions) && summary.listing_suggestions.length > 0 ? (
+                  <ul className="space-y-1.5 pt-1 text-gray-700">
+                    {summary.listing_suggestions.map((s, i) => (
+                      <li key={i} className="flex items-start gap-1">
+                        <span className="text-emerald-600">•</span>
+                        <span>
+                          {s.text}
+                          {typeof s.item_id === 'number' && (
+                            <Link
+                              href={`/products/${s.item_id}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="ml-1.5 inline-flex items-center text-primary font-medium hover:underline"
+                            >
+                              📦 {t('itemLink', { id: s.item_id })}
+                            </Link>
+                          )}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-gray-400">{t('summaryEmptySuggestions')}</p>
+                )}
+              </div>
+            </div>
+          )}
+        </Card>
+      ) : null}
 
       {/* Mentioned Items and Orders Bar */}
       {(mentions.items.length > 0 || mentions.orders.length > 0) && (

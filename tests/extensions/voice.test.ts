@@ -2,31 +2,38 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
-import { mergeTranscript, type TranscriptEntry } from '../../apps/web/src/components/assistant/transcript.js';
+import { appendFinalTranscript, applyChannelEvent, type ChannelEvent, type TranscriptEntry } from '../../apps/web/src/components/assistant/transcript.js';
+import { readFileSync } from 'node:fs';
 import { VoiceRuntime } from '../../apps/api/src/assistant/voice/voice-runtime.js';
+import { speechText } from '../../apps/api/src/assistant/voice/speech-check.js';
 
 
-it('merges delayed finals and marks interrupted assistant speech', () => {
+it('replays captured channel turns without duplicates and marks the overlapping interruption once', () => {
+  const fixture = JSON.parse(readFileSync(resolve(__dirname, '../helpers/fake-codex/channel-turns.json'), 'utf8')) as { at: number; event: ChannelEvent }[];
+  const entries = fixture.reduce<TranscriptEntry[]>((state, item) => applyChannelEvent(state, item.event, item.at), []);
+  expect(new Set(entries.map((entry) => entry.id)).size).toBe(entries.length);
+  expect(entries.filter((entry) => entry.cutOff).map((entry) => entry.id)).toEqual(['turn-4']);
+  expect(entries.find((entry) => entry.id === 'turn-4')).toMatchObject({ text: 'final turn-4', final: true });
+});
+
+it('keeps rapid user turns separate and uses only final SSE events as fallback', () => {
   let entries: TranscriptEntry[] = [];
-  const add = (role: 'user' | 'assistant', text: string, final: boolean, item_id?: string) => {
-    entries = mergeTranscript(entries, { role, text, final, item_id }, entries.length);
-  };
-  add('user', 'Hãy tìm', false); add('user', ' tai nghe', false);
-  add('assistant', ' Mình', false); add('user', 'Hãy tìm tai nghe', true);
-  expect(entries).toHaveLength(2);
-  expect(entries[0]).toMatchObject({ text: 'Hãy tìm tai nghe', final: true });
-  add('user', 'Còn hàng không?', false);
-  expect(entries[1]).toMatchObject({ text: ' Mình', cutOff: true });
-  add('user', 'Còn hàng không?', true); add('user', 'Còn hàng không?', true);
-  expect(entries).toHaveLength(3);
-  add('assistant', 'Giá ', false, 'item-1'); add('assistant', '790.000', false, 'item-1');
-  add('assistant', 'Giá 790.000', true, 'item-1');
-  expect(entries.at(-1)).toMatchObject({ text: 'Giá 790.000', final: true });
+  for (const event of [
+    { type: 'turn.created', turn: { id: 'a', role: 'user', transcript: 'one' } },
+    { type: 'turn.created', turn: { id: 'b', role: 'user', transcript: 'two' } },
+    { type: 'turn.done', turn: { id: 'a', role: 'user', transcript: 'one final' } },
+    { type: 'turn.done', turn: { id: 'b', role: 'user', transcript: 'two final' } },
+  ] as ChannelEvent[]) entries = applyChannelEvent(entries, event, 100);
+  expect(entries.map((entry) => entry.text)).toEqual(['one final', 'two final']);
+  expect(appendFinalTranscript([], { role: 'user', text: 'partial', final: false }, 1)).toEqual([]);
+  expect(appendFinalTranscript([], { role: 'user', text: 'final', final: true }, 2)).toMatchObject([{ text: 'final' }]);
 });
 
 it('starts a text-only fake thread with tools and streams its answer', async () => {
   const calls: unknown[] = []; const saved: unknown[] = [];
   const runtime = new VoiceRuntime({ specs: () => [{ name: 'search_products', description: 'Search', inputSchema: {} }], run: async (_name, _args, ctx) => { calls.push(ctx); return { success: true, text: 'Verified' }; } }, async (_ctx, role, text) => { saved.push({ role, text }); }, async () => undefined);
+  const completion: unknown[] = [];
+  runtime.onTurnCompleted = (conversationId, status) => completion.push({ conversationId, status, saved: [...saved] });
   const ctx = { conversationId: 'text-session', buyerId: 1, shopId: 2 };
   const config = { shopName: 'Shop', tone: 'FRIENDLY', greetingVi: 'Xin chào', greetingEn: 'Hello', voice: 'spruce' };
   try {
@@ -38,6 +45,7 @@ it('starts a text-only fake thread with tools and streams its answer', async () 
     expect(calls).toEqual([ctx]);
     expect(events).toContainEqual({ type: 'transcript', role: 'assistant', text: 'Verified product', final: true, item_id: 'text-1' });
     expect(saved).toContainEqual({ role: 'assistant', text: 'Verified product' });
+    expect(completion).toEqual([{ conversationId: ctx.conversationId, status: 'completed', saved: expect.arrayContaining([{ role: 'assistant', text: 'Verified product' }, { role: 'assistant', text: 'Final answer' }]) }]);
     await runtime.stop(ctx.conversationId, 1);
   } finally { runtime.close(); }
 });
@@ -76,6 +84,7 @@ describe('voice runtime with fake app-server', () => {
         ended.push(ctx);
       },
     );
+    runtime.synthesize = async () => null;
     const ctx = { conversationId: 'conversation-1', buyerId: 1, shopId: 2 };
     const config = { shopName: 'Shop', tone: 'FRIENDLY', greetingVi: 'Xin chào', greetingEn: 'Hello', voice: 'spruce' };
     try {
@@ -99,17 +108,15 @@ describe('voice runtime with fake app-server', () => {
         status: 'EXECUTED',
         requires_tap: true,
         summary: { title: 'Order confirmed' },
+        result: { order_sn: 'SN1' },
       });
       await new Promise((resolveWait) => setTimeout(resolveWait, 30));
-      expect(events).toContainEqual({
-        type: 'transcript',
-        role: 'assistant',
-        text: '[App] Order confirmed: EXECUTED',
-        final: false,
-      });
+      // Checked output: a fixed server sentence is spoken; the realtime model's reply to the app note is not.
+      expect(events).toContainEqual(expect.objectContaining({ type: 'speak', text: speechText.orderPlaced.en, lang: 'en' }));
+      expect(JSON.stringify(events)).not.toContain('[App]');
       expect(events).toContainEqual({
         type: 'action',
-        action: { status: 'EXECUTED', requires_tap: true, summary: { title: 'Order confirmed' } },
+        action: { status: 'EXECUTED', requires_tap: true, summary: { title: 'Order confirmed' }, result: { order_sn: 'SN1' } },
       });
       await runtime.text(ctx.conversationId, 1, 'Typed question');
       expect(events).toContainEqual({ type: 'transcript', role: 'user', text: 'Typed question', final: true });

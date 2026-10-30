@@ -46,8 +46,8 @@ fields or unpublished items):
 
 | Tool | Purpose |
 |---|---|
-| `search_products(query, min_price?, max_price?, limit?)` | Public items of this shop, with price range and stock per item |
-| `get_product_details(item_id)` | Description, attributes, variants (model_id, name, price, stock), rating |
+| `search_products(query, min_price?, max_price?, limit?, requested_attributes?)` | Public items of this shop, with price range and stock per item |
+| `get_product_details(item_id, requested_attributes?)` | Description, attributes, variants (model_id, name, price, stock), rating |
 | `compare_products(item_ids[2..4])` | Side-by-side facts |
 | `get_vouchers()` | Public, currently usable vouchers of this shop with rules |
 | `get_shipping_info(item_id?)` | Channels, fees and times from seeded/persisted data |
@@ -55,12 +55,14 @@ fields or unpublished items):
 | `get_shop_faqs(query?)` | Enabled seller FAQs (verified data) |
 | `get_cart()` | The buyer's cart lines for this shop, with API-computed totals |
 | `get_order_status(order_sn?)` | The buyer's own orders with this shop (latest 5 if no order_sn), status and tracking |
-| `add_to_cart(item_id, model_id, quantity)` | Creates a `PendingAction` (requiresTap false) and returns its readback |
+| `add_to_cart(item_id, model_id, quantity, requested_attributes?)` | Creates a `PendingAction` (requiresTap false) and returns its readback |
 | `update_cart_item(model_id, quantity?, new_model_id?)` | Same, `UPDATE_CART_ITEM` |
 | `place_order(voucher_code?, address_id?, payment_method?)` | Creates a `PendingAction` (requiresTap **true**) from a server checkout preview of this shop's cart lines; readback has items, totals, voucher, address |
 | `open_return(order_sn, items[{item_id, model_id, quantity}], reason, solution)` | `PendingAction` (requiresTap **true**) after eligibility checks |
-| `confirm_action(action_id)` | Executes a PENDING, unexpired action of this conversation **only if requiresTap is false** (the model calls it after a spoken yes). Tap-required actions return an error telling the model to ask the buyer to tap the card |
+| `confirm_action(action_id?)` | With no ID, selects the latest unexpired pending action in this conversation ordered by creation time then ID descending (the ID breaks equal timestamps deterministically), refusing a tap-required action; otherwise executes a PENDING, unexpired action of this conversation **only if requiresTap is false** (the model calls it after a spoken yes). Tap-required actions return an error telling the model to ask the buyer to tap the card |
 | `handoff_to_seller(question, reason)` | Creates or appends to an OPEN `HandoffTicket` for this buyer+shop with the question and a transcript excerpt; returns a handoff card |
+
+Optional `requested_attributes` maps buyer-requested variant attributes to free-string values. The registry compares normalized values against variant options and logs `missing: {attribute, value}` or `out_of_stock: true`. Matching ignores case, Vietnamese accents and spacing, and recognizes a small set of Vietnamese and English color and size synonyms; it does not translate arbitrary descriptions.
 
 Execution reuses Phase 1 domain services (cart, checkout with idempotency, returns). Prices,
 totals and discounts always come from those services, never from the model.
@@ -172,3 +174,39 @@ fails, whichever path did it (tool or route). Voice imports `AssistantModule`, s
 `[App]` note to the live realtime thread. Voice registers its own `VoiceModule` in app.module.ts.
 
 Voice catalog seam: `apps/api/src/assistant/voice-catalog.ts` (core) exports `VoiceCatalogRegistry` (`register(catalog)`, `list()` with static fallback); VoiceModule registers its runtime catalog in `onModuleInit`; seller config validates `voice` through it.
+
+## 7. Seller insights
+
+`GET /api/v1/seller/shops/:shopId/assistant/insights?from&to` requires seller membership. `from` and `to` are inclusive Unix seconds; default is the last 30 days ending now, maximum span 90 days. `POST /api/v1/seller/shops/:shopId/assistant/conversations/:id/summary` requires membership and schedules a summary for an ended conversation; it returns `{ scheduled: boolean }` (false when voice is disabled). SDK: `client.seller.assistant.insights(shopId, range)` and `.summarize(shopId, conversationId)`.
+
+The response is `{ source: 'logs', from, to, totals, top_products, missing_requests, unanswered_questions, daily, campaigns, summaries }`. `totals` contains `conversations`, `voice`, `text`, `handoffs`, `orders_placed`, `returns_opened`; `top_products` rows contain `item_id`, `name`, `count`; `missing_requests` and `unanswered_questions` contain `conversation_id`, `question`, `tool`, `created_at`; `daily` rows contain `date` (UTC), and the totals fields; `campaigns` rows contain `code`, `count`; `summaries` rows contain `conversation_id`, `source: 'model'`, and `summary`. Summary is `{ topics: string[], hesitations: string[], listing_suggestions: Array<{ item_id?: number; text: string }>, language: string, model: string, created_at: number }` or `{ error: string }`.
+
+Definitions (all records belong to selected shop and have their own timestamp in the inclusive range):
+- Conversations, voice, text: conversation starts, split by channel.
+- Handoffs: tickets created with a conversation.
+- Orders placed and returns opened: executed pending actions of the respective type, counted by update time.
+- Top products: distinct item IDs per search/details/compare tool call from arguments and structured result, counted once per call; names come from the shop catalog.
+- Missing requests: structured requested-attribute misses and matching out-of-stock variants from search/details/cart calls, plus search/details/compare results with zero stock or an empty search and cart calls reporting a missing variation; question is the latest preceding buyer message, if any.
+- Unanswered questions: handoff tickets and failed or empty tool results; question is the ticket subject or latest preceding buyer message, respectively.
+- Daily: the above total counts grouped by UTC date of each record's relevant timestamp.
+- Campaigns: distinct voucher codes per get_vouchers/place_order call, extracted from structured results, counted once per call.
+- Summaries: latest stored summaries of conversations started in range, newest first; model wording is distinct from verified log counts.
+
+## 8. Speech resolution and cart action edits
+
+`search_products` compares accent-insensitive name tokens and bounded token edit distance within the
+conversation's shop. Multiple matches are returned as candidates, not selected automatically. A single
+match includes `resolution` with `resolved_from`, `resolved_to`, and a deterministic lexical confidence;
+this is not an estimate of microphone or model confidence. `place_order` resolves a supplied voucher
+against active, public, non-exhausted shop codes using spoken Vietnamese/English number normalization
+and edit distance at most two; multiple plausible fuzzy matches return candidates and no pending order. Checkout still independently
+checks eligibility. Cart and return tool quantities accept integers or unambiguous spoken Vietnamese and
+English numbers; invalid words fail validation. The action summary shows spoken quantities and voucher
+resolution alongside the exact server-derived details.
+
+`GET /api/v1/assistant/actions/:id/options` and `PATCH /api/v1/assistant/actions/:id` are buyer-session
+routes for pending cart additions, updates, and returns. Options list only variants of the original shop product or purchased order lines;
+the PATCH accepts only `model_id` and `quantity`, rejects client prices, invalidates the previous action
+atomically, revalidates stock and price, and creates a new action requiring fresh spoken consent; returns also require an on-screen tap. If
+revalidation fails after invalidation, the old action remains cancelled and the buyer must prepare it
+again. Checkout cards do not currently offer these edit controls; change the cart and prepare a new order before confirmation.

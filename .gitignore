@@ -6,3 +6,6 @@ dist/
 coverage/
 .token/
 *.log
+
+evals/runs/
+apps/api/evals/

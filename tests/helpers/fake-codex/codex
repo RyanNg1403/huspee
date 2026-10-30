@@ -8,20 +8,47 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
   if (message.id == null || !message.method) return;
   const { method, params, id } = message;
   if (method === 'thread/start') send({ id, result: { thread: { id: `thread-${++thread}` } } });
+  else if (method === 'turn/start' && params.input?.[0]?.text?.startsWith('Summarize this single conversation')) {
+    send({ id, result: { turn: { id: 'summary-turn' } } });
+    const text = params.input[0].text.includes('FAKE_SUMMARY_ERROR') ? 'invalid JSON' : JSON.stringify({ topics: ['product'], hesitations: [], listing_suggestions: [{ text: 'Clarify details' }], language: 'en' });
+    setTimeout(() => send({ method: 'item/completed', params: { threadId: params.threadId, item: { type: 'agentMessage', id: 'summary-1', text } } }), 20);
+  }
   else if (method === 'turn/start') {
     send({ id, result: { turn: { id: 'turn-1' } } });
     setTimeout(() => {
       send({ id: 10002, method: 'item/tool/call', params: { threadId: params.threadId, tool: 'search_products', arguments: { query: 'tai nghe' } } });
       send({ method: 'item/agentMessage/delta', params: { threadId: params.threadId, itemId: 'text-1', delta: 'Verified' } });
       send({ method: 'item/completed', params: { threadId: params.threadId, item: { type: 'agentMessage', id: 'text-1', text: 'Verified product' } } });
+      setTimeout(() => {
+        send({ method: 'item/completed', params: { threadId: params.threadId, item: { type: 'agentMessage', id: 'text-2', text: 'Final answer' } } });
+        send({ method: 'turn/completed', params: { threadId: params.threadId, turn: { id: 'turn-1', status: 'completed' } } });
+      }, 30);
     }, 20);
   }
   else if (method === 'thread/realtime/start') {
     send({ id, result: {} });
     send({ method: 'thread/realtime/sdp', params: { threadId: params.threadId, sdp: 'fake-answer' } });
     setTimeout(() => {
-      send({ method: 'thread/realtime/transcript/done', params: { threadId: params.threadId, role: 'user', text: 'Find a product' } });
+      const marker = /SPEECH_(\w+)/.exec(params.prompt || '')?.[1];
+      send({ method: 'thread/realtime/transcript/done', params: { threadId: params.threadId, role: 'user', text: marker ? 'Tai nghe giá bao nhiêu?' : 'Find a product' } });
       send({ id: 10001, method: 'item/tool/call', params: { threadId: params.threadId, tool: 'search_products', arguments: { query: 'tai nghe' } } });
+      // Delegated thread turn: with clientManagedHandoffs the backend decides what is spoken.
+      if (!marker) return;
+      const own = (text) => send({ method: 'thread/realtime/transcript/done', params: { threadId: params.threadId, role: 'assistant', text } });
+      setTimeout(() => {
+        if (marker === 'OWN') return own('Màu tím giá 17.990.000đ');
+        if (marker === 'STALL') return own('Cảm ơn bạn, để mình chốt giúp nhé.');
+        if (marker === 'ACK') {
+          send({ method: 'thread/realtime/itemAdded', params: { threadId: params.threadId, item: { type: 'handoff_request', handoff_id: 'h-1' } } });
+          send({ method: 'turn/started', params: { threadId: params.threadId, turn: { id: 'v-turn' } } });
+          own('Dạ, để mình xem nhé.');
+        }
+        const text = marker === 'BLOCKED' ? 'Giá 999.000đ' : 'Giá 790.000đ';
+        send({ method: 'item/completed', params: { threadId: params.threadId, item: { type: 'agentMessage', id: 'v-1', text } } });
+        send({ method: 'turn/completed', params: { threadId: params.threadId, turn: { id: 'v-turn', status: 'completed' } } });
+        // Unprompted voice text after our answer (e.g. its own echo) must never reach the buyer.
+        if (marker === 'ACK') setTimeout(() => own('Còn 3 máy màu tím.'), 10);
+      }, 30);
     }, 20);
   } else if (method === 'thread/realtime/appendText' && params.text === 'FAKE_ERROR') {
     send({ id, result: {} });
@@ -31,6 +58,9 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
   } else if (method === 'thread/realtime/appendText' && params.text.startsWith('[App]')) {
     send({ id, result: {} });
     send({ method: 'thread/realtime/transcript/delta', params: { threadId: params.threadId, role: 'assistant', delta: params.text } });
+  } else if (method === 'thread/realtime/appendSpeech') {
+    send({ id, result: {} });
+    send({ method: 'thread/realtime/transcript/done', params: { threadId: params.threadId, role: 'assistant', text: params.text } });
   } else if (method === 'thread/realtime/listVoices') send({ id, result: { voices: { v3: ['spruce'] } } });
   else send({ id, result: {} });
 });

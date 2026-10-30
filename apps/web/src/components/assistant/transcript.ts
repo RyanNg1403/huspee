@@ -1,39 +1,118 @@
-export type TranscriptEvent = { role: 'user' | 'assistant'; text: string; final: boolean; item_id?: string };
-export type TranscriptEntry = TranscriptEvent & { id: number; cutOff?: boolean; receivedAt: number };
+export type TranscriptEntry = {
+  id: string;
+  role: 'user' | 'assistant';
+  text: string;
+  final: boolean;
+  cutOff?: boolean;
+  startMs?: number;
+  endMs?: number;
+  createdAt?: number;
+};
 
-function lastIndex(entries: TranscriptEntry[], predicate: (entry: TranscriptEntry) => boolean): number {
-  for (let i = entries.length - 1; i >= 0; i--) if (predicate(entries[i]!)) return i;
-  return -1;
-}
+type Turn = {
+  id: string;
+  role: 'user' | 'assistant';
+  transcript: string;
+  start_ms?: number;
+  end_ms?: number;
+};
+export type ChannelEvent =
+  | { type: 'turn.created' | 'turn.done'; turn: Turn }
+  | { type: 'turn.delta'; turn_id: string; delta: string }
+  | { type: string; [key: string]: unknown };
 
-/** Realtime v3 may deliver the user's final transcript after assistant deltas. */
-export function mergeTranscript(
+/** Correlate only protocol turn IDs; interruption is inferred from timing, not a protocol flag. */
+export function applyChannelEvent(
   entries: TranscriptEntry[],
-  event: TranscriptEvent,
-  id: number,
+  event: ChannelEvent,
+  now: number,
+  detection?: { available: boolean; speechStart?: number },
 ): TranscriptEntry[] {
-  const next = [...entries];
-  let index = event.item_id
-    ? next.findIndex((entry) => entry.item_id === event.item_id && entry.role === event.role)
-    : lastIndex(next, (entry) => entry.role === event.role && !entry.final && !entry.cutOff);
-  if (event.role === 'user' && !event.final && index === -1) {
-    const assistant = lastIndex(next, (entry) => entry.role === 'assistant' && !entry.final && !entry.cutOff);
-    if (assistant !== -1) next[assistant] = { ...next[assistant]!, final: true, cutOff: true };
-  }
-  if (index !== -1) {
+  if (event.type === 'turn.created' || event.type === 'turn.done') {
+    const turn = event.turn as Turn | undefined;
+    if (
+      !turn ||
+      typeof turn.id !== 'string' ||
+      !['user', 'assistant'].includes(turn.role) ||
+      typeof turn.transcript !== 'string'
+    )
+      return entries;
+    const next = [...entries];
+    const index = next.findIndex((entry) => entry.id === turn.id);
+    if (event.type === 'turn.created') {
+      if (index !== -1) return entries;
+      if (turn.role === 'user' && !detection?.available) {
+        for (let i = 0; i < next.length; i++) {
+          const assistant = next[i]!;
+          if (
+            assistant.role === 'assistant' &&
+            assistant.startMs !== undefined &&
+            turn.start_ms !== undefined &&
+            turn.start_ms >= assistant.startMs &&
+            assistant.endMs !== undefined &&
+            turn.start_ms < assistant.endMs
+          )
+            next[i] = { ...assistant, cutOff: true };
+        }
+      }
+      return [
+        ...next,
+        {
+          id: turn.id,
+          role: turn.role,
+          text: turn.transcript,
+          final: false,
+          startMs: turn.start_ms,
+          endMs: turn.end_ms,
+          createdAt: now,
+        },
+      ];
+    }
+    if (index === -1) return entries;
     const old = next[index]!;
-    if (old.cutOff) return next;
-    next[index] = { ...old, text: event.final ? event.text : old.text + event.text, final: event.final };
+    const recentUser =
+      old.role === 'assistant' &&
+      !detection?.available &&
+      next.some(
+        (entry) =>
+          entry.role === 'user' &&
+          entry.createdAt !== undefined &&
+          now >= entry.createdAt &&
+          now - entry.createdAt <= 1500 &&
+          entry.createdAt >= (old.createdAt ?? 0),
+      );
+    next[index] = {
+      ...old,
+      text: turn.transcript,
+      final: true,
+      endMs: turn.end_ms,
+      cutOff:
+        old.cutOff ||
+        recentUser ||
+        (old.role === 'assistant' &&
+          detection?.available &&
+          detection.speechStart !== undefined &&
+          detection.speechStart >= (old.createdAt ?? 0) &&
+          now >= detection.speechStart &&
+          now - detection.speechStart <= 1500),
+    };
     return next;
   }
-  if (event.final && event.role === 'user' && !event.item_id) {
-    index = lastIndex(next, (entry) => entry.role === 'user');
-    if (
-      index !== -1 &&
-      next[index]!.text.trim() === event.text.trim() &&
-      Date.now() - next[index]!.receivedAt < 5000
-    )
-      return next;
+  if (event.type === 'turn.delta' && typeof event.turn_id === 'string' && typeof event.delta === 'string') {
+    return entries.map((entry) =>
+      entry.id === event.turn_id && !entry.final ? { ...entry, text: entry.text + event.delta } : entry,
+    );
   }
-  return [...next, { ...event, id, receivedAt: Date.now() }];
+  return entries;
+}
+
+/** Flat SSE transcript events have no reliable voice turn identity. */
+export function appendFinalTranscript(
+  entries: TranscriptEntry[],
+  event: { role: 'user' | 'assistant'; text: string; final: boolean },
+  id: number,
+): TranscriptEntry[] {
+  return event.final
+    ? [...entries, { id: `sse-${id}`, role: event.role, text: event.text, final: true }]
+    : entries;
 }

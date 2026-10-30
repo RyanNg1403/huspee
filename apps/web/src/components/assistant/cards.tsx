@@ -1,73 +1,40 @@
 'use client';
 import Link from 'next/link';
+import { useState } from 'react';
 import Image from 'next/image';
 import { useT } from '@/i18n';
 import { formatVnd } from '@/lib/format';
 import { messages } from './messages';
 
-export type Action = {
-  action_id: string;
-  status: string;
-  requires_tap: boolean;
-  summary: { title: string; lines: Array<{ label: string; value: string }>; total?: number };
-  result?: { order_sn?: string; return_sn?: string; message?: string };
-};
-export type Card =
-  | {
-      kind: 'products';
-      items: Array<{
-        item_id: number;
-        name: string;
-        image: string | null;
-        rating: number | null;
-        price_min: number;
-        price_max: number;
-        stock: number;
-      }>;
-    }
-  | {
-      kind: 'product';
-      item_id: number;
-      name: string;
-      image: string | null;
-      models: Array<{ model_id: number; name: string; price: number; stock: number }>;
-    }
-  | {
-      kind: 'compare';
-      items: Array<{
-        item_id: number;
-        name: string;
-        image: string | null;
-        price_min: number;
-        rows: Record<string, string>;
-      }>;
-    }
-  | {
-      kind: 'cart';
-      lines: Array<{ item_id: number; model_id: number; name: string; quantity: number; price: number }>;
-      total: number;
-    }
-  | {
-      kind: 'order';
-      order_sn: string;
-      status: string;
-      tracking: Array<{ time: number; description: string }>;
-    }
-  | { kind: 'handoff'; ticket_id: number }
-  | { kind: 'action'; action: Action };
+import type { Action, Card } from './card-types';
+export type { Action, Card } from './card-types';
 
 export function AssistantCard({
   card,
   pending,
   onAction,
+  getOptions,
+  onEdit,
 }: {
   card: Card;
   pending: boolean;
   onAction: (action: Action, confirm: boolean) => void;
+  getOptions: (id: string) => Promise<EditOptions>;
+  onEdit: (
+    action: Action,
+    input: { quantity: number; model_id: number; line_index?: number },
+  ) => Promise<void>;
 }) {
   const t = useT(messages);
   return (
     <div className="space-y-2 rounded border border-orange-200 bg-white p-3 text-sm break-words">
+      {card.kind === 'products' &&
+        card.resolution &&
+        card.resolution.resolved_from !== card.resolution.resolved_to && (
+          <p>
+            {t('heard')}: {card.resolution.resolved_from} → {card.resolution.resolved_to}
+          </p>
+        )}
       {card.kind === 'products' && card.items.length === 0 && <p>{t('noProducts')}</p>}
       {card.kind === 'products' &&
         card.items.map((item) => (
@@ -158,6 +125,12 @@ export function AssistantCard({
           <strong>
             {card.order_sn} · {card.status}
           </strong>
+          {card.items?.map((line) => (
+            <p key={`${line.item_id}-${line.model_id}`}>
+              {line.name}
+              {line.variant ? ` (${line.variant})` : ''} × {line.quantity} · {formatVnd(line.price)}
+            </p>
+          ))}
           <p>{t('tracking')}</p>
           {card.tracking.map((entry, i) => (
             <p key={`${entry.time}-${i}`}>{entry.description}</p>
@@ -196,6 +169,19 @@ export function AssistantCard({
               {t('total')}: {formatVnd(card.action.summary.total)}
             </p>
           )}
+          {card.action.status === 'PENDING' &&
+            (card.action.type === 'ADD_TO_CART' ||
+              card.action.type === 'UPDATE_CART_ITEM' ||
+              card.action.type === 'OPEN_RETURN' ||
+              card.action.type === 'PLACE_ORDER') && (
+              <EditAction
+                key={card.action.action_id}
+                action={card.action}
+                pending={pending}
+                getOptions={getOptions}
+                onEdit={onEdit}
+              />
+            )}
           {card.action.status === 'PENDING' && card.action.requires_tap && (
             <div className="flex gap-2">
               <button
@@ -217,5 +203,121 @@ export function AssistantCard({
         </>
       )}
     </div>
+  );
+}
+
+export type EditOptions = {
+  line_index: number;
+  name: string;
+  lines: Array<{
+    line_index: number;
+    name: string;
+    quantity: number;
+    model_id: number;
+    models: Array<{ model_id: number; name: string; stock: number }>;
+  }>;
+  quantity: number;
+  model_id: number;
+  models: Array<{ model_id: number; name: string; stock: number }>;
+};
+function EditAction({
+  action,
+  pending,
+  getOptions,
+  onEdit,
+}: {
+  action: Action;
+  pending: boolean;
+  getOptions: (id: string) => Promise<EditOptions>;
+  onEdit: (
+    action: Action,
+    input: { quantity: number; model_id: number; line_index?: number },
+  ) => Promise<void>;
+}) {
+  const t = useT(messages);
+  const [options, setOptions] = useState<EditOptions>();
+  const [error, setError] = useState(false);
+  if (!options)
+    return (
+      <>
+        <button
+          disabled={pending}
+          className="rounded border px-3 py-2"
+          onClick={() =>
+            void getOptions(action.action_id)
+              .then(setOptions)
+              .catch(() => setError(true))
+          }
+        >
+          {t('editAction')}
+        </button>
+        {error && <p role="alert">{t('error')}</p>}
+      </>
+    );
+  return (
+    <form
+      className="space-y-2"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void onEdit(action, {
+          quantity: options.quantity,
+          model_id: options.model_id,
+          line_index: options.line_index,
+        });
+      }}
+    >
+      {options.lines.length > 1 && (
+        <label className="block">
+          {t('item')}{' '}
+          <select
+            className="rounded border"
+            value={options.line_index}
+            onChange={(event) => {
+              const line = options.lines.find((entry) => entry.line_index === Number(event.target.value));
+              if (line) setOptions({ ...options, ...line });
+            }}
+          >
+            {options.lines.map((line) => (
+              <option key={line.line_index} value={line.line_index}>
+                {line.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      <label className="block">
+        {t('quantity')}{' '}
+        <input
+          className="w-20 rounded border"
+          type="number"
+          min={1}
+          max={999}
+          value={options.quantity}
+          onChange={(event) => setOptions({ ...options, quantity: Number(event.target.value) })}
+        />
+      </label>
+      <label className="block">
+        {t('variant')}{' '}
+        <select
+          className="rounded border"
+          value={options.model_id}
+          onChange={(event) => setOptions({ ...options, model_id: Number(event.target.value) })}
+        >
+          {options.models.map((model) => (
+            <option key={model.model_id} value={model.model_id}>
+              {model.name} ({t('stock')}: {model.stock})
+            </option>
+          ))}
+        </select>
+      </label>
+      <button
+        className="rounded border px-3 py-2"
+        disabled={
+          pending || !Number.isInteger(options.quantity) || options.quantity < 1 || options.quantity > 999
+        }
+      >
+        {t('saveAction')}
+      </button>
+    </form>
   );
 }
