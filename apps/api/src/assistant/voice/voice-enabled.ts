@@ -1,5 +1,6 @@
-import { accessSync, constants, statSync } from 'node:fs';
-import { delimiter, join } from 'node:path';
+import { accessSync, constants, existsSync, statSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { delimiter, join, resolve } from 'node:path';
 
 let found: { bin: string; installed: boolean } | undefined;
 
@@ -24,10 +25,15 @@ function codexInstalled(): boolean {
   return found.installed;
 }
 
+/** The operator ran `codex login`: the file the runtime links exists. It is never opened here. */
+function codexLoggedIn(): boolean {
+  return existsSync(resolve(homedir(), '.codex/auth.json'));
+}
+
 /**
- * The assistant is on by default; ASSISTANT_VOICE_ENABLED=false turns it off. It also stays off where
- * the Codex CLI is not installed (the Docker images), so the app never offers a session it cannot start.
+ * The assistant is on by default; ASSISTANT_VOICE_ENABLED=false turns it off. It also stays off
+ * without the Codex CLI or a Codex login, so the app never offers a session it cannot start.
  */
 export function voiceEnabled(): boolean {
-  return process.env.ASSISTANT_VOICE_ENABLED !== 'false' && codexInstalled();
+  return process.env.ASSISTANT_VOICE_ENABLED !== 'false' && codexInstalled() && codexLoggedIn();
 }

@@ -23,9 +23,11 @@ More detail: [`docs/PLATFORM.md`](docs/PLATFORM.md).
 
 ## Run it with Docker (recommended)
 
-You need Docker. Then:
+You need Docker. For the voice assistant you also need a Codex login on your machine (see
+[Voice assistant](#voice-assistant)); without one, everything else still works.
 
 ```bash
+codex login                       # once, with a ChatGPT Plus or Pro account (skip if no voice)
 git clone https://github.com/RyanNg1403/huspee.git
 cd huspee
 docker compose up --build
@@ -55,7 +57,7 @@ policies, past orders and assistant FAQs. Prices are in VND.
 A seller must link their shop once before managing it: sign in, open `/seller/shops`, click Connect
 and approve.
 
-## Run it locally (for development, and for voice)
+## Run it locally (for development)
 
 You need Node 22+, pnpm 10 and PostgreSQL 16. Create the database the defaults expect:
 
@@ -76,7 +78,7 @@ pnpm dev                          # API -> http://localhost:3000
 pnpm dev:web                      # web -> http://localhost:3001 (second terminal)
 ```
 
-## Voice assistant (optional, local setup only)
+## Voice assistant
 
 Each shop page has an assistant that answers from that shop's data and can add to cart, place
 orders and open returns after the buyer confirms. It runs on your own Codex login
@@ -85,9 +87,18 @@ orders and open returns after the buyer confirms. It runs on your own Codex logi
 **Requires a paid ChatGPT plan:** Plus or above (Plus, Pro). Codex voice (`/voice`) is not
 available on the Free plan, so the assistant cannot start a voice session with a Free account.
 
-It is on by default: install `codex-cli 0.166.0`, run `codex login`, and start the API. To turn it
-off, set `ASSISTANT_VOICE_ENABLED=false` in `apps/api/.env`. The Docker images do not include Codex,
-so there the assistant shows as unavailable and the rest of the app works normally. Details: [`docs/VOICE.md`](docs/VOICE.md).
+It is on by default once you have run `codex login` on your machine:
+
+- **Docker:** the API image includes `codex-cli 0.166.0` and uses the login in your `~/.codex`
+  folder (or `$CODEX_HOME`), mounted into the container. You only need the Codex CLI on your
+  machine to log in. If Codex keeps your login in the system keychain instead of
+  `~/.codex/auth.json`, the assistant shows as unavailable; set `cli_auth_credentials_store = "file"`
+  in `~/.codex/config.toml` and run `codex login` again.
+- **Local:** install `codex-cli 0.166.0` (`npm install -g @openai/codex@0.166.0`) and start the API.
+
+Without a login, the assistant shows as unavailable and the rest of the app works normally. To turn
+it off, set `ASSISTANT_VOICE_ENABLED=false` (in `apps/api/.env`, or in the shell for Docker). Details:
+[`docs/VOICE.md`](docs/VOICE.md).
 
 ## Tests
 

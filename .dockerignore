@@ -8,3 +8,5 @@ tests/node_modules
 out
 *.log
 
+# Local Codex runtime state (the dev API's private CODEX_HOME); never bake it into an image.
+**/.token

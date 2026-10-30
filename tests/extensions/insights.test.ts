@@ -4,11 +4,13 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { HuspeeClient } from "@huspee/sdk";
 import { expect, it } from "vitest";
+import { fakeCodexLoginHome } from "../helpers/codex-login.js";
 import { SEED } from "../helpers/env.js";
 import { serverEnv } from "../setup/global-setup.js";
 
 it("aggregates scoped tool logs and stores fake summaries asynchronously", async () => {
   const home = await mkdtemp(resolve(tmpdir(), "huspee-insights-"));
+  const loginHome = await fakeCodexLoginHome();
   const port = 44000 + Math.floor(Math.random() * 10000);
   const baseUrl = `http://localhost:${port}`;
   const server = spawn(process.execPath, ["dist/main.js"], {
@@ -18,6 +20,7 @@ it("aggregates scoped tool logs and stores fake summaries asynchronously", async
       PORT: String(port),
       PUBLIC_BASE_URL: baseUrl,
       ASSISTANT_VOICE_ENABLED: "true",
+      HOME: loginHome,
       ASSISTANT_CODEX_HOME: home,
       ASSISTANT_CODEX_BIN: resolve(__dirname, "../helpers/fake-codex/codex"),
     },
@@ -174,6 +177,7 @@ it("aggregates scoped tool logs and stores fake summaries asynchronously", async
   } finally {
     server.kill("SIGTERM");
     await rm(home, { recursive: true, force: true });
+    await rm(loginHome, { recursive: true, force: true });
   }
 }, 30000);
 

@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { mkdtemp, rm } from 'node:fs/promises';
+import { fakeCodexLoginHome } from '../helpers/codex-login.js';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { appendFinalTranscript, applyChannelEvent, type ChannelEvent, type TranscriptEntry } from '../../apps/web/src/components/assistant/transcript.js';
@@ -51,8 +52,10 @@ it('starts a text-only fake thread with tools and streams its answer', async () 
 });
 
 let home: string;
+let loginHome: string;
 beforeAll(async () => {
   home = await mkdtemp(resolve(tmpdir(), 'huspee-voice-test-'));
+  loginHome = await fakeCodexLoginHome();
   process.env.ASSISTANT_CODEX_HOME = home;
   process.env.ASSISTANT_CODEX_BIN = resolve(__dirname, '../helpers/fake-codex/codex');
   process.env.ASSISTANT_MAX_VOICE_SESSIONS = '1';
@@ -62,6 +65,7 @@ afterAll(async () => {
   delete process.env.ASSISTANT_CODEX_BIN;
   delete process.env.ASSISTANT_MAX_VOICE_SESSIONS;
   await rm(home, { recursive: true, force: true });
+  await rm(loginHome, { recursive: true, force: true });
 });
 
 describe('voice runtime with fake app-server', () => {
@@ -193,6 +197,7 @@ it('serves a fake voice session over HTTP and protects its event stream', async 
       PORT: String(port),
       PUBLIC_BASE_URL: baseUrl,
       ASSISTANT_VOICE_ENABLED: 'true',
+      HOME: loginHome,
       ASSISTANT_CODEX_HOME: home,
       ASSISTANT_CODEX_BIN: resolve(__dirname, '../helpers/fake-codex/codex'),
       ASSISTANT_MAX_VOICE_SESSIONS: '1',
@@ -276,10 +281,11 @@ it('serves a fake voice session over HTTP and protects its event stream', async 
 }, 30000);
 
 describe('voice availability', () => {
-  it('is on by default when Codex is installed, and off when turned off or Codex is missing', async () => {
+  it('is on by default with Codex installed and logged in, and off when turned off or either is missing', async () => {
     const { voiceEnabled } = await import('../../apps/api/src/assistant/voice/voice-enabled.js');
-    const saved = { enabled: process.env.ASSISTANT_VOICE_ENABLED, bin: process.env.ASSISTANT_CODEX_BIN };
+    const saved = { enabled: process.env.ASSISTANT_VOICE_ENABLED, bin: process.env.ASSISTANT_CODEX_BIN, home: process.env.HOME };
     try {
+      process.env.HOME = loginHome;
       delete process.env.ASSISTANT_VOICE_ENABLED;
       process.env.ASSISTANT_CODEX_BIN = resolve(__dirname, '../helpers/fake-codex/codex');
       expect(voiceEnabled()).toBe(true);
@@ -290,7 +296,11 @@ describe('voice availability', () => {
       expect(voiceEnabled()).toBe(false);
       process.env.ASSISTANT_CODEX_BIN = 'huspee-no-such-codex';
       expect(voiceEnabled()).toBe(false);
+      process.env.ASSISTANT_CODEX_BIN = resolve(__dirname, '../helpers/fake-codex/codex');
+      process.env.HOME = home;
+      expect(voiceEnabled()).toBe(false);
     } finally {
+      process.env.HOME = saved.home;
       if (saved.enabled === undefined) delete process.env.ASSISTANT_VOICE_ENABLED;
       else process.env.ASSISTANT_VOICE_ENABLED = saved.enabled;
       if (saved.bin === undefined) delete process.env.ASSISTANT_CODEX_BIN;

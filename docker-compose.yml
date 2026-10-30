@@ -35,6 +35,12 @@ services:
       HUSPEE_PARTNER_KEY: ${HUSPEE_PARTNER_KEY:-dev-partner-key-change-me-0123456789abcdef}
       HUSPEE_TOKEN_ENCRYPTION_KEY: ${HUSPEE_TOKEN_ENCRYPTION_KEY:-0000000000000000000000000000000000000000000000000000000000000000}
       HUSPEE_SEED_ON_START: ${HUSPEE_SEED_ON_START:-true}
+      ASSISTANT_VOICE_ENABLED: ${ASSISTANT_VOICE_ENABLED:-true}
+    volumes:
+      # Your Codex login (`codex login` on this machine) powers the voice assistant. The folder is
+      # mounted, not just auth.json, because Codex replaces the file when it refreshes the login.
+      # Without a login the assistant shows as unavailable and the rest of the app still works.
+      - ${CODEX_HOME:-~/.codex}:/root/.codex
     healthcheck:
       test: ["CMD-SHELL", "node -e \"fetch('http://localhost:3000/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
       interval: 5s
