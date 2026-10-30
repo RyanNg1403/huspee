@@ -23,6 +23,35 @@ type Attribute = {
   attribute_value_list: { value_id: number; name: string }[];
 };
 type Brand = { brand_id: number; display_brand_name: string };
+
+async function loadAllBrands(
+  shopId: number,
+  categoryId: number,
+): Promise<{ brand_list: Brand[]; is_mandatory: boolean }> {
+  const allBrands: Brand[] = [];
+  let offset = 0;
+  let hasNext = true;
+  let isMandatory = false;
+  while (hasNext) {
+    const res = await call<{
+      brand_list: Brand[];
+      has_next_page: boolean;
+      next_offset?: number;
+      is_mandatory: boolean;
+    }>(shopId, '/product/get_brand_list', {
+      category_id: categoryId,
+      offset,
+      page_size: 100,
+    });
+    if (res.brand_list) {
+      allBrands.push(...res.brand_list);
+    }
+    isMandatory = res.is_mandatory ?? isMandatory;
+    hasNext = Boolean(res.has_next_page && res.brand_list?.length);
+    offset = res.next_offset ?? offset + (res.brand_list?.length || 100);
+  }
+  return { brand_list: allBrands, is_mandatory: isMandatory };
+}
 type Channel = { logistics_channel_id: number; logistics_channel_name: string; enabled: boolean };
 export function ProductEditor({ itemId }: { itemId?: number }) {
   const t = useT(messages);
@@ -57,11 +86,7 @@ export function ProductEditor({ itemId }: { itemId?: number }) {
   const details = useApi(async () => {
     if (!selectedShopId || !categoryId) return null;
     const [brands, attributes] = await Promise.all([
-      call<{ brand_list: Brand[]; is_mandatory: boolean }>(selectedShopId, '/product/get_brand_list', {
-        category_id: categoryId,
-        offset: 0,
-        page_size: 100,
-      }),
+      loadAllBrands(selectedShopId, categoryId),
       call<{ list: { attribute_tree: Attribute[] }[] }>(selectedShopId, '/product/get_attribute_tree', {
         category_id_list: [categoryId],
       }),

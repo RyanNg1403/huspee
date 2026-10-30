@@ -3,12 +3,12 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import type { ProductSummary } from '@huspee/sdk';
-import { Button, EmptyState } from '@/components/ui';
+import { Button, EmptyState, QueryState } from '@/components/ui';
 import { useT } from '@/i18n';
 import { getApiClient } from '@/lib/api';
 import { useApi } from '@/lib/use-api';
 import { messages } from './_browse/messages';
-import { panel, ProductGrid, State } from './_browse/shared';
+import { panel, ProductGrid } from './_browse/shared';
 export default function Home() {
   const t = useT(messages);
   const [page, setPage] = useState(1);
@@ -32,7 +32,7 @@ export default function Home() {
     <div className="space-y-5">
       <section className={panel}>
         <h1 className="mb-4 text-lg font-medium uppercase text-gray-600">{t('categories')}</h1>
-        <State {...categories} retry={categories.reload} />
+        <QueryState {...categories} retry={categories.reload} />
         {!categories.loading &&
           !categories.error &&
           (categories.data?.length ? (
@@ -67,7 +67,7 @@ export default function Home() {
       </section>
       <section className={panel}>
         <h2 className="mb-4 text-lg font-medium uppercase text-gray-600">{t('shops')}</h2>
-        <State {...shops} retry={shops.reload} />
+        <QueryState {...shops} retry={shops.reload} />
         {!shops.loading &&
           !shops.error &&
           (shops.data?.data.length ? (
@@ -105,7 +105,7 @@ export default function Home() {
           {t('discover')}
         </h2>
         <div className="mt-2">
-          <State {...products} retry={products.reload} />
+          <QueryState {...products} retry={products.reload} />
           {(previous.length > 0 || (!products.loading && !products.error && products.data)) && (
             <ProductGrid
               products={[

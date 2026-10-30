@@ -1,5 +1,5 @@
-# Local Phase 1 stack: PostgreSQL + Huspee API.
-#   docker compose up --build        -> http://localhost:3000
+# Local Phase 1 stack: PostgreSQL + Huspee API + Huspee Web.
+#   docker compose up --build        -> http://localhost:3000 (API), http://localhost:3001 (Web)
 # Demo secrets below are for local use only; supply real ones via an untracked .env file.
 services:
   db:
@@ -40,6 +40,21 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3000}
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "3001:3001"
+    environment:
+      PORT: "3001"
+      NODE_ENV: production
 
 volumes:
   pgdata:

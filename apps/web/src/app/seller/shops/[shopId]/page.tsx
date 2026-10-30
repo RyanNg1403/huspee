@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { useSelectedShop } from '@/components/layout';
-import { Button, Card, ErrorState, Input, Spinner, Textarea, useToast } from '@/components/ui';
+import { Button, Card, ErrorState, Input, QueryState, Spinner, Textarea, useToast } from '@/components/ui';
 import { useT } from '@/i18n/client';
 import { common as commonMessages } from '@/i18n/common';
 import { errorMessageKey } from '@/lib/api';
@@ -76,8 +76,17 @@ export default function ShopPage() {
       setPending(false);
     }
   }
-  if (loading) return <Spinner />;
-  if (error) return <ErrorState message={t('failed')} onRetry={refresh} retryLabel={t('retry')} />;
+  if (loading || error)
+    return (
+      <QueryState
+        loading={loading}
+        error={error}
+        errorMessage={t('failed')}
+        retry={refresh}
+        retryLabel={t('retry')}
+        spinner
+      />
+    );
   if (!shop) return <ErrorState message={t('noShop')} />;
   if (!shop.connection.connected)
     return (

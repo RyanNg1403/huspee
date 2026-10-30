@@ -14,7 +14,9 @@
     "test:extensions": "pnpm --filter @huspee/tests run test:extensions",
     "test:e2e": "pnpm --filter @huspee/tests run test:e2e",
     "dev:web": "pnpm --filter @huspee/web dev",
-    "build:web": "pnpm --filter @huspee/sdk build && pnpm --filter @huspee/web build"
+    "build:web": "pnpm --filter @huspee/sdk build && pnpm --filter @huspee/web build",
+    "demo:reset": "pnpm --filter @huspee/api exec prisma migrate reset --force",
+    "smoke:ui": "node tests/ui/smoke.mjs"
   },
   "engines": {
     "node": ">=22"
@@ -26,5 +28,8 @@
       "prisma",
       "esbuild"
     ]
+  },
+  "devDependencies": {
+    "playwright-core": "1.64.1"
   }
 }

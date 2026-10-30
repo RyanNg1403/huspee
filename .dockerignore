@@ -3,3 +3,8 @@
 **/.env
 .git
 tests/node_modules
+**/.next
+**/.next-*
+out
+*.log
+

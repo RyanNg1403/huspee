@@ -276,4 +276,32 @@ describe('checkout', () => {
     expect(await stock()).toBe(stockBefore + 2);
     expect((await apiError(buyer.client.buyer.orders.cancel(placed.order_sn))).code).toBe('INVALID_STATE');
   });
+
+  it('buyer orders list filters by multiple statuses with server-side pagination', async () => {
+    const readyOnly = await buyer.client.buyer.orders.list({ status: 'READY_TO_SHIP' });
+    expect(readyOnly.data.length).toBeGreaterThanOrEqual(1);
+    expect(readyOnly.data.every((o) => o.status === 'READY_TO_SHIP')).toBe(true);
+
+    const multiArray = await buyer.client.buyer.orders.list({
+      status: ['READY_TO_SHIP', 'CANCELLED'],
+      page: 1,
+      page_size: 1,
+    });
+    expect(multiArray.data).toHaveLength(1);
+    expect(['READY_TO_SHIP', 'CANCELLED']).toContain(multiArray.data[0]!.status);
+    expect(multiArray.page.page).toBe(1);
+    expect(multiArray.page.page_size).toBe(1);
+    expect(multiArray.page.total).toBeGreaterThanOrEqual(2);
+    expect(multiArray.page.has_next).toBe(true);
+
+    const multiCsv = await buyer.client.buyer.orders.list({
+      status: 'READY_TO_SHIP,CANCELLED',
+      page: 1,
+      page_size: 10,
+    });
+    const statuses = multiCsv.data.map((o) => o.status);
+    expect(statuses).toContain('READY_TO_SHIP');
+    expect(statuses).toContain('CANCELLED');
+    expect(statuses.every((s) => s === 'READY_TO_SHIP' || s === 'CANCELLED')).toBe(true);
+  });
 });

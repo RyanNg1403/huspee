@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { DomainError, invalidState, notFound, validation } from '../common/errors';
 import { PrismaService } from '../common/prisma.service';
 import { unix } from '../common/time';
-import { paging, parseInput, q } from '../common/validation';
+import { paging, parseInput, q, splitList } from '../common/validation';
 import { CurrentUser, RequireRole, SessionGuard } from '../auth/session.guard';
 import { mediaUrl, modelName, resolveModelPrice } from '../domain/catalog.service';
 import { orderInclude, OrderService, PAYMENT_METHODS } from '../domain/order.service';
@@ -224,8 +224,21 @@ export class BuyerController {
 
   @Get('buyer/orders')
   async listOrders(@CurrentUser() user: User, @Query() query: unknown) {
-    const input = parseInput(z.object({ status: z.nativeEnum(OrderStatus).optional(), ...paging }), query);
-    const where: Prisma.OrderWhereInput = { buyerId: user.id, ...(input.status ? { status: input.status } : {}) };
+    const input = parseInput(
+      z.object({
+        status: z.preprocess(splitList, z.array(z.nativeEnum(OrderStatus)).min(1)).optional(),
+        ...paging,
+      }),
+      query,
+    );
+    const where: Prisma.OrderWhereInput = {
+      buyerId: user.id,
+      ...(input.status?.length
+        ? input.status.length === 1
+          ? { status: input.status[0] }
+          : { status: { in: input.status } }
+        : {}),
+    };
     const [rows, total] = await Promise.all([
       this.prisma.order.findMany({
         where,

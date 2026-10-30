@@ -169,7 +169,7 @@ These are **project-owned**, not actual Shopee Open API V2 buyer methods. Respon
 
 | Pri | Method | Route | Auth | SDK method | Status | Tests |
 |---|---|---|---|---|---|---|
-| P0 | GET | `/buyer/orders` | session:buyer | `buyer.orders.list` | ✅ | X, E |
+| P0 | GET | `/buyer/orders` | session:buyer | `buyer.orders.list` | ✅ multi-status | X, E |
 | P0 | GET | `/buyer/orders/:orderId` | session:buyer | `buyer.orders.get` | ✅ | X, E |
 | P0 | POST | `/buyer/orders/:orderId/cancel` | session:buyer | `buyer.orders.cancel` | ⚠️ immediate (no `IN_CANCEL`) | X, E |
 | P0 | GET | `/buyer/orders/:orderId/tracking` | session:buyer | `buyer.orders.tracking` | ✅ | X, E |

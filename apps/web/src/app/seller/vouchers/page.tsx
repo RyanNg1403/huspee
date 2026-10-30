@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { Button, Card, EmptyState, ErrorState, Input, Modal, Spinner, Tabs, useToast } from '@/components/ui';
+import { Button, Card, Input, Modal, QueryState, Spinner, Tabs, useToast } from '@/components/ui';
 import { useLang, useT } from '@/i18n';
 import { formatDateTime, formatVnd } from '@/lib/format';
 import { useApi } from '@/lib/use-api';
@@ -206,179 +206,182 @@ function VouchersContent({ shopId }: { shopId: number }) {
       </div>
 
       {/* List content */}
-      {vouchersApi.loading ? (
-        <div className="flex h-64 items-center justify-center rounded bg-white shadow-sm">
-          <Spinner />
-        </div>
-      ) : vouchersApi.error ? (
-        <ErrorState message={t('failed')} onRetry={vouchersApi.reload} retryLabel={t('all')} />
-      ) : !vouchersApi.data || vouchersApi.data.voucher_list.length === 0 ? (
-        <EmptyState title={t('noVouchers')} />
-      ) : (
-        <div className="space-y-3">
-          {/* Desktop Table View */}
-          <div className="hidden overflow-x-auto rounded bg-white shadow-sm md:block">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b bg-gray-50 text-xs font-semibold uppercase text-gray-600">
-                <tr>
-                  <th className="px-4 py-3">{t('code')}</th>
-                  <th className="px-4 py-3">{t('name')}</th>
-                  <th className="px-4 py-3">{t('type')}</th>
-                  <th className="px-4 py-3">{t('reward')}</th>
-                  <th className="px-4 py-3">{t('usage')}</th>
-                  <th className="px-4 py-3">{t('validity')}</th>
-                  <th className="px-4 py-3 text-right">{t('actions')}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {vouchersApi.data.voucher_list.map((v) => {
-                  const status = v.computedStatus;
+      <QueryState
+        loading={vouchersApi.loading}
+        error={vouchersApi.error}
+        errorMessage={t('failed')}
+        retry={vouchersApi.reload}
+        retryLabel={t('all')}
+        empty={!vouchersApi.data || vouchersApi.data.voucher_list.length === 0}
+        emptyTitle={t('noVouchers')}
+        spinner
+      >
+        {vouchersApi.data && (
+          <div className="space-y-3">
+            {/* Desktop Table View */}
+            <div className="hidden overflow-x-auto rounded bg-white shadow-sm md:block">
+              <table className="w-full text-left text-sm">
+                <thead className="border-b bg-gray-50 text-xs font-semibold uppercase text-gray-600">
+                  <tr>
+                    <th className="px-4 py-3">{t('code')}</th>
+                    <th className="px-4 py-3">{t('name')}</th>
+                    <th className="px-4 py-3">{t('type')}</th>
+                    <th className="px-4 py-3">{t('reward')}</th>
+                    <th className="px-4 py-3">{t('usage')}</th>
+                    <th className="px-4 py-3">{t('validity')}</th>
+                    <th className="px-4 py-3 text-right">{t('actions')}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {vouchersApi.data.voucher_list.map((v) => {
+                    const status = v.computedStatus;
 
-                  return (
-                    <tr key={v.voucher_id} className="hover:bg-gray-50/50">
-                      <td className="px-4 py-3">
-                        <span className="rounded bg-orange-50 px-2 py-1 font-mono font-bold text-primary">
-                          {v.voucher_code}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 font-medium text-gray-900">{v.voucher_name}</td>
-                      <td className="px-4 py-3 text-xs text-gray-600">
-                        {v.voucher_type === 1 ? t('shopVoucher') : t('productVoucher')}
-                      </td>
-                      <td className="px-4 py-3 font-semibold text-primary">
+                    return (
+                      <tr key={v.voucher_id} className="hover:bg-gray-50/50">
+                        <td className="px-4 py-3">
+                          <span className="rounded bg-orange-50 px-2 py-1 font-mono font-bold text-primary">
+                            {v.voucher_code}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 font-medium text-gray-900">{v.voucher_name}</td>
+                        <td className="px-4 py-3 text-xs text-gray-600">
+                          {v.voucher_type === 1 ? t('shopVoucher') : t('productVoucher')}
+                        </td>
+                        <td className="px-4 py-3 font-semibold text-primary">
+                          {v.reward_type === 1 ? formatVnd(v.discount_amount ?? 0) : `${v.percentage}%`}
+                        </td>
+                        <td className="px-4 py-3 text-xs">
+                          <span className="font-semibold text-gray-900">{v.current_usage}</span>
+                          <span className="text-gray-400"> / {v.usage_quantity}</span>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-gray-600">
+                          <div>{formatDateTime(v.start_time, lang)}</div>
+                          <div className="text-gray-400">→ {formatDateTime(v.end_time, lang)}</div>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex justify-end gap-2">
+                            {status !== 'expired' && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => void handleOpenEdit(v.voucher_id)}
+                              >
+                                {t('edit')}
+                              </Button>
+                            )}
+                            {status === 'ongoing' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="border-amber-600 text-amber-700 hover:bg-amber-50"
+                                onClick={() => setEndingVoucherId(v.voucher_id)}
+                              >
+                                {t('endVoucher')}
+                              </Button>
+                            )}
+                            {status === 'upcoming' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="border-red-600 text-red-600 hover:bg-red-50"
+                                onClick={() => setDeletingVoucherId(v.voucher_id)}
+                              >
+                                {t('deleteVoucher')}
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Card View */}
+            <div className="space-y-3 md:hidden">
+              {vouchersApi.data.voucher_list.map((v) => {
+                const status = v.computedStatus;
+
+                return (
+                  <Card key={v.voucher_id} className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="rounded bg-orange-50 px-2 py-1 font-mono font-bold text-primary">
+                        {v.voucher_code}
+                      </span>
+                      <VoucherStatusBadge status={status} />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-900">{v.voucher_name}</p>
+                      <p className="text-xs text-gray-500">
+                        {v.voucher_type === 1 ? t('shopVoucher') : t('productVoucher')} ·{' '}
                         {v.reward_type === 1 ? formatVnd(v.discount_amount ?? 0) : `${v.percentage}%`}
-                      </td>
-                      <td className="px-4 py-3 text-xs">
-                        <span className="font-semibold text-gray-900">{v.current_usage}</span>
-                        <span className="text-gray-400"> / {v.usage_quantity}</span>
-                      </td>
-                      <td className="px-4 py-3 text-xs text-gray-600">
-                        <div>{formatDateTime(v.start_time, lang)}</div>
-                        <div className="text-gray-400">→ {formatDateTime(v.end_time, lang)}</div>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex justify-end gap-2">
-                          {status !== 'expired' && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => void handleOpenEdit(v.voucher_id)}
-                            >
-                              {t('edit')}
-                            </Button>
-                          )}
-                          {status === 'ongoing' && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="border-amber-600 text-amber-700 hover:bg-amber-50"
-                              onClick={() => setEndingVoucherId(v.voucher_id)}
-                            >
-                              {t('endVoucher')}
-                            </Button>
-                          )}
-                          {status === 'upcoming' && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="border-red-600 text-red-600 hover:bg-red-50"
-                              onClick={() => setDeletingVoucherId(v.voucher_id)}
-                            >
-                              {t('deleteVoucher')}
-                            </Button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                      </p>
+                    </div>
+                    <div className="text-xs text-gray-600 space-y-1">
+                      <p>
+                        <span className="font-semibold">{t('usage')}:</span> {v.current_usage} /{' '}
+                        {v.usage_quantity}
+                      </p>
+                      <p className="text-gray-400">
+                        {formatDateTime(v.start_time, lang)} → {formatDateTime(v.end_time, lang)}
+                      </p>
+                    </div>
+                    <div className="flex justify-end gap-2 pt-2 border-t">
+                      {status !== 'expired' && (
+                        <Button size="sm" variant="ghost" onClick={() => void handleOpenEdit(v.voucher_id)}>
+                          {t('edit')}
+                        </Button>
+                      )}
+                      {status === 'ongoing' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-amber-600 text-amber-700 hover:bg-amber-50"
+                          onClick={() => setEndingVoucherId(v.voucher_id)}
+                        >
+                          {t('endVoucher')}
+                        </Button>
+                      )}
+                      {status === 'upcoming' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-red-600 text-red-600 hover:bg-red-50"
+                          onClick={() => setDeletingVoucherId(v.voucher_id)}
+                        >
+                          {t('deleteVoucher')}
+                        </Button>
+                      )}
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
 
-          {/* Mobile Card View */}
-          <div className="space-y-3 md:hidden">
-            {vouchersApi.data.voucher_list.map((v) => {
-              const status = v.computedStatus;
-
-              return (
-                <Card key={v.voucher_id} className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="rounded bg-orange-50 px-2 py-1 font-mono font-bold text-primary">
-                      {v.voucher_code}
-                    </span>
-                    <VoucherStatusBadge status={status} />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-gray-900">{v.voucher_name}</p>
-                    <p className="text-xs text-gray-500">
-                      {v.voucher_type === 1 ? t('shopVoucher') : t('productVoucher')} ·{' '}
-                      {v.reward_type === 1 ? formatVnd(v.discount_amount ?? 0) : `${v.percentage}%`}
-                    </p>
-                  </div>
-                  <div className="text-xs text-gray-600 space-y-1">
-                    <p>
-                      <span className="font-semibold">{t('usage')}:</span> {v.current_usage} /{' '}
-                      {v.usage_quantity}
-                    </p>
-                    <p className="text-gray-400">
-                      {formatDateTime(v.start_time, lang)} → {formatDateTime(v.end_time, lang)}
-                    </p>
-                  </div>
-                  <div className="flex justify-end gap-2 pt-2 border-t">
-                    {status !== 'expired' && (
-                      <Button size="sm" variant="ghost" onClick={() => void handleOpenEdit(v.voucher_id)}>
-                        {t('edit')}
-                      </Button>
-                    )}
-                    {status === 'ongoing' && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="border-amber-600 text-amber-700 hover:bg-amber-50"
-                        onClick={() => setEndingVoucherId(v.voucher_id)}
-                      >
-                        {t('endVoucher')}
-                      </Button>
-                    )}
-                    {status === 'upcoming' && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="border-red-600 text-red-600 hover:bg-red-50"
-                        onClick={() => setDeletingVoucherId(v.voucher_id)}
-                      >
-                        {t('deleteVoucher')}
-                      </Button>
-                    )}
-                  </div>
-                </Card>
-              );
-            })}
+            {/* Pagination */}
+            <div className="flex items-center justify-between pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={pageNo <= 1}
+                onClick={() => setPageNo((p) => Math.max(1, p - 1))}
+              >
+                ← {t('prevPage')}
+              </Button>
+              <span className="text-xs text-gray-500">{t('pageNumber', { page: pageNo })}</span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!vouchersApi.data?.more}
+                onClick={() => setPageNo((p) => p + 1)}
+              >
+                {t('nextPage')} →
+              </Button>
+            </div>
           </div>
-
-          {/* Pagination */}
-          <div className="flex items-center justify-between pt-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={pageNo <= 1}
-              onClick={() => setPageNo((p) => Math.max(1, p - 1))}
-            >
-              ← {t('prevPage')}
-            </Button>
-            <span className="text-xs text-gray-500">{t('pageNumber', { page: pageNo })}</span>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={!vouchersApi.data.more}
-              onClick={() => setPageNo((p) => p + 1)}
-            >
-              {t('nextPage')} →
-            </Button>
-          </div>
-        </div>
-      )}
+        )}
+      </QueryState>
 
       {/* Edit Modal */}
       <Modal

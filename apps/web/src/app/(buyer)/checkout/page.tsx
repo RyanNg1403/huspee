@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { Address, CheckoutQuote, PaymentMethod } from '@huspee/sdk';
 import { RequireRole } from '@/components/session';
-import { Button, Input, Select, Spinner, useToast } from '@/components/ui';
+import { Button, Input, QueryState, Select, Spinner, useToast } from '@/components/ui';
 import { useT } from '@/i18n';
 import { common } from '@/i18n/common';
 import { getApiClient } from '@/lib/api';
@@ -13,7 +13,7 @@ import { formatVnd } from '@/lib/format';
 import { useApi } from '@/lib/use-api';
 import { AddressModal } from '../_orders/AddressModal';
 import { messages } from '../_orders/messages';
-import { formatIssue, getErrorMessage, panel, State } from '../_orders/shared';
+import { formatIssue, getErrorMessage, panel } from '../_orders/shared';
 
 function CheckoutView() {
   const t = useT(messages);
@@ -198,7 +198,7 @@ function CheckoutView() {
         {addressLoading ? (
           <Spinner />
         ) : addressError ? (
-          <State loading={false} error={addressError} retry={reloadAddresses} />
+          <QueryState loading={false} error={addressError} retry={reloadAddresses} />
         ) : selectedAddress ? (
           <div className="space-y-1 text-sm text-gray-800">
             <div className="font-semibold">
@@ -235,9 +235,9 @@ function CheckoutView() {
 
       {/* Quote Groups / Shop Items */}
       {quoteLoading && !quote ? (
-        <State loading={true} error={null} retry={reloadQuote} />
+        <QueryState loading={true} error={null} retry={reloadQuote} />
       ) : quoteError ? (
-        <State loading={false} error={quoteError} retry={reloadQuote} />
+        <QueryState loading={false} error={quoteError} retry={reloadQuote} />
       ) : quote ? (
         quote.groups.map((group) => {
           return (

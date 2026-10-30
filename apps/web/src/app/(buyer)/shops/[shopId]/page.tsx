@@ -3,12 +3,12 @@ import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import type { ProductSearchQuery } from '@huspee/sdk';
-import { Pagination } from '@/components/ui';
+import { Pagination, QueryState } from '@/components/ui';
 import { useT } from '@/i18n';
 import { getApiClient } from '@/lib/api';
 import { useApi } from '@/lib/use-api';
 import { messages } from '../../_browse/messages';
-import { panel, ProductGrid, State, Vouchers } from '../../_browse/shared';
+import { panel, ProductGrid, Vouchers } from '../../_browse/shared';
 export default function ShopPage() {
   const t = useT(messages);
   const id = Number(useParams().shopId);
@@ -26,7 +26,7 @@ export default function ShopPage() {
   return (
     <div className="space-y-4">
       <section className={panel}>
-        <State {...shop} retry={shop.reload} />
+        <QueryState {...shop} retry={shop.reload} />
         {!shop.loading && !shop.error && shop.data && (
           <div className="flex flex-wrap items-center gap-5">
             <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-orange-50 text-2xl text-[#ee4d2d]">
@@ -56,7 +56,7 @@ export default function ShopPage() {
       </section>
       <section className={panel}>
         <h2 className="mb-3 text-lg">{t('vouchers')}</h2>
-        <State {...vouchers} retry={vouchers.reload} />
+        <QueryState {...vouchers} retry={vouchers.reload} />
         {!vouchers.loading && !vouchers.error && vouchers.data && <Vouchers vouchers={vouchers.data} />}
       </section>
       <section>
@@ -78,7 +78,7 @@ export default function ShopPage() {
             <option value="price_desc">{t('priceDesc')}</option>
           </select>
         </div>
-        <State {...products} retry={products.reload} />
+        <QueryState {...products} retry={products.reload} />
         {!products.loading && !products.error && products.data && (
           <>
             <ProductGrid products={products.data.data} />

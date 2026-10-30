@@ -3,7 +3,17 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useState } from 'react';
 import { useSelectedShop } from '@/components/layout';
-import { Button, Card, EmptyState, ErrorState, Input, Modal, Spinner, useToast } from '@/components/ui';
+import {
+  Button,
+  Card,
+  EmptyState,
+  ErrorState,
+  Input,
+  Modal,
+  QueryState,
+  Spinner,
+  useToast,
+} from '@/components/ui';
 import { useT } from '@/i18n/client';
 import { common as commonMessages } from '@/i18n/common';
 import { errorMessageKey } from '@/lib/api';
@@ -102,8 +112,17 @@ export default function Products() {
       setPending(false);
     }
   }
-  if (loading) return <Spinner />;
-  if (error) return <ErrorState message={t('failed')} onRetry={refresh} retryLabel={t('retry')} />;
+  if (loading || error)
+    return (
+      <QueryState
+        loading={loading}
+        error={error}
+        errorMessage={t('failed')}
+        retry={refresh}
+        retryLabel={t('retry')}
+        spinner
+      />
+    );
   if (!shop) return <EmptyState title={t('noShop')} />;
   if (!shop.connection.connected)
     return (

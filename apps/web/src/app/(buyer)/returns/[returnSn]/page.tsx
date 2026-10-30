@@ -6,14 +6,14 @@ import Image from 'next/image';
 import { useParams } from 'next/navigation';
 import type { BuyerReturn } from '@huspee/sdk';
 import { RequireRole } from '@/components/session';
-import { Button, useToast } from '@/components/ui';
+import { Button, QueryState, useToast } from '@/components/ui';
 import { useLang, useT } from '@/i18n';
 import { common } from '@/i18n/common';
 import { getApiClient } from '@/lib/api';
 import { formatDateTime, formatVnd } from '@/lib/format';
 import { useApi } from '@/lib/use-api';
 import { messages } from '../../_orders/messages';
-import { formatReturnReason, getErrorMessage, panel, ReturnStatusBadge, State } from '../../_orders/shared';
+import { formatReturnReason, getErrorMessage, panel, ReturnStatusBadge } from '../../_orders/shared';
 
 function ReturnDetailView() {
   const t = useT(messages);
@@ -59,8 +59,7 @@ function ReturnDetailView() {
     }
   };
 
-  if (loading) return <State loading={true} error={null} retry={reload} />;
-  if (error) return <State loading={false} error={error} retry={reload} />;
+  if (loading || error) return <QueryState loading={loading} error={error} retry={reload} />;
   if (!returnData) return null;
 
   return (

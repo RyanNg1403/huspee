@@ -2,12 +2,12 @@
 import { Suspense, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { ProductSearchQuery } from '@huspee/sdk';
-import { Button, Pagination, Skeleton } from '@/components/ui';
+import { Button, Pagination, QueryState, Skeleton } from '@/components/ui';
 import { useT } from '@/i18n';
 import { getApiClient } from '@/lib/api';
 import { useApi } from '@/lib/use-api';
 import { messages } from '../_browse/messages';
-import { panel, ProductGrid, State } from '../_browse/shared';
+import { panel, ProductGrid } from '../_browse/shared';
 function Search() {
   const t = useT(messages);
   const params = useSearchParams();
@@ -150,7 +150,7 @@ function Search() {
             </span>
           )}
         </div>
-        <State {...products} retry={products.reload} />
+        <QueryState {...products} retry={products.reload} />
         {!products.loading && !products.error && products.data && (
           <>
             <ProductGrid products={products.data.data} />

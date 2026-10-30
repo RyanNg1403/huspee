@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import type { BuyerOrder, OrderStatus, Paginated } from '@huspee/sdk';
 import { RequireRole } from '@/components/session';
-import { Button, Pagination, Tabs, useToast } from '@/components/ui';
+import { Button, Pagination, QueryState, Tabs, useToast } from '@/components/ui';
 import { useT } from '@/i18n';
 import { common } from '@/i18n/common';
 import { getApiClient } from '@/lib/api';
@@ -16,7 +16,7 @@ import { CancelOrderModal } from '../_orders/CancelOrderModal';
 import { messages } from '../_orders/messages';
 import { ReturnRequestModal } from '../_orders/ReturnRequestModal';
 import { ReviewModal } from '../_orders/ReviewModal';
-import { formatPaymentMethod, getErrorMessage, OrderStatusBadge, panel, State } from '../_orders/shared';
+import { formatPaymentMethod, getErrorMessage, OrderStatusBadge, panel } from '../_orders/shared';
 
 type TabKey =
   | 'ALL'
@@ -74,38 +74,12 @@ function OrdersView() {
     error,
     reload,
   } = useApi<Paginated<BuyerOrder>>(async () => {
-    if (activeTab === 'READY_TO_SHIP') {
-      const [readyRes, processedRes] = await Promise.all([
-        getApiClient().buyer.orders.list({
-          status: 'READY_TO_SHIP',
-          page: 1,
-          page_size: 100,
-        }),
-        getApiClient().buyer.orders.list({
-          status: 'PROCESSED',
-          page: 1,
-          page_size: 100,
-        }),
-      ]);
-      const combined = [...readyRes.data, ...processedRes.data].sort(
-        (a, b) => b.create_time - a.create_time || a.order_sn.localeCompare(b.order_sn),
-      );
-      const total = readyRes.page.total + processedRes.page.total;
-      const pageSize = 10;
-      const paged = combined.slice((page - 1) * pageSize, page * pageSize);
-      return {
-        data: paged,
-        page: {
-          page,
-          page_size: pageSize,
-          total,
-          has_next: page * pageSize < total,
-        },
-      };
-    }
-
     const statusQuery =
-      activeTab === 'ALL' || activeTab === 'RETURNS' ? undefined : (activeTab as OrderStatus);
+      activeTab === 'ALL' || activeTab === 'RETURNS'
+        ? undefined
+        : activeTab === 'READY_TO_SHIP'
+          ? ['READY_TO_SHIP', 'PROCESSED']
+          : (activeTab as OrderStatus);
     return getApiClient().buyer.orders.list({
       status: statusQuery,
       page,
@@ -137,10 +111,8 @@ function OrdersView() {
       </div>
 
       {/* Orders List */}
-      {loading ? (
-        <State loading={true} error={null} retry={reload} />
-      ) : error ? (
-        <State loading={false} error={error} retry={reload} />
+      {loading || error ? (
+        <QueryState loading={loading} error={error} retry={reload} />
       ) : !ordersData || ordersData.data.length === 0 ? (
         <div className={`${panel} py-16 text-center`}>
           <div className="mb-4 text-4xl">📦</div>

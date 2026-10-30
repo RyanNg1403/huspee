@@ -5,13 +5,13 @@ import Link from 'next/link';
 import Image from 'next/image';
 import type { BuyerReturn, Paginated } from '@huspee/sdk';
 import { RequireRole } from '@/components/session';
-import { Button, Pagination } from '@/components/ui';
+import { Button, Pagination, QueryState } from '@/components/ui';
 import { useLang, useT } from '@/i18n';
 import { getApiClient } from '@/lib/api';
 import { formatDateTime, formatVnd } from '@/lib/format';
 import { useApi } from '@/lib/use-api';
 import { messages } from '../_orders/messages';
-import { panel, ReturnStatusBadge, State } from '../_orders/shared';
+import { panel, ReturnStatusBadge } from '../_orders/shared';
 
 function ReturnsView() {
   const t = useT(messages);
@@ -43,10 +43,8 @@ function ReturnsView() {
       </div>
 
       {/* List */}
-      {loading ? (
-        <State loading={true} error={null} retry={reload} />
-      ) : error ? (
-        <State loading={false} error={error} retry={reload} />
+      {loading || error ? (
+        <QueryState loading={loading} error={error} retry={reload} />
       ) : !returnsData || returnsData.data.length === 0 ? (
         <div className={`${panel} py-16 text-center`}>
           <div className="mb-4 text-4xl">↩️</div>

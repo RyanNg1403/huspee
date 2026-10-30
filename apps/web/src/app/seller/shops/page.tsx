@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { useSelectedShop } from '@/components/layout';
-import { Button, Card, EmptyState, ErrorState, Modal, Spinner, useToast } from '@/components/ui';
+import { Button, Card, EmptyState, Modal, QueryState, useToast } from '@/components/ui';
 import { useT } from '@/i18n/client';
 import { getApiClient } from '@/lib/api';
 import { messages } from '../_catalog/messages';
@@ -36,8 +36,17 @@ export default function Shops() {
       setPending(false);
     }
   }
-  if (loading) return <Spinner />;
-  if (error) return <ErrorState message={t('failed')} onRetry={refresh} retryLabel={t('retry')} />;
+  if (loading || error)
+    return (
+      <QueryState
+        loading={loading}
+        error={error}
+        errorMessage={t('failed')}
+        retry={refresh}
+        retryLabel={t('retry')}
+        spinner
+      />
+    );
   return (
     <div className="space-y-4">
       <div className="flex justify-between">

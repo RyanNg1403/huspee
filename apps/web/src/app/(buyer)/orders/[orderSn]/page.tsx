@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { useParams } from 'next/navigation';
 import type { BuyerOrder, OrderTracking } from '@huspee/sdk';
 import { RequireRole } from '@/components/session';
-import { Button, useToast } from '@/components/ui';
+import { Button, QueryState, useToast } from '@/components/ui';
 import { useLang, useT } from '@/i18n';
 import { common } from '@/i18n/common';
 import { getApiClient } from '@/lib/api';
@@ -16,7 +16,7 @@ import { CancelOrderModal } from '../../_orders/CancelOrderModal';
 import { messages } from '../../_orders/messages';
 import { ReturnRequestModal } from '../../_orders/ReturnRequestModal';
 import { ReviewModal } from '../../_orders/ReviewModal';
-import { formatPaymentMethod, getErrorMessage, OrderStatusBadge, panel, State } from '../../_orders/shared';
+import { formatPaymentMethod, getErrorMessage, OrderStatusBadge, panel } from '../../_orders/shared';
 import { OrderStatusStepper, TrackingTimeline } from '../../_orders/TrackingTimeline';
 
 function OrderDetailView() {
@@ -67,8 +67,8 @@ function OrderDetailView() {
     }
   };
 
-  if (orderLoading) return <State loading={true} error={null} retry={reloadOrder} />;
-  if (orderError) return <State loading={false} error={orderError} retry={reloadOrder} />;
+  if (orderLoading || orderError)
+    return <QueryState loading={orderLoading} error={orderError} retry={reloadOrder} />;
   if (!order) return null;
 
   return (
@@ -99,10 +99,8 @@ function OrderDetailView() {
 
       {/* Tracking Timeline */}
       <div className={panel}>
-        {trackingLoading ? (
-          <State loading={true} error={null} retry={reloadTracking} />
-        ) : trackingError ? (
-          <State loading={false} error={trackingError} retry={reloadTracking} />
+        {trackingLoading || trackingError ? (
+          <QueryState loading={trackingLoading} error={trackingError} retry={reloadTracking} />
         ) : (
           <TrackingTimeline tracking={tracking} />
         )}

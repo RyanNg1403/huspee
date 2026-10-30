@@ -4,7 +4,15 @@ import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import type { ProductDetail } from '@huspee/sdk';
-import { Button, EmptyState, Pagination, QuantityStepper, Rating, useToast } from '@/components/ui';
+import {
+  Button,
+  EmptyState,
+  Pagination,
+  QuantityStepper,
+  QueryState,
+  Rating,
+  useToast,
+} from '@/components/ui';
 import { useSession } from '@/components/session';
 import { useLang, useT } from '@/i18n';
 import { common } from '@/i18n/common';
@@ -12,7 +20,7 @@ import { errorMessageKey, getApiClient } from '@/lib/api';
 import { formatCount, formatDate, formatVnd } from '@/lib/format';
 import { useApi } from '@/lib/use-api';
 import { messages } from '../../_browse/messages';
-import { panel, State, Vouchers } from '../../_browse/shared';
+import { panel, Vouchers } from '../../_browse/shared';
 
 function ShopInfo({ id }: { id: number }) {
   const t = useT(messages);
@@ -22,7 +30,7 @@ function ShopInfo({ id }: { id: number }) {
   return (
     <>
       <section className={panel}>
-        <State {...shop} retry={shop.reload} />
+        <QueryState {...shop} retry={shop.reload} />
         {!shop.loading && !shop.error && shop.data && (
           <div className="flex items-center gap-4">
             <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-orange-50 text-[#ee4d2d]">
@@ -50,12 +58,12 @@ function ShopInfo({ id }: { id: number }) {
       </section>
       <section className={panel}>
         <h2 className="mb-3 text-lg">{t('vouchers')}</h2>
-        <State {...vouchers} retry={vouchers.reload} />
+        <QueryState {...vouchers} retry={vouchers.reload} />
         {!vouchers.loading && !vouchers.error && vouchers.data && <Vouchers vouchers={vouchers.data} />}
       </section>
       <section className={panel}>
         <h2 className="mb-3 text-lg">{t('policies')}</h2>
-        <State {...policies} retry={policies.reload} />
+        <QueryState {...policies} retry={policies.reload} />
         {!policies.loading && !policies.error && policies.data && (
           <div className="space-y-2 text-sm">
             <p>
@@ -102,7 +110,7 @@ function Reviews({ id }: { id: number }) {
           ))}
         </select>
       </label>
-      <State {...reviews} retry={reviews.reload} />
+      <QueryState {...reviews} retry={reviews.reload} />
       {!reviews.loading &&
         !reviews.error &&
         reviews.data &&
@@ -346,7 +354,7 @@ export default function ProductPage() {
   }, [product.data, t]);
   return (
     <>
-      <State {...product} retry={product.reload} />
+      <QueryState {...product} retry={product.reload} />
       {!product.loading && !product.error && product.data && <Product key={id} product={product.data} />}
     </>
   );

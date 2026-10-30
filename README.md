@@ -37,43 +37,68 @@ docker-compose.yml   PostgreSQL + API
 
 Requirements: Node ≥ 22, pnpm 10, PostgreSQL 16 (or Docker).
 
-### Docker Compose
+### Run the web app
+
+#### With Docker Compose
 
 ```bash
 docker compose up --build
 ```
 
-The API listens on http://localhost:3000. On start it applies migrations and (by default,
-`HUSPEE_SEED_ON_START=true`) loads the demo seed, which **resets all data** — turn it off for
-persistent data.
+Builds and serves both services:
+- **API**: http://localhost:3000
+- **Web Storefront & Seller Dashboard**: http://localhost:3001
 
-### Local development
+The `web` service defaults `NEXT_PUBLIC_API_URL` to `http://localhost:3000` via build argument. On container start, migrations are applied and the deterministic seed dataset is loaded.
 
+#### Local development
+
+Install dependencies:
 ```bash
 pnpm install
 ```
 
+Configure backend environment:
 ```bash
 cp apps/api/.env.example apps/api/.env
 ```
 
-Edit `apps/api/.env` (database URL, secrets), then:
-
+Apply migrations and deterministic seed:
 ```bash
 pnpm db:migrate
-```
-
-```bash
 pnpm db:seed
 ```
 
+Run API and Web servers:
 ```bash
-pnpm dev
+pnpm dev       # Starts NestJS API on http://localhost:3000
+pnpm dev:web   # Starts Next.js Web on http://localhost:3001
 ```
 
-`pnpm db:seed` truncates and reloads the deterministic demo dataset (refuses to run when
-`NODE_ENV=production` unless `HUSPEE_ALLOW_SEED_RESET=true`). `pnpm db:reset` runs
-`prisma migrate reset` (drops the dev database, then seeds).
+### Database management & demo reset
+
+```bash
+DATABASE_URL="postgresql://huspee:huspee@localhost:5432/your_db" pnpm demo:reset
+```
+
+> **Warning:** `pnpm demo:reset` performs a destructive reset (`prisma migrate reset --force`) on the target database pointed to by `DATABASE_URL` and reapplies migrations followed by the deterministic seed.
+
+### Scripted UI smoke test
+
+Run the browser automation smoke test against running web and API servers:
+
+```bash
+WEB_URL=http://localhost:3001 API_URL=http://localhost:3000 pnpm smoke:ui
+```
+
+`pnpm smoke:ui` executes via `playwright-core` using the system Google Chrome (no browser binaries download required) covering:
+1. Buyer login → search → product detail → add to cart → checkout → order visible in order list & detail.
+2. Seller login → shop connection verification → order list visibility → arrange shipment (`ShipModal`) → advance shipment to `SHIPPED` via simulation panel.
+3. Buyer tracking updated to `SHIPPED` (`Đang giao hàng`).
+4. Language switch (`vi` ↔ `en`).
+5. Mobile 375 px layout responsive validation (no horizontal overflow on `/`, `/products/:id`, and `/cart`).
+
+Screenshots and logs are stored under `.orca/p2w0/p2w0-closeout-ops/out/`.
 
 ### Tests
 

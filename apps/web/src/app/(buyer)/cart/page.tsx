@@ -6,14 +6,14 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import type { Cart, CartLine, ProductModel } from '@huspee/sdk';
 import { RequireRole } from '@/components/session';
-import { Button, QuantityStepper, Select, useToast } from '@/components/ui';
+import { Button, QuantityStepper, QueryState, Select, useToast } from '@/components/ui';
 import { useT } from '@/i18n';
 import { common } from '@/i18n/common';
 import { getApiClient } from '@/lib/api';
 import { formatVnd } from '@/lib/format';
 import { useApi } from '@/lib/use-api';
 import { messages } from '../_orders/messages';
-import { formatIssue, getErrorMessage, panel, State } from '../_orders/shared';
+import { formatIssue, getErrorMessage, panel } from '../_orders/shared';
 
 function CartVariantPicker({
   item,
@@ -238,8 +238,7 @@ function CartView() {
     return selectedItems.reduce((acc, item) => acc + item.line_total, 0);
   }, [selectedItems]);
 
-  if (loading) return <State loading={loading} error={null} retry={reload} />;
-  if (error) return <State loading={false} error={error} retry={reload} />;
+  if (loading || error) return <QueryState loading={loading} error={error} retry={reload} />;
 
   if (!cart || cart.shops.length === 0 || cart.item_count === 0) {
     return (

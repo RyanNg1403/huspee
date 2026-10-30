@@ -17,7 +17,7 @@ export function parseInput<S extends ZodTypeAny>(schema: S, data: unknown): z.in
  * Query-string friendly primitives. Shopee clients send GET params as strings and lists either
  * as repeated keys (`a=1&a=2`, the SDK's style) or comma-separated (`a=1,2`, the docs' style).
  */
-const splitList = (v: unknown): unknown => {
+export const splitList = (v: unknown): unknown => {
   if (v === undefined || v === null || v === '') return undefined;
   const arr = Array.isArray(v) ? v : [v];
   return arr.flatMap((x) => (typeof x === 'string' ? x.split(',').filter((s) => s.length > 0) : [x]));

@@ -306,6 +306,12 @@ export interface BuyerOrder {
   actions: { can_cancel: boolean; can_confirm_receipt: boolean; can_request_return: boolean; return_request_due_date: number | null };
 }
 
+export interface BuyerOrderListQuery {
+  status?: OrderStatus | OrderStatus[] | string | string[];
+  page?: number;
+  page_size?: number;
+}
+
 export interface CheckoutResult {
   checkout_id: string;
   order_sn_list: string[];

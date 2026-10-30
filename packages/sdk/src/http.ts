@@ -31,7 +31,10 @@ export class HuspeeApiError extends Error {
 }
 
 export interface RequestOptions {
-  query?: Record<string, string | number | boolean | undefined | null>;
+  query?: Record<
+    string,
+    string | number | boolean | Array<string | number | boolean> | undefined | null
+  >;
   body?: unknown;
   headers?: Record<string, string>;
   /** Return the full JSON body instead of unwrapping `data`. */
@@ -57,7 +60,9 @@ export class HttpTransport {
   url(path: string, query?: RequestOptions['query']): string {
     const url = new URL(this.baseUrl + path);
     for (const [k, v] of Object.entries(query ?? {})) {
-      if (v !== undefined && v !== null) url.searchParams.set(k, String(v));
+      if (v !== undefined && v !== null) {
+        url.searchParams.set(k, Array.isArray(v) ? v.join(',') : String(v));
+      }
     }
     return url.toString();
   }

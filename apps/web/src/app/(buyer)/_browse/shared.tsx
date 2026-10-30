@@ -2,20 +2,12 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import type { ProductSummary, PublicVoucher } from '@huspee/sdk';
-import { EmptyState, ErrorState, Skeleton } from '@/components/ui';
+import { EmptyState } from '@/components/ui';
 import { useLang, useT } from '@/i18n';
-import { common } from '@/i18n/common';
-import { errorMessageKey } from '@/lib/api';
 import { formatCount, formatVnd } from '@/lib/format';
 import { messages } from './messages';
 
-export function State({ loading, error, retry }: { loading: boolean; error: unknown; retry: () => void }) {
-  const t = useT(common);
-  if (loading) return <Skeleton className="h-36 w-full" />;
-  if (error)
-    return <ErrorState message={t(errorMessageKey(error))} retryLabel={t('retry')} onRetry={retry} />;
-  return null;
-}
+export { QueryState as State, QueryState, ApiState } from '@/components/ui';
 export function ProductGrid({ products }: { products: ProductSummary[] }) {
   const t = useT(messages);
   const { lang } = useLang();

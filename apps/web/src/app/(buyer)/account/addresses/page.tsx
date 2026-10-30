@@ -3,14 +3,14 @@
 import { useState } from 'react';
 import type { Address } from '@huspee/sdk';
 import { RequireRole } from '@/components/session';
-import { Badge, Button, useToast } from '@/components/ui';
+import { Badge, Button, QueryState, useToast } from '@/components/ui';
 import { useT } from '@/i18n';
 import { common } from '@/i18n/common';
 import { getApiClient } from '@/lib/api';
 import { useApi } from '@/lib/use-api';
 import { AddressModal } from '../../_orders/AddressModal';
 import { messages } from '../../_orders/messages';
-import { getErrorMessage, panel, State } from '../../_orders/shared';
+import { getErrorMessage, panel } from '../../_orders/shared';
 
 function AddressesView() {
   const t = useT(messages);
@@ -76,10 +76,8 @@ function AddressesView() {
       </div>
 
       {/* Address List */}
-      {loading ? (
-        <State loading={true} error={null} retry={reload} />
-      ) : error ? (
-        <State loading={false} error={error} retry={reload} />
+      {loading || error ? (
+        <QueryState loading={loading} error={error} retry={reload} />
       ) : !addresses || addresses.length === 0 ? (
         <div className={`${panel} py-16 text-center`}>
           <div className="mb-4 text-4xl">📍</div>

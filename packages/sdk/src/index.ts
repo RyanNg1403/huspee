@@ -13,6 +13,7 @@ import type {
   Address,
   AddressInput,
   BuyerOrder,
+  BuyerOrderListQuery,
   BuyerReturn,
   Cart,
   CategoryNode,
@@ -111,8 +112,14 @@ export class HuspeeClient {
       remove: (addressId: number) => this.http.request<{ deleted: boolean }>('DELETE', `/api/v1/buyer/addresses/${addressId}`),
     },
     orders: {
-      list: (query: { status?: OrderStatus; page?: number; page_size?: number } = {}) =>
-        this.http.request<Paginated<BuyerOrder>>('GET', '/api/v1/buyer/orders', { query, raw: true }),
+      list: (query: BuyerOrderListQuery = {}) =>
+        this.http.request<Paginated<BuyerOrder>>('GET', '/api/v1/buyer/orders', {
+          query: {
+            ...query,
+            status: Array.isArray(query.status) ? query.status.join(',') : query.status,
+          },
+          raw: true,
+        }),
       get: (orderSn: string) => this.http.request<BuyerOrder>('GET', `/api/v1/buyer/orders/${encodeURIComponent(orderSn)}`),
       cancel: (orderSn: string, reason?: string) =>
         this.http.request<BuyerOrder>('POST', `/api/v1/buyer/orders/${encodeURIComponent(orderSn)}/cancel`, { body: reason ? { reason } : {} }),

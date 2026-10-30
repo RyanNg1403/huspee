@@ -1,7 +1,7 @@
 'use client';
 
 import type { OrderStatus, BuyerReturn } from '@huspee/sdk';
-import { Badge, ErrorState, Skeleton } from '@/components/ui';
+import { Badge } from '@/components/ui';
 import { useT } from '@/i18n';
 import { common } from '@/i18n/common';
 import { errorMessageKey, isApiError } from '@/lib/api';
@@ -9,16 +9,7 @@ import { messages } from './messages';
 
 export const panel = 'bg-white p-4 shadow-sm sm:p-6 rounded';
 
-export function State({ loading, error, retry }: { loading: boolean; error: unknown; retry: () => void }) {
-  const tCommon = useT(common);
-  if (loading) return <Skeleton className="h-40 w-full" />;
-  if (error) {
-    return (
-      <ErrorState message={tCommon(errorMessageKey(error))} retryLabel={tCommon('retry')} onRetry={retry} />
-    );
-  }
-  return null;
-}
+export { QueryState as State, QueryState, ApiState } from '@/components/ui';
 
 type MessageKey = keyof typeof messages.vi;
 type CommonKey = keyof typeof common.vi;
