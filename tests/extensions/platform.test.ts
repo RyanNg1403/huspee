@@ -153,7 +153,7 @@ describe('gateway token refresh', () => {
   it('concurrent calls after access-token expiry refresh once and keep the shop connected', async () => {
     const seller = await newSellerWithShop();
     await connectViaDashboard(seller.client, seller.shopId);
-    await db().query(`UPDATE platform_shop_credentials SET access_expires_at = now() - interval '1 minute' WHERE shop_id = $1`, [seller.shopId]);
+    await db().query(`UPDATE platform_shop_credentials SET access_expires_at = (now() AT TIME ZONE 'UTC') - interval '1 minute' WHERE shop_id = $1`, [seller.shopId]);
     const results = await Promise.all(
       Array.from({ length: 6 }, () => seller.client.seller.shopee.call(seller.shopId, '/shop/get_profile')),
     );

@@ -153,4 +153,5 @@ vouchers, five logistics channels, shop policies, historical completed orders an
   single-use codes and rotating refresh tokens (reuse revokes the family), grant revocation.
 - Tenant isolation is enforced in queries (`shopId` / `buyerId` scoping); resources outside scope
   return "not found".
+- The seller gateway serialises per-shop token refresh with an in-process lock, so running more than one API instance needs a database-level lock first.
 - Not yet in scope: rate limiting, account lockout, email verification, audit logs.

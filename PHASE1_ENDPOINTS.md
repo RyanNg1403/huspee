@@ -25,7 +25,7 @@
 
 **SDK columns.** Upstream methods are those of `@congminh1254/shopee-sdk@2.12.0` (`sdk.<manager>.<method>`), inherited unchanged by `HuspeeShopeeSDK` in `@huspee/sdk/server`. Huspee methods live on `HuspeeClient` (`@huspee/sdk`, browser-safe) or `HuspeeShopeeSDK.custom` (server-only).
 
-**Test columns.** `U` = `tests/upstream` (unmodified upstream SDK methods), `X` = `tests/extensions` (Huspee SDK extensions), `E` = `tests/e2e` (cross-surface flows).
+**Test columns.** `U` = `tests/upstream` (unmodified upstream SDK methods), `X` = `tests/extensions` (Huspee SDK extensions), `E` = `tests/e2e` (cross-surface flows). `/api/v1` and other non-Shopee rows marked `U` are exercised by the upstream suite as fixtures for SDK flows, not through upstream SDK methods.
 
 **Status.** ✅ implemented and tested · ⚠️ implemented, approximation documented in `docs/COMPATIBILITY.md` · ❌ not implemented.
 
@@ -76,7 +76,7 @@ All paths are under `/api/v2`. Every shop-level call is also reachable from the 
 | P0 | `product.update_stock` | POST `/product/update_stock` | shop | `sdk.product.updateStock` | ✅ | U, E |
 | P0 | `product.update_price` | POST `/product/update_price` | shop | `sdk.product.updatePrice` | ✅ | U, E |
 | P0 | `media_space.upload_image` | POST `/media_space/upload_image` (multipart `image`) | shop | `sdk.mediaSpace.uploadImage` | ⚠️ shop-level auth | U, X, E |
-| + | `media.upload_image` | POST `/media/upload_image` (multipart `images`) | shop | `sdk.media.uploadImage` | ✅ | U |
+| + | `media.upload_image` | POST `/media/upload_image` (multipart `images`) | shop | `sdk.media.uploadImage` | ⚠️ shop-level auth | U |
 | P1 | `product.update_model` | POST `/product/update_model` | shop | `sdk.product.updateModel` | ✅ | U |
 | + | `product.delete_model` | POST `/product/delete_model` | shop | `sdk.product.deleteModel` | ✅ | U |
 | P1 | `product.unlist_item` | POST `/product/unlist_item` | shop | `sdk.product.unlistItem` | ✅ | U, E |
@@ -128,7 +128,7 @@ All paths are under `/api/v2`. Every shop-level call is also reachable from the 
 | Pri | Endpoint/event | Method & path | Auth | SDK method | Status | Tests |
 |---|---|---|---|---|---|---|
 | P1 | `push.set_app_push_config` | POST `/push/set_app_push_config` | shop | `sdk.push.setAppPushConfig` | ⚠️ per-partner config | U, E |
-| P1 | `push.get_app_push_config` | GET `/push/get_app_push_config` | shop | `sdk.push.getAppPushConfig` | ✅ | U |
+| P1 | `push.get_app_push_config` | GET `/push/get_app_push_config` | shop | `sdk.push.getAppPushConfig` | ⚠️ per-partner config | U |
 | + | `push.get_lost_push_message` / `push.confirm_consumed_lost_push_message` | GET/POST `/push/…` | shop | `sdk.push.getLostPushMessage`, `sdk.push.confirmConsumedLostPushMessage` | ✅ | U |
 | P1 | Outbound order/tracking/inventory/promotion/return event delivery | POST to configured callback, `Authorization: HMAC(url + "|" + body)` | — | `verifyPushSignature()` (`@huspee/sdk/server`) | ⚠️ codes 1, 2, 3, 4, 8, 9, 29 | U, E |
 

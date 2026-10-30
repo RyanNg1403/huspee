@@ -202,7 +202,7 @@ describe('request signing and token validation (negative cases)', () => {
   it('expired access token -> invalid_access_token', async () => {
     const sdk = await connectUpstream(shopId, SEED.sellers.techzone.email);
     const expiring = (await sdk.getAuthToken())!.access_token;
-    await db().query(`UPDATE access_tokens SET expires_at = now() - interval '1 minute' WHERE token_hash = $1`, [sha256(expiring)]);
+    await db().query(`UPDATE access_tokens SET expires_at = (now() AT TIME ZONE 'UTC') - interval '1 minute' WHERE token_hash = $1`, [sha256(expiring)]);
     const res = await signedCall('/shop/get_profile', { accessToken: expiring, shopId });
     expect(res.body.error).toBe('invalid_access_token');
   });
@@ -210,7 +210,7 @@ describe('request signing and token validation (negative cases)', () => {
   it('upstream SDK transparently refreshes after invalid_access_token', async () => {
     const sdk = await connectUpstream(shopId, SEED.sellers.techzone.email);
     const before = (await sdk.getAuthToken())!.access_token;
-    await db().query(`UPDATE access_tokens SET expires_at = now() - interval '1 minute' WHERE token_hash = $1`, [sha256(before)]);
+    await db().query(`UPDATE access_tokens SET expires_at = (now() AT TIME ZONE 'UTC') - interval '1 minute' WHERE token_hash = $1`, [sha256(before)]);
     const profile = await sdk.shop.getProfile();
     expect(profile.response.shop_name).toBe('TechZone Official');
     expect((await sdk.getAuthToken())!.access_token).not.toBe(before);
