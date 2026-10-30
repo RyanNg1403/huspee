@@ -267,6 +267,11 @@ it('serves a fake voice session over HTTP and protects its event stream', async 
     expect(textData).toContain('Verified product');
     await buyer.assistant.voice.stop(textSession.conversation_id);
     await textReader.cancel();
+    // Continuing a conversation is limited to the buyer who had it.
+    await expect(other.assistant.text.start({ shop_id: 880001, resume_conversation_id: textSession.conversation_id })).rejects.toMatchObject({ status: 404 });
+    const resumed = await buyer.assistant.text.start({ shop_id: 880001, resume_conversation_id: textSession.conversation_id });
+    expect(resumed.conversation_id).not.toBe(textSession.conversation_id);
+    await buyer.assistant.voice.stop(resumed.conversation_id);
   } finally {
     server.kill('SIGTERM');
   }

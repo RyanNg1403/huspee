@@ -16,8 +16,14 @@ const startSchema = z.object({
   shop_id: z.number().int().positive(),
   sdp_offer: z.string().min(1).max(100000),
   lang: z.enum(['vi', 'en']).optional(),
+  resume_conversation_id: z.string().uuid().optional(),
 });
-const textStartSchema = z.object({ shop_id: z.number().int().positive(), lang: z.enum(['vi', 'en']).optional() });
+const textStartSchema = z.object({
+  shop_id: z.number().int().positive(),
+  lang: z.enum(['vi', 'en']).optional(),
+  resume_conversation_id: z.string().uuid().optional(),
+});
+const unix = (date: Date) => Math.floor(date.getTime() / 1000);
 const textSchema = z.object({ text: z.string().trim().min(1).max(4000) });
 
 @Controller('api/v1/assistant')
@@ -32,6 +38,78 @@ export class VoiceController {
   ) {}
   private enabled(): boolean {
     return process.env.ASSISTANT_VOICE_ENABLED === 'true';
+  }
+  /** The buyer's earlier messages in one of their own conversations with this shop, oldest first. */
+  private async history(buyerId: number, shopId: number, resumeId?: string) {
+    if (!resumeId) return undefined;
+    const conversation = await this.prisma.conversation.findFirst({ where: { id: resumeId, buyerId, shopId }, select: { id: true } });
+    if (!conversation) throw notFound('Conversation');
+    const messages = await this.prisma.conversationMessage.findMany({
+      where: { conversationId: resumeId },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: 20,
+    });
+    return messages.reverse().map((message) => ({ role: message.role === 'USER' ? ('user' as const) : ('assistant' as const), text: message.text.trim() }));
+  }
+  @Get('shops/:shopId/conversations')
+  async conversationList(@CurrentUser() user: User, @Param('shopId') shopIdParam: string) {
+    const shopId = Number(shopIdParam);
+    if (!Number.isInteger(shopId) || shopId <= 0) throw notFound('Shop');
+    const rows = await this.prisma.conversation.findMany({
+      where: { buyerId: user.id, shopId, messages: { some: {} } },
+      orderBy: { startedAt: 'desc' },
+      take: 30,
+      include: {
+        messages: { where: { role: 'USER' }, orderBy: { createdAt: 'asc' }, take: 1 },
+        _count: { select: { messages: true } },
+      },
+    });
+    return {
+      data: rows.map((row) => ({
+        conversation_id: row.id,
+        channel: row.channel,
+        status: row.status,
+        started_at: unix(row.startedAt),
+        ended_at: row.endedAt ? unix(row.endedAt) : null,
+        preview: row.messages[0]?.text.trim() ?? null,
+        message_count: row._count.messages,
+      })),
+    };
+  }
+  @Get('conversations/:conversationId')
+  async conversationDetail(@CurrentUser() user: User, @Param('conversationId') id: string) {
+    if (!z.string().uuid().safeParse(id).success) throw notFound('Conversation');
+    const row = await this.prisma.conversation.findFirst({
+      where: { id, buyerId: user.id },
+      include: {
+        messages: { orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] },
+        toolCalls: { where: { success: true, tool: { not: 'speech_check' } }, orderBy: { createdAt: 'asc' } },
+        _count: { select: { messages: true } },
+      },
+    });
+    if (!row) throw notFound('Conversation');
+    return {
+      data: {
+        conversation_id: row.id,
+        shop_id: row.shopId,
+        channel: row.channel,
+        status: row.status,
+        started_at: unix(row.startedAt),
+        ended_at: row.endedAt ? unix(row.endedAt) : null,
+        preview: row.messages.find((message) => message.role === 'USER')?.text.trim() ?? null,
+        message_count: row._count.messages,
+        messages: row.messages.map((message) => ({
+          role: message.role === 'USER' ? 'user' : 'assistant',
+          text: message.text.trim(),
+          created_at: unix(message.createdAt),
+        })),
+        // Cards come from the stored tool results, the same data the buyer saw live.
+        cards: row.toolCalls.flatMap((call) => {
+          const card = (call.result as { card?: Record<string, unknown> } | null)?.card;
+          return card ? [{ card, created_at: unix(call.createdAt) }] : [];
+        }),
+      },
+    };
   }
   @Public()
   @Get('voices')
@@ -55,6 +133,7 @@ export class VoiceController {
       return res
         .status(503)
         .json({ error: { code: 'assistant_unavailable', message: 'Shop assistant is unavailable' } });
+    const history = await this.history(user.id, input.shop_id, input.resume_conversation_id);
     const conversation = await this.conversations.start({ shopId: input.shop_id, buyerId: user.id, channel: 'VOICE', language: input.lang });
     try {
       const sdp = await this.voice.runtime.start(
@@ -65,6 +144,7 @@ export class VoiceController {
           greetingVi: config.greetingVi,
           greetingEn: config.greetingEn,
           voice: config.voice,
+          history,
         },
         input.sdp_offer,
       );
@@ -88,9 +168,10 @@ export class VoiceController {
     if (!shop || shop.status !== 'NORMAL') throw notFound('Shop assistant');
     const config = shop.assistantConfig ?? defaultAssistantConfig(shop.name);
     if (!config.enabled) return res.status(503).json({ error: { code: 'assistant_unavailable', message: 'Shop assistant is unavailable' } });
+    const history = await this.history(user.id, input.shop_id, input.resume_conversation_id);
     const conversation = await this.conversations.start({ shopId: input.shop_id, buyerId: user.id, channel: 'TEXT', language: input.lang });
     try {
-      await this.voice.runtime.startText({ conversationId: conversation.id, buyerId: user.id, shopId: input.shop_id }, { shopName: shop.name, ...config });
+      await this.voice.runtime.startText({ conversationId: conversation.id, buyerId: user.id, shopId: input.shop_id }, { shopName: shop.name, ...config, history });
       return res.status(201).json({ data: { conversation_id: conversation.id } });
     } catch (error) {
       await this.conversations.end(conversation.id);

@@ -26,6 +26,16 @@ export type AssistantCard =
       name: string;
       image: string | null;
       models: Array<{ model_id: number; name: string; price: number; stock: number }>;
+      images?: string[];
+      description?: string;
+      attributes?: Array<{ name: string; value: string }>;
+      brand?: string | null;
+      category?: string;
+      rating?: number | null;
+      rating_count?: number;
+      sold?: number;
+      days_to_ship?: number;
+      reviews?: Array<{ rating: number; comment: string; buyer_name: string; model_name: string | null }>;
     }
   | { kind: 'compare'; items: Array<{ item_id: number; name: string; image: string | null; price_min: number; rows: Record<string, string> }> }
   | { kind: 'cart'; lines: Array<{ item_id: number; model_id: number; name: string; quantity: number; price: number }>; total: number }

@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { checkSpeech, detectLanguage, extractNumbers, speechText, statesFact } from '../../apps/api/src/assistant/voice/speech-check.js';
 import { VoiceRuntime, voiceOutputMode, type SpeechLog } from '../../apps/api/src/assistant/voice/voice-runtime.js';
+import { realtimeIdentity, voicePrompt } from '../../apps/api/src/assistant/voice/prompt.js';
 
 const evidence = [
   '{"name":"Apple iPhone 15 128GB Chính Hãng VN/A","models":[{"name":"Đen","price":18490000,"stock":25},{"name":"Hồng","price":18490000,"stock":12}]}',
@@ -111,6 +112,14 @@ describe('voice runtime speaks only checked answers', () => {
   it('codex output: a short reply denying the shop also goes to the thread', async () => {
     const { spoken } = await run('SPEECH_NOSHOP', '{"items":[]}', undefined, 'codex');
     expect(spoken).toContain('Final answer');
+  });
+  it('gives a continued conversation its earlier messages as context, not as facts', () => {
+    const config = { shopName: 'TechZone', tone: 'FRIENDLY', greetingVi: 'Chào', greetingEn: 'Hi', history: [{ role: 'user' as const, text: 'Tai nghe giá bao nhiêu?' }] };
+    for (const prompt of [voicePrompt(config), realtimeIdentity(config)]) {
+      expect(prompt).toContain('Buyer: Tai nghe giá bao nhiêu?');
+      expect(prompt).toContain('check them again with tools');
+    }
+    expect(voicePrompt({ ...config, history: undefined })).not.toContain('continuing an earlier conversation');
   });
   it("defaults to Codex's own voice", () => {
     delete process.env.ASSISTANT_VOICE_OUTPUT;

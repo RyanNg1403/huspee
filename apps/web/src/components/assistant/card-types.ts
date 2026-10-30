@@ -1,3 +1,4 @@
+import type { ProductInfo } from './product-details';
 export type Action = {
   action_id: string;
   type?: 'ADD_TO_CART' | 'UPDATE_CART_ITEM' | 'PLACE_ORDER' | 'OPEN_RETURN';
@@ -26,7 +27,7 @@ export type Card =
       name: string;
       image: string | null;
       models: Array<{ model_id: number; name: string; price: number; stock: number }>;
-    }
+    } & Omit<Partial<ProductInfo>, 'item_id' | 'name' | 'models'>
   | {
       kind: 'compare';
       items: Array<{

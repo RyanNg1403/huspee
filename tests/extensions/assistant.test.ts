@@ -112,6 +112,32 @@ describe('assistant platform extensions', () => {
     expect(states.rows.map((row) => row.status)).toEqual(['PENDING', 'EXECUTED']);
   });
 
+  it('shows buyers only their own past conversations, with stored cards and the full product card', async () => {
+    const { client, email } = await newBuyer();
+    const other = await newBuyer();
+    const buyer = await db().query<{ id: number }>('SELECT id FROM users WHERE email = $1', [email]);
+    const conversationId = randomUUID();
+    await db().query('INSERT INTO conversations (id, shop_id, buyer_id, channel, status, started_at) VALUES ($1, $2, $3, $4, $5, NOW())', [conversationId, shopId, buyer.rows[0]!.id, 'VOICE', 'ACTIVE']);
+    await db().query("INSERT INTO conversation_messages (conversation_id, role, text, created_at) VALUES ($1, 'USER', 'Cho mình xem iPhone', NOW() - interval '2 seconds'), ($1, 'ASSISTANT', 'Đây là iPhone nhé', NOW() - interval '1 second')", [conversationId]);
+    const run = <T>(name: string, args: unknown) => client.http.request<T>('POST', `/api/v1/assistant/_debug/tools/${name}`, { body: { conversation_id: conversationId, args } });
+    const detail = await run<{ text: string; card: Record<string, unknown> & { images: string[]; attributes: unknown[]; reviews: Array<Record<string, unknown>> } }>('get_product_details', { item_id: SEED.items.iphone.itemId });
+    expect(detail.card).toMatchObject({ kind: 'product', item_id: SEED.items.iphone.itemId, category: expect.any(String), sold: expect.any(Number), days_to_ship: expect.any(Number), description: expect.any(String) });
+    expect(detail.card.images.length).toBeGreaterThan(0);
+    expect(Array.isArray(detail.card.attributes)).toBe(true);
+    for (const review of detail.card.reviews) expect(Object.keys(review).sort()).toEqual(['buyer_name', 'comment', 'model_name', 'rating']);
+    expect(JSON.parse(detail.text)).toMatchObject({ category: detail.card.category, sold: detail.card.sold, recent_reviews: detail.card.reviews });
+    await db().query("UPDATE conversations SET status = 'ENDED', ended_at = NOW() WHERE id = $1", [conversationId]);
+
+    const list = await client.assistant.conversations.list(shopId);
+    expect(list).toContainEqual(expect.objectContaining({ conversation_id: conversationId, channel: 'VOICE', status: 'ENDED', preview: 'Cho mình xem iPhone', message_count: 2 }));
+    const history = await client.assistant.conversations.get(conversationId);
+    expect(history.messages.map((message) => [message.role, message.text])).toEqual([['user', 'Cho mình xem iPhone'], ['assistant', 'Đây là iPhone nhé']]);
+    expect(history.cards.map((entry) => entry.card.kind)).toEqual(['product']);
+    expect(await other.client.assistant.conversations.list(shopId)).toEqual([]);
+    await expect(other.client.assistant.conversations.get(conversationId)).rejects.toMatchObject({ status: 404 });
+    await expect(sessionClient().assistant.conversations.list(shopId)).rejects.toMatchObject({ status: 401 });
+  });
+
   it('reissues edited cart actions with shop-scoped options and invalidates old consent', async () => {
     const { client, email } = await newBuyer();
     const other = await newBuyer();

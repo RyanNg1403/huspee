@@ -11,6 +11,7 @@ import { toNumber } from '../../common/money';
 import { PrismaService } from '../../common/prisma.service';
 import { CatalogService, itemInclude, mediaUrl, modelName, resolveModelPrice, sellableModels, tierVariations, type ItemWithRelations } from '../../domain/catalog.service';
 import type { AssistantCard } from '../types';
+import { maskName } from '../../compat/ops/product.ops';
 
 export interface ToolContext {
   conversationId: string;
@@ -475,13 +476,6 @@ export class AssistantToolRegistry {
           price: resolveModelPrice(m).currentPrice,
           stock: m.status === 'MODEL_NORMAL' ? m.stock : 0,
         }));
-        const card: AssistantCard = {
-          kind: 'product',
-          item_id: item.id,
-          name: item.name,
-          image: item.images[0] ? mediaUrl(item.images[0].url) : null,
-          models,
-        };
         const definitions = await this.prisma.categoryAttribute.findMany({ where: { categoryId: item.categoryId } });
         const attributes = (Array.isArray(item.attributes) ? item.attributes : [])
           .map((raw) => {
@@ -502,9 +496,54 @@ export class AssistantToolRegistry {
             return value ? { name: def.displayName, value } : null;
           })
           .filter(Boolean);
+        const reviews = await this.prisma.review.findMany({
+          where: { itemId: item.id, hidden: false },
+          include: { buyer: { select: { name: true } } },
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+          take: 3,
+        });
+        const rating = ratings.get(item.id);
+        const card: AssistantCard = {
+          kind: 'product',
+          item_id: item.id,
+          name: item.name,
+          image: item.images[0] ? mediaUrl(item.images[0].url) : null,
+          models,
+          images: item.images.slice(0, 6).map((image) => mediaUrl(image.url)),
+          description: item.description,
+          attributes: attributes as Array<{ name: string; value: string }>,
+          brand: item.brand?.name ?? null,
+          category: item.category.displayName,
+          rating: rating?.avg ?? null,
+          rating_count: rating?.count ?? 0,
+          sold: item.sales,
+          days_to_ship: item.daysToShip,
+          reviews: reviews.map((review) => {
+            const model = review.modelId ? item.models.find((m) => m.id === review.modelId) : undefined;
+            return {
+              rating: review.rating,
+              comment: review.comment,
+              buyer_name: maskName(review.buyer.name),
+              model_name: model ? modelName(item, model.tierIndex) : null,
+            };
+          }),
+        };
         return {
           success: true,
-          text: JSON.stringify({ name: item.name, description: item.description, attributes, rating: ratings.get(item.id)?.avg ?? null, models, ...match }),
+          text: JSON.stringify({
+            name: item.name,
+            description: item.description,
+            attributes,
+            brand: card.brand,
+            category: card.category,
+            rating: card.rating,
+            rating_count: card.rating_count,
+            sold: card.sold,
+            days_to_ship: card.days_to_ship,
+            recent_reviews: card.reviews,
+            models,
+            ...match,
+          }),
           card,
           ...match,
         };

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useLang, useT } from '@/i18n';
+import { formatDateTime } from '@/lib/format';
 import { useSession } from '@/components/session';
 import { AssistantCard, type Action, type Card, type EditOptions } from './cards';
 import { messages } from './messages';
@@ -25,13 +26,32 @@ type LiveEvent =
   | { type: 'action'; action: Action }
   | { type: 'closed'; reason: string | null }
   | { type: 'error'; message: string };
+type HistoryItem = {
+  conversation_id: string;
+  channel: 'VOICE' | 'TEXT';
+  status: 'ACTIVE' | 'ENDED';
+  started_at: number;
+  preview: string | null;
+  message_count: number;
+};
+type HistoryDetail = HistoryItem & {
+  messages: Array<{ role: 'user' | 'assistant'; text: string; created_at: number }>;
+  cards: Array<{ card: Record<string, unknown>; created_at: number }>;
+};
 type Adapter = {
   start: (input: {
     shop_id: number;
     sdp_offer: string;
     lang: string;
+    resume_conversation_id?: string;
   }) => Promise<{ conversation_id: string; sdp_answer: string; voice_output?: 'checked' | 'codex' }>;
-  startText: (input: { shop_id: number; lang: string }) => Promise<{ conversation_id: string }>;
+  startText: (input: {
+    shop_id: number;
+    lang: string;
+    resume_conversation_id?: string;
+  }) => Promise<{ conversation_id: string }>;
+  history: (shopId: number) => Promise<HistoryItem[]>;
+  conversation: (id: string) => Promise<HistoryDetail>;
   text: (id: string, text: string) => Promise<unknown>;
   stop: (id: string) => Promise<unknown>;
   eventsUrl: (id: string) => string;
@@ -71,6 +91,70 @@ function MicGlyph({ className = '' }: { className?: string }) {
     </svg>
   );
 }
+function ClockGlyph({ className = '' }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      aria-hidden="true"
+    >
+      <path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l3 2" />
+    </svg>
+  );
+}
+
+/** A stored conversation, read-only: its transcript and the cards its tool results produced. */
+function PastConversation({
+  detail,
+  getOptions,
+}: {
+  detail: HistoryDetail;
+  getOptions: Adapter['options'];
+}) {
+  const items = [
+    ...detail.messages.map((message, index) => ({ at: message.created_at, order: index * 2, message })),
+    ...detail.cards.map((entry, index) => ({ at: entry.created_at, order: index * 2 + 1, card: entry.card as Card })),
+  ].sort((a, b) => a.at - b.at || a.order - b.order);
+  return (
+    <>
+      {items.map((item, index) =>
+        'message' in item ? (
+          <div key={index} className={`flex ${item.message.role === 'user' ? 'justify-end' : 'gap-2'}`}>
+            {item.message.role === 'assistant' && (
+              <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary">
+                <MicGlyph className="h-3.5 w-3.5" />
+              </span>
+            )}
+            <p
+              className={`max-w-[85%] px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
+                item.message.role === 'user'
+                  ? 'rounded-2xl rounded-tr-md bg-primary/85 text-white'
+                  : 'rounded-2xl rounded-tl-md bg-white text-gray-700 ring-1 ring-line'
+              }`}
+            >
+              {item.message.text}
+            </p>
+          </div>
+        ) : (
+          <div key={index} className="pl-9">
+            <AssistantCard
+              card={item.card}
+              pending
+              onAction={() => undefined}
+              getOptions={getOptions}
+              onEdit={async () => undefined}
+            />
+          </div>
+        ),
+      )}
+    </>
+  );
+}
+
 function MicOffGlyph({ className = '' }: { className?: string }) {
   return (
     <svg
@@ -91,10 +175,12 @@ export function VoicePanel({
   shopId,
   adapter,
   profile,
+  onActiveChange,
 }: {
   shopId: number;
   adapter: Adapter;
   profile?: Profile;
+  onActiveChange?: (active: boolean) => void;
 }) {
   const t = useT(messages);
   const pathname = usePathname();
@@ -111,6 +197,12 @@ export function VoicePanel({
   const [entries, setEntries] = useState<TranscriptEntry[]>([]);
   const [cards, setCards] = useState<TimedCard[]>([]);
   const [speaking, setSpeaking] = useState(false);
+  const [view, setView] = useState<'chat' | 'history'>('chat');
+  const [historyList, setHistoryList] = useState<HistoryItem[] | null>(null);
+  const [viewing, setViewing] = useState<HistoryDetail | null>(null);
+  const [historyError, setHistoryError] = useState(false);
+  const [earlier, setEarlier] = useState<HistoryDetail | null>(null);
+  const [liveId, setLiveId] = useState<string | undefined>(undefined);
   const resources = useRef<{
     pc?: RTCPeerConnection;
     stream?: MediaStream;
@@ -151,6 +243,37 @@ export function VoicePanel({
     setChecking(false);
     setSpeaking(false);
     setState('idle');
+  }
+  useEffect(() => {
+    onActiveChange?.(state !== 'idle');
+  }, [state, onActiveChange]);
+  async function openHistory() {
+    setView('history');
+    setViewing(null);
+    setHistoryError(false);
+    try {
+      setHistoryList(await adapter.history(shopId));
+    } catch {
+      setHistoryError(true);
+    }
+  }
+  async function openConversation(id: string) {
+    if (id === liveId && state !== 'idle') {
+      setView('chat');
+      return;
+    }
+    setHistoryError(false);
+    try {
+      setViewing(await adapter.conversation(id));
+    } catch {
+      setHistoryError(true);
+    }
+  }
+  function continueConversation(detail: HistoryDetail) {
+    setEarlier(detail);
+    setViewing(null);
+    setView('chat');
+    void start(false, detail.conversation_id);
   }
   useEffect(() => {
     const area = scrollArea.current;
@@ -210,7 +333,8 @@ export function VoicePanel({
       cleanup(false);
     };
   }
-  async function start(textOnly = false) {
+  async function start(textOnly = false, resumeId?: string) {
+    if (!resumeId) setEarlier(null);
     followConversation.current = true;
     setError('');
     setState('connecting');
@@ -221,12 +345,13 @@ export function VoicePanel({
     const token = ++generation.current;
     try {
       if (textOnly) {
-        const result = await adapter.startText({ shop_id: shopId, lang });
+        const result = await adapter.startText({ shop_id: shopId, lang, resume_conversation_id: resumeId });
         if (generation.current !== token) {
           void adapter.stop(result.conversation_id).catch(() => undefined);
           return;
         }
         resources.current.conversationId = result.conversation_id;
+        setLiveId(result.conversation_id);
         connectEvents(result.conversation_id);
         setState('active');
         return;
@@ -368,12 +493,14 @@ export function VoicePanel({
         shop_id: shopId,
         sdp_offer: pc.localDescription?.sdp ?? '',
         lang,
+        resume_conversation_id: resumeId,
       });
       if (generation.current !== token) {
         void adapter.stop(result.conversation_id).catch(() => undefined);
         return;
       }
       resources.current.conversationId = result.conversation_id;
+      setLiveId(result.conversation_id);
       checkedMode.current = result.voice_output === 'checked';
       await pc.setRemoteDescription({ type: 'answer', sdp: result.sdp_answer });
       connectEvents(result.conversation_id);
@@ -500,11 +627,20 @@ export function VoicePanel({
                 {t('stop')}
               </button>
             )}
+            {session.status === 'authenticated' && (
+              <button
+                onClick={() => (view === 'history' ? setView('chat') : void openHistory())}
+                aria-label={view === 'history' ? t('back') : t('history')}
+                aria-pressed={view === 'history'}
+                title={t('history')}
+                className={`flex h-9 w-9 items-center justify-center rounded-full transition hover:bg-gray-100 ${view === 'history' ? 'bg-primary-soft text-primary' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                <ClockGlyph className="h-5 w-5" />
+              </button>
+            )}
+            {/* Closing only hides the panel; the conversation keeps running until Stop. */}
             <button
-              onClick={() => {
-                cleanup(true);
-                setOpen(false);
-              }}
+              onClick={() => setOpen(false)}
               aria-label={t('close')}
               className="flex h-9 w-9 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
             >
@@ -537,6 +673,67 @@ export function VoicePanel({
             <p className="flex flex-1 items-center justify-center p-8 text-center text-sm text-gray-600">
               {t('buyerOnly')}
             </p>
+          ) : view === 'history' ? (
+            <div className="flex-1 overflow-y-auto bg-gray-50/60 px-4 py-4">
+              {viewing ? (
+                <div className="space-y-3">
+                  <button
+                    onClick={() => setViewing(null)}
+                    className="text-xs font-semibold text-gray-600 hover:text-primary"
+                  >
+                    ← {t('back')}
+                  </button>
+                  <p className="text-xs text-gray-500">{formatDateTime(viewing.started_at, lang)}</p>
+                  <PastConversation detail={viewing} getOptions={adapter.options} />
+                  {state === 'idle' && (
+                    <button
+                      disabled={!canChat}
+                      onClick={() => continueConversation(viewing)}
+                      className="flex h-11 w-full items-center justify-center gap-2 rounded-full bg-primary text-sm font-semibold text-white transition hover:bg-primary-hover disabled:opacity-50"
+                    >
+                      <MicGlyph className="h-4 w-4" />
+                      {t('continueChat')}
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold text-ink">{t('history')}</h3>
+                  {historyError && (
+                    <button onClick={() => void openHistory()} className="text-sm text-red-600">
+                      {t('loadFailed')}
+                    </button>
+                  )}
+                  {!historyError && historyList === null && (
+                    <span className="block h-5 w-5 animate-spin rounded-full border-2 border-primary border-r-transparent" />
+                  )}
+                  {historyList?.length === 0 && <p className="text-sm text-gray-500">{t('noHistory')}</p>}
+                  {historyList?.map((item) => (
+                    <button
+                      key={item.conversation_id}
+                      onClick={() => void openConversation(item.conversation_id)}
+                      className="block w-full rounded-2xl bg-white p-3 text-left shadow-card ring-1 ring-line transition hover:ring-primary/40"
+                    >
+                      <span className="flex items-center justify-between gap-2 text-xs text-gray-500">
+                        <span>{formatDateTime(item.started_at, lang)}</span>
+                        <span>
+                          {item.conversation_id === liveId && state !== 'idle'
+                            ? t('ongoing')
+                            : item.channel === 'VOICE'
+                              ? t('voiceChannel')
+                              : t('textChannel')}
+                          {' · '}
+                          {t('messagesCount', { n: item.message_count })}
+                        </span>
+                      </span>
+                      <span className="mt-1 line-clamp-2 block text-sm text-gray-800">
+                        {item.preview ?? '…'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           ) : (
             <>
               <div
@@ -556,6 +753,17 @@ export function VoicePanel({
                     {greeting}
                   </p>
                 </div>
+                {earlier && (
+                  <>
+                    <p className="text-center text-[11px] font-medium tracking-wide text-gray-400 uppercase">
+                      {t('earlier')} · {formatDateTime(earlier.started_at, lang)}
+                    </p>
+                    <div className="space-y-3 opacity-75">
+                      <PastConversation detail={earlier} getOptions={adapter.options} />
+                    </div>
+                    <hr className="border-line" />
+                  </>
+                )}
                 {state === 'idle' && entries.length === 0 && cards.length === 0 && (
                   <div className="flex flex-col items-center gap-3 pt-6 pb-2">
                     <button

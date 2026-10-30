@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { useT } from '@/i18n';
 import { formatVnd } from '@/lib/format';
 import { messages } from './messages';
+import { ProductDetails, ProductDetailsLoader } from './product-details';
 
 import type { Action, Card } from './card-types';
 export type { Action, Card } from './card-types';
@@ -26,6 +27,7 @@ export function AssistantCard({
   ) => Promise<void>;
 }) {
   const t = useT(messages);
+  const [opened, setOpened] = useState<number | null>(null);
   const thumb = (src: string | null, size = 'h-14 w-14') =>
     src ? (
       <Image
@@ -69,47 +71,48 @@ export function AssistantCard({
       )}
       {card.kind === 'products' &&
         card.items.map((item) => (
-          <Link key={item.item_id} href={`/products/${item.item_id}`} className={row}>
-            {thumb(item.image)}
-            <span className="min-w-0 flex-1">
-              <span className="line-clamp-2 font-medium text-gray-800">{item.name}</span>
-              <span className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-gray-500">
-                <span className="text-sm font-semibold text-primary tabular-nums">
-                  {formatVnd(item.price_min)}
-                  {item.price_max !== item.price_min && ` – ${formatVnd(item.price_max)}`}
-                </span>
-                <span>
-                  {t('stock')}: {item.stock}
-                </span>
-                {item.rating !== null && (
-                  <span>
-                    <span className="text-amber-400">★</span> {item.rating}
+          <div key={item.item_id} className="rounded-xl">
+            <div className="flex items-center gap-1">
+              <Link href={`/products/${item.item_id}`} className={`${row} min-w-0 flex-1`}>
+                {thumb(item.image)}
+                <span className="min-w-0 flex-1">
+                  <span className="line-clamp-2 font-medium text-gray-800">{item.name}</span>
+                  <span className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-gray-500">
+                    <span className="text-sm font-semibold text-primary tabular-nums">
+                      {formatVnd(item.price_min)}
+                      {item.price_max !== item.price_min && ` – ${formatVnd(item.price_max)}`}
+                    </span>
+                    <span>
+                      {t('stock')}: {item.stock}
+                    </span>
+                    {item.rating !== null && (
+                      <span>
+                        <span className="text-amber-400">★</span> {item.rating}
+                      </span>
+                    )}
                   </span>
-                )}
-              </span>
-            </span>
-          </Link>
+                </span>
+              </Link>
+              <button
+                type="button"
+                aria-expanded={opened === item.item_id}
+                onClick={() => setOpened(opened === item.item_id ? null : item.item_id)}
+                className="shrink-0 rounded-full border border-line px-2.5 py-1 text-xs font-medium text-gray-600 transition hover:border-primary/40 hover:text-primary"
+              >
+                {opened === item.item_id ? t('hideDetails') : t('details')}
+              </button>
+            </div>
+            {opened === item.item_id && (
+              <div className="mt-2 border-t border-line pt-3">
+                <ProductDetailsLoader itemId={item.item_id} />
+              </div>
+            )}
+          </div>
         ))}
       {card.kind === 'product' && (
-        <>
-          <Link href={`/products/${card.item_id}`} className={row}>
-            {thumb(card.image, 'h-16 w-16')}
-            <span className="line-clamp-2 font-semibold text-gray-800">{card.name}</span>
-          </Link>
-          <ul className="divide-y divide-line rounded-xl bg-gray-50 px-3">
-            {card.models.map((model) => (
-              <li key={model.model_id} className="flex items-center justify-between gap-2 py-2 text-xs">
-                <span className="text-gray-700">{model.name}</span>
-                <span className="flex items-center gap-2">
-                  <span className={model.stock > 0 ? 'text-gray-500' : 'text-red-600'}>
-                    {t('stock')}: {model.stock}
-                  </span>
-                  <span className="font-semibold text-primary tabular-nums">{formatVnd(model.price)}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
-        </>
+        <ProductDetails
+          product={{ ...card, images: card.images?.length ? card.images : card.image ? [card.image] : [] }}
+        />
       )}
       {card.kind === 'compare' && card.items.length === 0 && (
         <p className="text-gray-500">{t('noProducts')}</p>
