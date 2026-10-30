@@ -2,3 +2,4 @@
 tsconfig.tsbuildinfo
 next-env.d.ts
 .next-*/
+public/vad/

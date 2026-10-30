@@ -38,7 +38,13 @@ describe('speech check', () => {
 });
 
 describe('voice runtime speaks only checked answers', () => {
-  const run = async (shopName: string, toolText: string, card?: { kind: string; action?: unknown }, output = 'checked') => {
+  const run = async (
+    shopName: string,
+    toolText: string,
+    card?: { kind: string; action?: unknown },
+    output = 'checked',
+    midway?: (runtime: VoiceRuntime, conversationId: string) => void,
+  ) => {
     process.env.ASSISTANT_VOICE_OUTPUT = output;
     const logs: SpeechLog[] = [];
     const runtime = new VoiceRuntime(
@@ -50,17 +56,25 @@ describe('voice runtime speaks only checked answers', () => {
     runtime.stallMs = 20;
     const ctx = { conversationId: `speech-${shopName}`, buyerId: 1, shopId: 2 };
     const events: Record<string, unknown>[] = [];
+    const requests: Array<{ method: string; params: Record<string, unknown> }> = [];
+    const transport = (runtime as unknown as { transport: { request: (method: string, params: Record<string, unknown>) => Promise<unknown> } }).transport;
+    const request = transport.request.bind(transport);
+    transport.request = (method, params) => {
+      requests.push({ method, params });
+      return request(method, params);
+    };
     try {
       await runtime.start(ctx, { shopName, tone: 'FRIENDLY', greetingVi: 'Xin chào', greetingEn: 'Hello', voice: 'spruce' }, 'offer');
       runtime.subscribe(ctx.conversationId, 1, (event) => events.push(event));
-      await new Promise((r) => setTimeout(r, 200));
+      if (midway) setTimeout(() => midway(runtime, ctx.conversationId), 80);
+      await new Promise((r) => setTimeout(r, 250));
       await runtime.stop(ctx.conversationId, 1);
     } finally {
       runtime.close();
       delete process.env.ASSISTANT_VOICE_OUTPUT;
     }
     const spoken = events.filter((e) => e.type === 'transcript' && e.role === 'assistant' && e.final).map((e) => e.text);
-    return { logs, spoken, events };
+    return { logs, spoken, events, requests };
   };
 
   it('speaks a verified thread answer', async () => {
@@ -98,6 +112,39 @@ describe('voice runtime speaks only checked answers', () => {
     const text = 'Action ID (do not read aloud): a1\nreadback_vi: Thêm vào giỏ hàng. Sản phẩm: Tai nghe; Số lượng: 1. Tổng cộng: 790000 VND.\nreadback_en: Add to cart. Item: Earbuds; Quantity: 1. Total: 790000 VND.';
     const { spoken } = await run('SPEECH_OK', text, { kind: 'action', action: { requires_tap: false } });
     expect(spoken).toEqual([`Thêm vào giỏ hàng. Sản phẩm: Tai nghe; Số lượng: 1. Tổng cộng: 790000 VND. ${speechText.confirm.vi}`]);
+  });
+  for (const output of ['codex', 'checked'])
+    it(`${output} output: a tap while the thread is still answering drops its stale "please tap" and tells the thread`, async () => {
+      const text = 'Action ID (do not read aloud): a1\nreadback_vi: Đặt hàng. Tai nghe x 1. Tổng cộng: 790000 VND.\nreadback_en: Place order. Earbuds x 1. Total: 790000 VND.';
+      const { spoken, requests } = await run('SPEECH_TAP', text, { kind: 'action', action: { requires_tap: true } }, output, (runtime, id) =>
+        runtime.action(id, { status: 'EXECUTED', requires_tap: true, summary: { title: 'Order confirmed' }, result: { order_sn: 'SN1' } }),
+      );
+      expect(spoken).toContain(speechText.orderPlaced.vi);
+      expect(spoken.join(' ')).not.toContain(speechText.confirmTap.vi);
+      expect(spoken.join(' ')).not.toContain('Giá 790.000đ');
+      const note = requests.find((r) => r.method === 'turn/start' && JSON.stringify(r.params).includes('[App] Order confirmed: EXECUTED'));
+      expect(note).toBeDefined();
+      // The note waits for the thread's running turn instead of racing it.
+      expect(requests.indexOf(note!)).toBeGreaterThan(requests.findIndex((r) => r.method === 'thread/realtime/appendText'));
+      expect(spoken).not.toContain('OK');
+    });
+  for (const output of ['codex', 'checked'])
+    it(`${output} output: speaking over a running answer stops it and answers the new question instead`, async () => {
+      const { spoken, requests } = await run('SPEECH_BARGE', '{"price":790000}', undefined, output);
+      expect(requests).toContainEqual({ method: 'turn/interrupt', params: { threadId: expect.any(String), turnId: 'v-turn' } });
+      expect(spoken).not.toContain('Giá 790.000đ');
+      const next = requests.filter((r) => r.method === 'turn/start').at(-1);
+      expect(JSON.stringify(next?.params)).toContain('sạc dự phòng');
+      expect(spoken).toContain('Final answer');
+    });
+  it('does not interrupt a handed-off turn whose question is transcribed after it starts', async () => {
+    const { spoken, requests } = await run('SPEECH_EARLY', '{"price":790000}');
+    expect(requests.some((r) => r.method === 'turn/interrupt')).toBe(false);
+    expect(spoken).toContain('Giá 790.000đ');
+  });
+  it('asks for the tap alone on orders and returns, not a spoken yes', () => {
+    expect(speechText.confirmTap.vi).not.toContain('đồng ý');
+    expect(speechText.confirmTap.en).not.toMatch(/say yes/);
   });
   it('codex output: corrects the voice out loud when it states an unverified fact itself', async () => {
     const { spoken, logs } = await run('SPEECH_OWN', '{"price":790000}', undefined, 'codex');

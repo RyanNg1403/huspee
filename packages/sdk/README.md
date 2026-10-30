@@ -5,7 +5,7 @@ It has two entry points with deliberately separate trust levels:
 
 | Import | Runtime | Auth transport | Purpose |
 |---|---|---|---|
-| `@huspee/sdk` | Browser + Node | Cookie session (`credentials: 'include'`, optional in-memory jar for Node) | Typed client for **project-defined** `/api/v1` routes: auth, marketplace, cart, checkout, buyer orders/returns, seller onboarding, seller gateway |
+| `@huspee/sdk` | Browser + Node | Cookie session (`credentials: 'include'`, optional in-memory jar for Node) | Typed client for **project-defined** `/api/v1` routes: auth, marketplace, cart, checkout, buyer orders/returns, messages, seller onboarding, seller gateway, voice assistant and seller studio (see `docs/ASSISTANT.md`) |
 | `@huspee/sdk/server` | Node only | Shopee HMAC + shop access token | `HuspeeShopeeSDK` (upstream `ShopeeSDK` subclass) + **custom signed** `/api/v2/custom/*` methods |
 
 The browser entry imports no Node built-ins, no upstream SDK and never handles `partner_key` or shop

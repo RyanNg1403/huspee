@@ -149,7 +149,7 @@ export const speechText = {
   cancelled: { vi: 'Đã hủy, mình chưa thực hiện thao tác này.', en: "Cancelled; I haven't done that." },
   confirm: { vi: 'Bạn có đồng ý không?', en: 'Do you confirm?' },
   confirmTap: {
-    vi: 'Nếu đúng, bạn nói đồng ý rồi bấm Xác nhận trên thẻ trên màn hình nhé.',
-    en: 'If this is right, say yes and then tap Confirm on the on-screen card.',
+    vi: 'Nếu đúng, bạn bấm Xác nhận trên thẻ trên màn hình nhé.',
+    en: 'If this is right, tap Confirm on the on-screen card.',
   },
 } as const;

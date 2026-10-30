@@ -1,6 +1,6 @@
 # Phase 1 API Endpoint Inventory
 
-> Self-hosted simulated Shopee marketplace. **No voice/AI endpoints in Phase 1.**
+> Self-hosted simulated Shopee marketplace. Phase 1 commerce routes come first; the Phase 2 voice assistant routes are in the last section.
 > Maintained separately from `AGENTS.md` so scope and contract coverage can change independently.
 > Behavioural fidelity notes for every Shopee-compatible area live in [`docs/COMPATIBILITY.md`](docs/COMPATIBILITY.md).
 > A machine-readable list of served `/api/v2` operations is available at `GET /api/v1/meta/compat-operations`.
@@ -261,7 +261,7 @@ These `/api/v1` routes use platform sessions and the browser-safe `@huspee/sdk` 
 | GET | `/assistant/shops/:shopId/conversations` | buyer session | `assistant.conversations.list` | buyer's own past sessions with the shop; assistant tests |
 | GET | `/assistant/conversations/:conversationId` | buyer session | `assistant.conversations.get` | own transcript plus cards from stored tool results; assistant tests |
 | POST | `/assistant/voice/sessions` | buyer session | `assistant.voice.start` | voice module; returns `voice_output` (checked or codex); optional `resume_conversation_id`; voice tests |
-| GET | `/assistant/voice/sessions/:conversationId/events` | buyer session | `assistant.voice.eventsUrl` | voice module; SSE incl. `speak` (checked text and optional audio); voice tests |
+| GET | `/assistant/voice/sessions/:conversationId/events` | buyer session | `assistant.voice.eventsUrl` | voice module; SSE incl. `speak` (checked text, `checked` output mode only); voice tests |
 | POST | `/assistant/voice/sessions/:conversationId/text` | buyer session | `assistant.voice.text` | voice module; voice tests |
 | POST | `/assistant/voice/sessions/:conversationId/stop` | buyer session | `assistant.voice.stop` | voice module; voice tests |
 | GET | `/assistant/actions/:actionId/options` | buyer session | `assistant.actions.options` | custom; pending cart, order or return edit options; assistant tests |

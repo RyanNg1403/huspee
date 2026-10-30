@@ -8,7 +8,8 @@ import { useSession } from '@/components/session';
 import { AssistantCard, type Action, type Card, type EditOptions } from './cards';
 import { messages } from './messages';
 import { upsertCard } from './card-state';
-import { InterruptionDetector } from './interruption';
+import { BargeInGate, InterruptionDetector } from './interruption';
+import { startVoiceActivity, type VoiceActivity } from './voice-activity';
 import { setMicrophoneEnabled } from './microphone';
 import { SpeechPlayer, type SpeechItem } from './speech-player';
 import {
@@ -108,16 +109,14 @@ function ClockGlyph({ className = '' }: { className?: string }) {
 }
 
 /** A stored conversation, read-only: its transcript and the cards its tool results produced. */
-function PastConversation({
-  detail,
-  getOptions,
-}: {
-  detail: HistoryDetail;
-  getOptions: Adapter['options'];
-}) {
+function PastConversation({ detail, getOptions }: { detail: HistoryDetail; getOptions: Adapter['options'] }) {
   const items = [
     ...detail.messages.map((message, index) => ({ at: message.created_at, order: index * 2, message })),
-    ...detail.cards.map((entry, index) => ({ at: entry.created_at, order: index * 2 + 1, card: entry.card as Card })),
+    ...detail.cards.map((entry, index) => ({
+      at: entry.created_at,
+      order: index * 2 + 1,
+      card: entry.card as Card,
+    })),
   ].sort((a, b) => a.at - b.at || a.order - b.order);
   return (
     <>
@@ -211,6 +210,7 @@ export function VoicePanel({
     audio?: HTMLAudioElement;
     audioContext?: AudioContext;
     analyserTimer?: number;
+    voiceActivity?: VoiceActivity;
   }>({});
   const scrollArea = useRef<HTMLDivElement>(null);
   const followConversation = useRef(true);
@@ -230,6 +230,7 @@ export function VoicePanel({
     player.current?.stop();
     player.current = undefined;
     if (current.analyserTimer !== undefined) window.clearInterval(current.analyserTimer);
+    current.voiceActivity?.stop();
     void current.audioContext?.close().catch(() => undefined);
     current.events?.close();
     current.pc?.close();
@@ -285,6 +286,7 @@ export function VoicePanel({
       const current = resources.current;
       player.current?.stop();
       if (current.analyserTimer !== undefined) window.clearInterval(current.analyserTimer);
+      current.voiceActivity?.stop();
       void current.audioContext?.close().catch(() => undefined);
       current.events?.close();
       current.pc?.close();
@@ -385,6 +387,10 @@ export function VoicePanel({
       else pc.addTransceiver('audio', { direction: 'recvonly' });
       let assistantPlaying = false;
       let speechStart: number | undefined;
+      const gate = new BargeInGate();
+      const audio = new Audio();
+      audio.autoplay = true;
+      resources.current.audio = audio;
       let micAnalyser: AnalyserNode | undefined;
       let remoteAnalyser: AnalyserNode | undefined;
       let context: AudioContext | undefined;
@@ -401,6 +407,13 @@ export function VoicePanel({
         }
         player.current = new SpeechPlayer(context);
         const detector = new InterruptionDetector();
+        // Silero tells speech from noise; until it has loaded (or if it cannot), loudness alone is used.
+        void startVoiceActivity(stream, context)
+          .then((activity) => {
+            if (generation.current === token) resources.current.voiceActivity = activity;
+            else activity.stop();
+          })
+          .catch(() => undefined);
         const rms = (analyser: AnalyserNode | undefined) => {
           if (!analyser) return 0;
           const data = new Float32Array(analyser.fftSize);
@@ -418,10 +431,21 @@ export function VoicePanel({
           if (!output) return;
           const remote = rms(output);
           const playing = checkedMode.current ? !!player.current?.speaking : assistantPlaying;
-          const detected = detector.sample(Date.now(), rms(micAnalyser), remote, playing || remote > 0.01);
+          const detected = detector.sample(
+            Date.now(),
+            rms(micAnalyser),
+            remote,
+            playing || remote > 0.01,
+            resources.current.voiceActivity?.probability(Date.now()),
+          );
           if (detected !== undefined) {
             speechStart = detected;
             if (checkedMode.current) player.current?.stop();
+          }
+          if (!checkedMode.current) {
+            const volume = gate.sample(Date.now(), detector.ducking, detected !== undefined, remote < 0.005);
+            audio.muted = volume === 0;
+            audio.volume = volume || 1;
           }
         }, 50);
       } catch {
@@ -451,6 +475,14 @@ export function VoicePanel({
           ) {
             assistantPlaying = payload.type === 'turn.created';
           }
+          if (payload.type === 'turn.created') {
+            if (role === 'user') gate.buyerTurn();
+            else if (role === 'assistant') {
+              gate.assistantTurn();
+              audio.muted = false;
+              audio.volume = 1;
+            }
+          }
           const detection = {
             available: context?.state === 'running' && !!micAnalyser && !!remoteAnalyser,
             speechStart,
@@ -460,9 +492,6 @@ export function VoicePanel({
           // Ignore non-JSON protocol messages.
         }
       };
-      const audio = new Audio();
-      audio.autoplay = true;
-      resources.current.audio = audio;
       pc.ontrack = (event) => {
         // Checked output: the realtime model's own audio is never played; only checked speech is.
         if (checkedMode.current) return;

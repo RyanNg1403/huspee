@@ -14,7 +14,7 @@ membership of `:shopId`.
 |---|---|
 | `AssistantConfig` | `shopId` (PK, FK Shop), `enabled` (default true), `tone` (`FRIENDLY`, `PROFESSIONAL`, `ENTHUSIASTIC`; default FRIENDLY), `voice` (string, default `spruce`), `greetingVi`, `greetingEn`, `updatedAt` |
 | `AssistantFaq` | `id`, `shopId`, `question`, `answer`, `lang` (`vi`, `en`, `any`), `enabled`, timestamps |
-| `Conversation` | `id` (uuid), `shopId`, `buyerId`, `channel` (`VOICE`, `TEXT`), `status` (`ACTIVE`, `ENDED`), `startedAt`, `endedAt`, `language` (nullable), `summary` (Json, nullable; filled in wave 2) |
+| `Conversation` | `id` (uuid), `shopId`, `buyerId`, `channel` (`VOICE`, `TEXT`), `status` (`ACTIVE`, `ENDED`), `startedAt`, `endedAt`, `language` (nullable), `summary` (Json, nullable; the post-conversation summary) |
 | `ConversationMessage` | `id`, `conversationId`, `role` (`USER`, `ASSISTANT`), `text`, `createdAt` |
 | `ConversationToolCall` | `id`, `conversationId`, `tool`, `args` (Json), `result` (Json), `success`, `error` (nullable), `latencyMs`, `createdAt` |
 | `PendingAction` | `id` (uuid), `conversationId`, `buyerId`, `shopId`, `type` (`ADD_TO_CART`, `UPDATE_CART_ITEM`, `PLACE_ORDER`, `OPEN_RETURN`), `payload` (Json, the exact executable input), `summary` (Json, what the buyer is shown), `requiresTap` (bool), `status` (`PENDING`, `EXECUTED`, `CANCELLED`, `EXPIRED`, `FAILED`), `expiresAt` (5 minutes), `result` (Json), `idempotencyKey` (nullable, unique), timestamps |
@@ -103,7 +103,7 @@ Seller (member of `:shopId`):
 | `POST /seller/shops/:shopId/inbox/:ticketId/close` | → ticket |
 
 SDK (`@huspee/sdk`, browser-safe): `client.assistant.{profile, voices, text.start, voice.{start, text, stop,
-eventsUrl}, actions.{confirm, cancel}}`, `client.buyer.messages.{list, unreadCount, get, reply}`,
+eventsUrl}, conversations.{list, get}, actions.{options, edit, confirm, cancel}}`, `client.buyer.messages.{list, unreadCount, get, reply}`,
 `client.seller.assistant.{getConfig, updateConfig, faqs.{list, create, update, remove},
 conversations.{list, get}}`, `client.seller.inbox.{list, get, reply, close}`.
 
@@ -122,7 +122,11 @@ type AssistantEvent =
 
 type AssistantCard =
   | { kind: 'products'; items: Array<{ item_id: number; name: string; image: string | null; price_min: number; price_max: number; stock: number; rating: number | null }> }
-  | { kind: 'product'; item_id: number; name: string; image: string | null; models: Array<{ model_id: number; name: string; price: number; stock: number }> }
+  | { kind: 'product'; item_id: number; name: string; image: string | null; models: Array<{ model_id: number; name: string; price: number; stock: number }>;
+      // from get_product_details: what the shop publishes, shown as gallery, specs, description and reviews
+      images?: string[]; description?: string; attributes?: Array<{ name: string; value: string }>; brand?: string | null;
+      category?: string; rating?: number | null; rating_count?: number; sold?: number; days_to_ship?: number;
+      reviews?: Array<{ rating: number; comment: string; buyer_name: string; model_name: string | null }> } // 3 latest, buyer names masked
   | { kind: 'compare'; items: Array<{ item_id: number; name: string; image: string | null; price_min: number; rows: Record<string, string> }> }
   | { kind: 'cart'; lines: Array<{ item_id: number; model_id: number; name: string; quantity: number; price: number }>; total: number }
   | { kind: 'order'; order_sn: string; status: string; tracking: Array<{ time: number; description: string }> }
@@ -138,16 +142,17 @@ interface PendingActionView {
 }
 ```
 
-When a tap-confirmed action executes, the bridge tells the live session (`[App]` note) so the
-assistant can say so.
+When a tap-confirmed action executes or is cancelled, the bridge speaks the outcome, tells the
+realtime voice (`[App]` note) and tells the Codex thread with a silent turn, so neither asks for the
+tap again (see `docs/VOICE.md`).
 
 ## 5. Voice bridge (backend, `apps/api/src/assistant/voice/`)
 
-Per AGENTS.md section 13 and the wave-0 spike (`docs/VOICE.md`): one long-lived `codex
+Per AGENTS.md section 13 and `docs/VOICE.md`: one long-lived `codex
 app-server` child process (private `CODEX_HOME`, `auth.json` symlinked from the operator's
 `~/.codex`, never read or logged); per conversation an ephemeral thread started with the
 registry's `dynamicTools` and the prompt, then `thread/realtime/start` (v3, WebRTC, configured
-voice, `clientManagedHandoffs: false`); `item/tool/call` requests are answered by
+voice, `clientManagedHandoffs: true`, so the backend decides what is spoken); `item/tool/call` requests are answered by
 `AssistantToolRegistry.run`; transcripts go to `ConversationMessage` and SSE. Enabled only when
 `ASSISTANT_VOICE_ENABLED=true`; otherwise the voice routes return a clear `assistant_unavailable`
 error. Tests use a fake app-server, never the real one.
@@ -172,8 +177,8 @@ class AssistantEvents {                                                // in-pro
 
 Core calls `emitAction` whenever a pending action is created, executed, cancelled, expired or
 fails, whichever path did it (tool or route). Voice imports `AssistantModule`, subscribes with
-`onAction`, forwards `{type:'action'}` on SSE, and on tap-executed or cancelled actions appends an
-`[App]` note to the live realtime thread. Voice registers its own `VoiceModule` in app.module.ts.
+`onAction`, forwards `{type:'action'}` on SSE, and on tap-executed or cancelled actions sends an
+`[App]` note to both the realtime voice and the Codex thread. Voice registers its own `VoiceModule` in app.module.ts.
 
 Voice catalog seam: `apps/api/src/assistant/voice-catalog.ts` (core) exports `VoiceCatalogRegistry` (`register(catalog)`, `list()` with static fallback); VoiceModule registers its runtime catalog in `onModuleInit`; seller config validates `voice` through it.
 
@@ -207,8 +212,9 @@ English numbers; invalid words fail validation. The action summary shows spoken 
 resolution alongside the exact server-derived details.
 
 `GET /api/v1/assistant/actions/:id/options` and `PATCH /api/v1/assistant/actions/:id` are buyer-session
-routes for pending cart additions, updates, and returns. Options list only variants of the original shop product or purchased order lines;
+routes for pending cart additions, updates, orders and returns. Options list only variants of the original shop product, the order's cart lines, or purchased order lines;
 the PATCH accepts only `model_id` and `quantity`, rejects client prices, invalidates the previous action
-atomically, revalidates stock and price, and creates a new action requiring fresh spoken consent; returns also require an on-screen tap. If
+atomically, revalidates stock and price, and creates a new action requiring fresh spoken consent for cart changes, or a fresh on-screen tap for orders and returns. If
 revalidation fails after invalidation, the old action remains cancelled and the buyer must prepare it
-again. Checkout cards do not currently offer these edit controls; change the cart and prepare a new order before confirmation.
+again. Editing an order card (`line_index` selects the line) changes that cart line, then prepares a new order with the same
+address, payment and voucher, which again needs a tap.

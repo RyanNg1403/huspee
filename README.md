@@ -1,182 +1,107 @@
-# Huspee — simulated Shopee-like marketplace (Phase 1)
+# Huspee
 
-Self-hosted, stateful multi-shop marketplace backend for the *Autonomous Voice Shopee Agent* hackathon
-project. Phase 1 is the **commerce platform only** (no AI/voice). Huspee is unaffiliated with Shopee.
+A simulated Shopee-like marketplace with a buyer storefront, a seller dashboard and a per-shop voice
+shopping assistant. Everything runs locally on mock data; no Shopee account or paid API is needed.
+Huspee is unaffiliated with Shopee.
 
-- **Shopee Open API v2-compatible seller API** (`/api/v2/*`): partner HMAC signing, signed shop
-  authorization, opaque per-shop tokens with refresh rotation, products/variants/media, shop
-  categories, vouchers, orders, logistics, returns and push — usable with the **unmodified**
-  [`@congminh1254/shopee-sdk`](https://github.com/congminh1254/shopee-sdk).
-- **Custom buyer & platform API** (`/api/v1/*`): cookie sessions, cross-shop marketplace, cart,
-  checkout (vouchers, shipping, idempotency), buyer orders/tracking/returns/reviews, seller
-  signup/shop onboarding, shop authorization and a trusted seller gateway.
-- **Custom signed seller extensions** (`/api/v2/custom/*`): shop policies, sales summary, simulated
-  carrier events.
-- **`@huspee/sdk`**: browser-safe session client + server-only `HuspeeShopeeSDK` (upstream subclass).
-- One shared PostgreSQL state, deterministic Vietnamese seed data (VND), 114 SDK-driven tests.
+## Run it
 
-Docs: [`AGENTS.md`](AGENTS.md) (requirements) · [`PHASE1_ENDPOINTS.md`](PHASE1_ENDPOINTS.md) (endpoint
-inventory with status/auth/SDK/tests) · [`docs/COMPATIBILITY.md`](docs/COMPATIBILITY.md) (faithful vs.
-approximated vs. unsupported) · [`packages/sdk/README.md`](packages/sdk/README.md) (SDK delta).
+You need Node 22+, pnpm 10 and PostgreSQL 16 (or Docker).
 
-## Repository layout
-
-```
-apps/api/            NestJS + Prisma backend (modular monolith)
-  prisma/            schema, migrations, deterministic seed (seed-data.ts)
-  src/compat/        Shopee-compatible dispatcher + operations (ops/*.ts)
-  src/partner/       partner signing, consent pages, codes/tokens (OAuthService)
-  src/domain/        shared commerce services: catalog, vouchers, orders, logistics, returns, push
-  src/auth|buyer|seller|platform/   custom /api/v1 controllers, seller gateway, media
-packages/sdk/        @huspee/sdk (browser) and @huspee/sdk/server
-tests/               vitest suites: upstream/, extensions/, e2e/ (boot the real API)
-docker-compose.yml   PostgreSQL + API
-```
-
-## Quick start
-
-Requirements: Node ≥ 22, pnpm 10, PostgreSQL 16 (or Docker).
-
-### Run the web app
-
-#### With Docker Compose
+### Option A: Docker
 
 ```bash
 docker compose up --build
 ```
 
-Builds and serves both services:
-- **API**: http://localhost:3000
-- **Web Storefront & Seller Dashboard**: http://localhost:3001
+Open http://localhost:3001. The API runs on http://localhost:3000, and the database is migrated and
+reset to fresh mock data on every start, so changes do not survive a restart. Compose publishes Postgres on port 5432, so stop any local
+Postgres first.
 
-The `web` service defaults `NEXT_PUBLIC_API_URL` to `http://localhost:3000` via build argument. On container start, migrations are applied and the deterministic seed dataset is loaded.
+### Option B: local
 
-#### Local development
-
-Install dependencies:
 ```bash
 pnpm install
+cp apps/api/.env.example apps/api/.env      # dev defaults; edit DATABASE_URL if needed
+cp apps/web/.env.example apps/web/.env.local
+pnpm --filter @huspee/sdk build             # the web app uses the built SDK
+pnpm db:migrate                             # create tables
+pnpm db:seed                                # load mock data (wipes existing data)
 ```
 
-Configure backend environment:
-```bash
-cp apps/api/.env.example apps/api/.env
-```
-
-Apply migrations and deterministic seed:
-```bash
-pnpm db:migrate
-pnpm db:seed
-```
-
-Run API and Web servers:
-```bash
-pnpm dev       # Starts NestJS API on http://localhost:3000
-pnpm dev:web   # Starts Next.js Web on http://localhost:3001
-```
-
-### Database management & demo reset
+Then, in two terminals:
 
 ```bash
-DATABASE_URL="postgresql://huspee:huspee@localhost:5432/your_db" pnpm demo:reset
+pnpm dev        # API  -> http://localhost:3000
+pnpm dev:web    # Web  -> http://localhost:3001
 ```
 
-> **Warning:** `pnpm demo:reset` performs a destructive reset (`prisma migrate reset --force`) on the target database pointed to by `DATABASE_URL` and reapplies migrations followed by the deterministic seed.
-
-### Scripted UI smoke test
-
-Run the browser automation smoke test against running web and API servers:
+`.env.example` expects a `huspee` user with password `huspee` and a `huspee` database on
+localhost:5432:
 
 ```bash
-WEB_URL=http://localhost:3001 API_URL=http://localhost:3000 pnpm smoke:ui
+createuser -s huspee && psql -c "alter user huspee password 'huspee'" postgres && createdb -O huspee huspee
 ```
 
-`pnpm smoke:ui` executes via `playwright-core` using the system Google Chrome (no browser binaries download required) covering:
-1. Buyer login → search → product detail → add to cart → checkout → order visible in order list & detail.
-2. Seller login → shop connection verification → order list visibility → arrange shipment (`ShipModal`) → advance shipment to `SHIPPED` via simulation panel.
-3. Buyer tracking updated to `SHIPPED` (`Đang giao hàng`).
-4. Language switch (`vi` ↔ `en`).
-5. Mobile 375 px layout responsive validation (no horizontal overflow on `/`, `/products/:id`, and `/cart`).
+To start over with fresh mock data at any time, run `pnpm db:seed` again.
 
-Screenshots and logs are stored under `.orca/p2w0/p2w0-closeout-ops/out/`.
+## Mock data
 
-### Tests
-
-The suites start the built API on port 3999 against `postgresql://huspee:huspee@localhost:5432/huspee_test`
-(override with `TEST_DATABASE_URL`, `TEST_API_PORT`). The role needs `CREATEDB` or the database must
-exist. The test database is migrated and **reseeded on every run**.
-
-```bash
-pnpm test
-```
-
-```bash
-pnpm test:upstream
-```
-
-`pnpm test` builds first; the per-suite scripts (`test:upstream`, `test:extensions`, `test:e2e`)
-expect a prior `pnpm build`.
-
-| Suite | What it proves |
-|---|---|
-| `tests/upstream` | Unmodified `ShopeeSDK` methods against our server: consent, code exchange/replay, refresh rotation, multi-shop tokens, bad signatures/timestamps/tokens, revocation, products/variants/media, shop categories, vouchers, orders, logistics, returns, push |
-| `tests/extensions` | `@huspee/sdk` session client and `@huspee/sdk/server`: identity, CSRF, onboarding, dashboard authorization, gateway, custom signed routes, upstream-contract preservation, browser bundle purity, marketplace, cart, checkout |
-| `tests/e2e` | Buyer ↔ seller flows over shared state, tenant isolation, last-unit race, idempotent concurrent checkout, push delivery |
-
-## Configuration
-
-| Variable | Purpose |
-|---|---|
-| `DATABASE_URL` | PostgreSQL connection |
-| `PORT`, `PUBLIC_BASE_URL` | Listen port and externally visible base URL (used for media URLs and the OAuth callback) |
-| `WEB_APP_URL` | Seller/buyer web app origin (CORS with credentials, post-authorization redirect) |
-| `COOKIE_SECURE` | `true` in any HTTPS deployment |
-| `HUSPEE_PARTNER_ID` | The single platform-managed Partner identity (default `2001001`) |
-| `HUSPEE_PARTNER_KEY` | **Secret.** Partner key; referenced by the `PartnerApp.keyRef` DB column, never stored in the DB |
-| `HUSPEE_TOKEN_ENCRYPTION_KEY` | **Secret.** 32-byte key (64 hex or base64) encrypting shop tokens held for the seller dashboard |
-| `SIGNATURE_MAX_AGE_SECONDS`, `ACCESS_TOKEN_TTL_SECONDS`, `REFRESH_TOKEN_TTL_SECONDS`, `AUTH_CODE_TTL_SECONDS`, `SESSION_TTL_SECONDS` | Security timings (defaults: 300 s, 4 h, 30 d, 10 min, 7 d) |
-| `PUSH_DELIVERY_ENABLED` | Deliver outbound push events (default `true`) |
-
-Never commit real secrets; `apps/api/.env` is git-ignored and `.env.example` holds dev placeholders.
-
-## Demo data
-
-All demo accounts use the password `Password123!`.
+Every account's password is `Password123!`.
 
 | Role | Email | Shop |
 |---|---|---|
-| Buyer | `an.nguyen@example.com`, `binh.tran@example.com`, `cuong.le@example.com` | — |
-| Seller | `huy.techzone@example.com` | 880001 TechZone Official (electronics) |
-| Seller | `lan.glowup@example.com` | 880002 GlowUp Beauty (beauty) |
-| Seller | `tuan.saigonstyle@example.com` | 880003 Saigon Style (fashion) |
-| Seller | `trang.nhaxinh@example.com` | 880004 Nhà Xinh Home (home & living) |
+| Buyer | `an.nguyen@example.com`, `binh.tran@example.com`, `cuong.le@example.com` | |
+| Seller | `huy.techzone@example.com` | TechZone Official (electronics) |
+| Seller | `lan.glowup@example.com` | GlowUp Beauty (beauty) |
+| Seller | `tuan.saigonstyle@example.com` | Saigon Style (fashion) |
+| Seller | `trang.nhaxinh@example.com` | Nhà Xinh Home (home and living) |
 
-15 products with variants, SVG product images, seeded discount promotions, public/hidden/expired
-vouchers, five logistics channels, shop policies, historical completed orders and verified reviews.
+The seed has 4 shops and 15 products with variants, photos, reviews, vouchers, shipping options, shop
+policies, past orders and assistant FAQs. Prices are in VND.
 
-## How the pieces fit
+Things to try:
 
-1. **Seller onboarding:** `POST /api/v1/auth/signup` (seller) → `POST /api/v1/seller/shops` →
-   `GET /api/v1/seller/shops/:id/authorization-url` returns a backend-signed
-   `/api/v2/shop/auth_partner` URL → the seller approves the shop on the consent page → the browser
-   lands on `/api/v1/integrations/shopee/callback`, which validates the state cookie and membership,
-   exchanges the single-use code and stores the shop's tokens encrypted.
-2. **Seller dashboard:** `POST /api/v1/seller/shops/:id/shopee { path, params }` runs any shop-level
-   compat/custom operation in-process with the stored token (validated exactly like an external call).
-   The browser never sees `partner_key` or tokens.
-3. **External integrations / tests:** any client holding the Partner key can use the upstream SDK with
-   `base_url: <api>/api/v2` after the same consent flow; each shop gets independent tokens.
-4. **Buyers:** cookie-session `/api/v1` routes; orders, stock and vouchers are the same records the
-   seller APIs read and mutate.
+- As a buyer: search, open a product, add to cart, check out, then follow the order under your orders.
+- As a seller: sign in, open `/seller/shops` and click Connect, then approve once; this links the
+  shop to the platform's API app, as on Shopee. Then see the buyer's order, arrange shipment and
+  advance it; the buyer's tracking updates.
+- Change stock or price as a seller and watch the storefront update.
 
-## Security notes (Phase 1)
+## Voice assistant (optional)
 
-- Passwords: scrypt. Sessions: random 256-bit tokens, stored as SHA-256, `HttpOnly; SameSite=Lax`
-  cookies; state-changing `/api/v1` requests require `X-Requested-With` (CSRF), CORS only for
-  `WEB_APP_URL`.
-- Partner/shop auth: constant-time HMAC verification, ±5 min timestamps, opaque tokens hashed at rest,
-  single-use codes and rotating refresh tokens (reuse revokes the family), grant revocation.
-- Tenant isolation is enforced in queries (`shopId` / `buyerId` scoping); resources outside scope
-  return "not found".
-- The seller gateway serialises per-shop token refresh with an in-process lock, so running more than one API instance needs a database-level lock first.
-- Not yet in scope: rate limiting, account lockout, email verification, audit logs.
+Each shop page has an assistant that answers from that shop's data and can add to cart, place orders
+and open returns after confirmation. It runs on your own Codex login (`codex-cli 0.166.0`), not an
+OpenAI API key. It is off by default; to turn it on, log in with `codex login`, set
+`ASSISTANT_VOICE_ENABLED=true` in `apps/api/.env` and restart the API. Each session uses your Codex
+subscription. Without it, the rest of the app works normally. Details: [`docs/VOICE.md`](docs/VOICE.md).
+
+## Tests
+
+```bash
+pnpm test   # builds, then runs all suites against a reseeded huspee_test database
+WEB_URL=http://localhost:3001 API_URL=http://localhost:3000 pnpm smoke:ui   # browser smoke test, needs running servers and installed Chrome
+```
+
+The tests start the API on port 3999 and need a Postgres role that can create the `huspee_test`
+database (override with `TEST_DATABASE_URL`). No test starts a real Codex session.
+
+## Project layout
+
+```
+apps/api       NestJS + Prisma backend (prisma/ has the schema, migrations and seed)
+apps/web       Next.js buyer storefront and seller dashboard
+packages/sdk   @huspee/sdk: browser client and server-only Shopee-compatible client
+tests          upstream SDK, extension and end-to-end suites
+docs           design notes
+```
+
+## More docs
+
+- [`AGENTS.md`](AGENTS.md): requirements and rules for contributors and coding agents
+- [`BRIEF.md`](BRIEF.md): product brief
+- [`PHASE1_ENDPOINTS.md`](PHASE1_ENDPOINTS.md): every API route, its auth, SDK method and tests
+- [`docs/COMPATIBILITY.md`](docs/COMPATIBILITY.md): how closely the seller API matches Shopee Open API v2
+- [`docs/ASSISTANT.md`](docs/ASSISTANT.md), [`docs/VOICE.md`](docs/VOICE.md), [`docs/EVAL.md`](docs/EVAL.md): voice assistant contract, runtime and evaluation
+- [`packages/sdk/README.md`](packages/sdk/README.md): SDK usage and changes from upstream
+- [`docs/PLATFORM.md`](docs/PLATFORM.md): how the platform fits together, configuration and security notes

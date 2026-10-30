@@ -21,13 +21,13 @@ export type Card =
         stock: number;
       }>;
     }
-  | {
+  | ({
       kind: 'product';
       item_id: number;
       name: string;
       image: string | null;
       models: Array<{ model_id: number; name: string; price: number; stock: number }>;
-    } & Omit<Partial<ProductInfo>, 'item_id' | 'name' | 'models'>
+    } & Omit<Partial<ProductInfo>, 'item_id' | 'name' | 'models'>)
   | {
       kind: 'compare';
       items: Array<{

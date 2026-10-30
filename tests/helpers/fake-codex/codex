@@ -13,6 +13,13 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     const text = params.input[0].text.includes('FAKE_SUMMARY_ERROR') ? 'invalid JSON' : JSON.stringify({ topics: ['product'], hesitations: [], listing_suggestions: [{ text: 'Clarify details' }], language: 'en' });
     setTimeout(() => send({ method: 'item/completed', params: { threadId: params.threadId, item: { type: 'agentMessage', id: 'summary-1', text } } }), 20);
   }
+  else if (method === 'turn/start' && params.input?.[0]?.text?.startsWith('[App]')) {
+    send({ id, result: { turn: { id: 'note-turn' } } });
+    setTimeout(() => {
+      send({ method: 'item/completed', params: { threadId: params.threadId, item: { type: 'agentMessage', id: 'note-1', text: 'OK' } } });
+      send({ method: 'turn/completed', params: { threadId: params.threadId, turn: { id: 'note-turn', status: 'completed' } } });
+    }, 10);
+  }
   else if (method === 'turn/start') {
     send({ id, result: { turn: { id: 'turn-1' } } });
     setTimeout(() => {
@@ -35,6 +42,20 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
       // Delegated thread turn: with clientManagedHandoffs the backend decides what is spoken.
       if (!marker) return;
       const own = (text) => send({ method: 'thread/realtime/transcript/done', params: { threadId: params.threadId, role: 'assistant', text } });
+      // TAP: the thread is still answering when the buyer taps the order card.
+      if (marker === 'TAP') send({ method: 'turn/started', params: { threadId: params.threadId, turn: { id: 'v-turn' } } });
+      const user = (text) => send({ method: 'thread/realtime/transcript/done', params: { threadId: params.threadId, role: 'user', text } });
+      // BARGE: the buyer asks something new while the thread is still answering; the answer only comes on interrupt.
+      if (marker === 'BARGE') {
+        send({ method: 'turn/started', params: { threadId: params.threadId, turn: { id: 'v-turn' } } });
+        return setTimeout(() => user('Thôi, cho mình xem sạc dự phòng'), 30);
+      }
+      // EARLY: the voice hands off before the buyer's final transcript arrives; that transcript is the turn's question.
+      if (marker === 'EARLY') {
+        send({ method: 'thread/realtime/itemAdded', params: { threadId: params.threadId, item: { type: 'handoff_request', handoff_id: 'h-2' } } });
+        send({ method: 'turn/started', params: { threadId: params.threadId, turn: { id: 'v-turn' } } });
+        user('Còn màu khác không?');
+      }
       setTimeout(() => {
         if (marker === 'OWN') return own('Màu tím giá 17.990.000đ');
         if (marker === 'NOSHOP') return own('À, mình không có shop hay bán sản phẩm gì đâu.');
@@ -50,8 +71,13 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
         send({ method: 'turn/completed', params: { threadId: params.threadId, turn: { id: 'v-turn', status: 'completed' } } });
         // Unprompted voice text after our answer (e.g. its own echo) must never reach the buyer.
         if (marker === 'ACK') setTimeout(() => own('Còn 3 máy màu tím.'), 10);
-      }, 30);
+      }, marker === 'TAP' ? 120 : 30);
     }, 20);
+  } else if (method === 'turn/interrupt') {
+    send({ id, result: {} });
+    // The interrupted turn may still flush what it had written.
+    send({ method: 'item/completed', params: { threadId: params.threadId, item: { type: 'agentMessage', id: 'v-old', text: 'Giá 790.000đ' } } });
+    send({ method: 'turn/completed', params: { threadId: params.threadId, turn: { id: params.turnId, status: 'interrupted' } } });
   } else if (method === 'thread/realtime/appendText' && params.text === 'FAKE_ERROR') {
     send({ id, result: {} });
     send({ method: 'thread/realtime/error', params: { threadId: params.threadId, message: 'fake error' } });

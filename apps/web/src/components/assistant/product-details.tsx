@@ -100,7 +100,9 @@ export function ProductDetails({ product }: { product: ProductInfo }) {
       </div>
       {product.models.length > 0 && (
         <section>
-          <h4 className="mb-1 text-xs font-semibold tracking-wide text-gray-500 uppercase">{t('variants')}</h4>
+          <h4 className="mb-1 text-xs font-semibold tracking-wide text-gray-500 uppercase">
+            {t('variants')}
+          </h4>
           <ul className="divide-y divide-line rounded-xl bg-gray-50 px-3">
             {product.models.map((model) => (
               <li key={model.model_id} className="flex items-center justify-between gap-2 py-2 text-xs">
@@ -121,7 +123,10 @@ export function ProductDetails({ product }: { product: ProductInfo }) {
           <h4 className="mb-1 text-xs font-semibold tracking-wide text-gray-500 uppercase">{t('specs')}</h4>
           <dl className="divide-y divide-line rounded-xl ring-1 ring-line">
             {facts.map((fact) => (
-              <div key={`${fact.name}-${fact.value}`} className="grid grid-cols-[40%_1fr] gap-2 px-3 py-1.5 text-xs">
+              <div
+                key={`${fact.name}-${fact.value}`}
+                className="grid grid-cols-[40%_1fr] gap-2 px-3 py-1.5 text-xs"
+              >
                 <dt className="text-gray-500">{fact.name}</dt>
                 <dd className="text-gray-800">{fact.value}</dd>
               </div>
@@ -217,7 +222,9 @@ export function ProductDetailsLoader({ itemId }: { itemId: number }) {
     return info;
   }, [itemId]);
   if (detail.loading)
-    return <span className="block h-4 w-4 animate-spin rounded-full border-2 border-primary border-r-transparent" />;
+    return (
+      <span className="block h-4 w-4 animate-spin rounded-full border-2 border-primary border-r-transparent" />
+    );
   if (detail.error || !detail.data)
     return (
       <button type="button" onClick={detail.reload} className="text-xs text-red-600">

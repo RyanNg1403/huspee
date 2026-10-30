@@ -49,6 +49,14 @@ type Session = {
   turnActive: boolean;
   /** Thread turns we started only to inform the thread; their replies are not spoken. */
   silentTurns: number;
+  /** The running thread turn: its ID, the buyer words it answers, and whether it is one of ours to inform. */
+  turn?: { id: string; asked?: string; silent: boolean; awaitingWords: boolean };
+  /** The running turn's reply is stale (the buyer moved on or tapped the card) and must not be spoken. */
+  dropReply: boolean;
+  /** The buyer asked something new while a turn was answering an earlier question; answer it next. */
+  superseded?: 'handed_off' | 'ask_thread';
+  /** App events for the thread that arrived while it was busy; sent when its turn completes. */
+  pendingNotes: string[];
   /** handoff_request seen before the matching user transcript arrived. */
   pendingHandoff?: boolean;
 };
@@ -133,7 +141,9 @@ export class VoiceRuntime {
         handoff: false,
         turnActive: false,
         silentTurns: 0,
+        dropReply: false,
         recentUser: [],
+        pendingNotes: [],
       };
       this.sessions.set(ctx.conversationId, session);
       this.reservations--;
@@ -219,7 +229,13 @@ export class VoiceRuntime {
     if (!session) return;
     this.emit(session, { type: 'action', action });
     if (replacement && action.status === 'PENDING') void this.replaceAction(session, action.requires_tap, replacement).catch(() => undefined);
-    if (session.output === 'checked' && session.mode === 'voice' && action.requires_tap) {
+    const resolved = action.requires_tap && (action.status === 'EXECUTED' || action.status === 'CANCELLED');
+    if (resolved && session.mode === 'voice') {
+      // A read-back or reply still in flight was written before the tap and would ask for it again.
+      session.readback = undefined;
+      if (session.turnActive) session.dropReply = true;
+    }
+    if (session.mode === 'voice' && action.requires_tap) {
       const lang = this.language(session);
       const line =
         action.status === 'CANCELLED'
@@ -231,7 +247,7 @@ export class VoiceRuntime {
               : undefined;
       if (line) void this.speak(session, line);
     }
-    if (action.requires_tap && (action.status === 'EXECUTED' || action.status === 'CANCELLED'))
+    if (resolved)
       void this.notifyAction(
         id,
         `${action.summary.title}: ${action.status}${action.result ? ` ${JSON.stringify(action.result)}` : ''}`,
@@ -262,11 +278,24 @@ export class VoiceRuntime {
     const session = this.sessions.get(id);
     if (session?.mode === 'text')
       await this.transport.request('turn/start', { threadId: session.threadId, input: [{ type: 'text', text: `[App] ${text}`, text_elements: [] }] });
-    else if (session)
+    else if (session) {
       await this.transport.request('thread/realtime/appendText', {
         threadId: session.threadId,
         role: 'developer',
         text: `[App] ${text}`,
+      });
+      // The thread answers the buyer's next questions, so it must know too; this turn's reply is not spoken.
+      const note = `[App] ${text}\nThe buyer already heard the outcome. Do not ask them to confirm or tap again. Reply only: OK`;
+      if (session.turnActive) session.pendingNotes.push(note);
+      else await this.informThread(session, note);
+    }
+  }
+  private async informThread(session: Session, text: string): Promise<void> {
+    session.silentTurns++;
+    await this.transport
+      .request('turn/start', { threadId: session.threadId, input: [{ type: 'text', text, text_elements: [] }] })
+      .catch(() => {
+        session.silentTurns--;
       });
   }
   async stop(id: string, buyerId: number): Promise<void> {
@@ -356,12 +385,33 @@ export class VoiceRuntime {
         session.handoff = false;
       });
   }
+  /**
+   * The buyer spoke over a turn that is still answering an earlier question: stop that turn and drop
+   * its answer, so the next thing said answers the new question instead of finishing the old topic.
+   */
+  private supersede(session: Session, text: string): void {
+    const turn = session.turn;
+    if (turn?.awaitingWords) {
+      turn.awaitingWords = false;
+      turn.asked = text;
+      return;
+    }
+    if (!turn || turn.silent || turn.asked === text || session.dropReply) return;
+    session.dropReply = true;
+    session.superseded = session.pendingHandoff ? 'handed_off' : 'ask_thread';
+    session.readback = undefined;
+    void this.transport.request('turn/interrupt', { threadId: session.threadId, turnId: turn.id }).catch(() => undefined);
+  }
   /** Speaks the thread's answer for a delegated turn only after every fact in it is backed by evidence. */
   private async speakTurn(session: Session): Promise<void> {
     const lang = this.language(session);
     const readback = session.readback, answer = session.reply;
     session.readback = undefined;
     session.reply = undefined;
+    if (session.dropReply) {
+      session.dropReply = false;
+      return;
+    }
     if (session.silentTurns > 0) {
       session.silentTurns--;
       return;
@@ -449,6 +499,7 @@ export class VoiceRuntime {
         session.recentUser = [...session.recentUser, text].slice(-4);
         session.heardUser = true;
         if (!session.turnActive) session.handoff = session.pendingHandoff ?? false;
+        else this.supersede(session, text);
         session.pendingHandoff = undefined;
       }
       if (final) await this.saveTranscript(session.context, role, text).catch(() => undefined);
@@ -470,14 +521,28 @@ export class VoiceRuntime {
       }
     } else if (session.mode === 'voice' && message.method === 'turn/started') {
       session.turnActive = true;
+      // A handoff can start the turn before the buyer's final transcript arrives; that transcript is its question.
+      const awaitingWords = !!session.pendingHandoff;
       session.pendingHandoff = undefined;
+      const turnId = (params.turn as { id?: string } | undefined)?.id;
+      if (turnId) session.turn = { id: turnId, asked: session.lastUser, silent: session.silentTurns > 0, awaitingWords };
     } else if (session.mode === 'voice' && message.method === 'item/completed') {
       const item = params.item as { type?: string; text?: string } | undefined;
       if (item?.type === 'agentMessage' && typeof item.text === 'string' && item.text.trim()) session.reply = item.text;
     } else if (session.mode === 'voice' && message.method === 'turn/completed') {
       session.turnActive = false;
       session.handoff = false;
+      session.turn = undefined;
       await this.speakTurn(session);
+      const note = session.pendingNotes.shift();
+      if (note && !session.closed) await this.informThread(session, note);
+      if (session.superseded) {
+        // Answer what the buyer asked meanwhile. If the voice handed it off, give that turn time to start first.
+        const wait = note || session.superseded === 'handed_off' ? this.stallMs : 0;
+        session.superseded = undefined;
+        const asked = session.lastUser;
+        setTimeout(() => void this.delegateStalled(session, asked), wait).unref?.();
+      }
     } else if (message.method === 'item/tool/call' && message.id !== undefined) {
       const name = String(params.tool);
       this.emit(session, { type: 'tool', name, status: 'started' });

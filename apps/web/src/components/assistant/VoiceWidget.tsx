@@ -57,7 +57,13 @@ export function AssistantDock({ children }: { children: React.ReactNode }) {
   );
 }
 
-function DockedPanel({ shopId, onActiveChange }: { shopId: number; onActiveChange: (active: boolean) => void }) {
+function DockedPanel({
+  shopId,
+  onActiveChange,
+}: {
+  shopId: number;
+  onActiveChange: (active: boolean) => void;
+}) {
   const profile = useApi(() => getApiClient().assistant.profile(shopId), [shopId]);
   if (profile.loading || profile.data?.enabled === false) return null;
   return (

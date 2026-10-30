@@ -300,7 +300,7 @@ Phase 2 adds a per-shop, real-time voice assistant for buyers and seller-side co
   are the only source of facts the assistant may state.
 - **Actions with confirmation.** The assistant may change buyer state. It must read back the
   exact item, variant, quantity, price and voucher first. Cart changes need a spoken yes. Placing
-  an order and opening a return also need a tap on an on-screen confirm card; the server enforces
+  an order and opening a return need a tap (not a spoken yes) on an on-screen confirm card; the server enforces
   this with a short-lived, single-use confirmation issued for the exact payload, so a tool call
   alone can never place an order or open a return. Reuse Phase 1 idempotency for checkout.
 - **Live UI cards.** Product, comparison, cart and confirm cards rendered next to the conversation
