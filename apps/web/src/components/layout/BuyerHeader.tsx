@@ -5,16 +5,61 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { Logo } from '@/components/brand/Logo';
 import { CartIcon, ChevronIcon, SearchIcon, UserIcon } from '@/components/icons';
 import { useSession } from '@/components/session';
-import { useT } from '@/i18n/client';
+import { useLang, useT } from '@/i18n';
 import { common } from '@/i18n/common';
 import { getApiClient } from '@/lib/api';
 import { LanguageSwitch } from './LanguageSwitch';
 
+function MessageIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+}
+
 export function BuyerHeader() {
   const t = useT(common);
+  const { lang } = useLang();
+  const messagesLabel = lang === 'vi' ? 'Tin nhắn' : 'Messages';
   const { user, status, logout } = useSession();
   const router = useRouter();
   const [count, setCount] = useState(0);
+  const [unreadMessages, setUnreadMessages] = useState(0);
+
+  useEffect(() => {
+    if (status !== 'authenticated' || !user?.roles.includes('buyer')) return;
+    let active = true;
+    const loadUnread = () => {
+      getApiClient()
+        .buyer.messages.unreadCount()
+        .then((res) => {
+          if (active) setUnreadMessages(res.count);
+        })
+        .catch(() => {
+          if (active) setUnreadMessages(0);
+        });
+    };
+    loadUnread();
+    const interval = setInterval(loadUnread, 30000);
+    window.addEventListener('focus', loadUnread);
+    window.addEventListener('huspee:messages-changed', loadUnread);
+    return () => {
+      active = false;
+      clearInterval(interval);
+      window.removeEventListener('focus', loadUnread);
+      window.removeEventListener('huspee:messages-changed', loadUnread);
+    };
+  }, [status, user]);
   useEffect(() => {
     if (status !== 'authenticated' || !user?.roles.includes('buyer')) return;
     let active = true;
@@ -62,6 +107,16 @@ export function BuyerHeader() {
           <>
             <Link className="block p-2" href="/orders">
               {t('orders')}
+            </Link>
+            <Link className="block p-2" href="/messages">
+              <span className="flex items-center justify-between">
+                <span>{messagesLabel}</span>
+                {unreadMessages > 0 && (
+                  <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-xs font-medium text-white">
+                    {unreadMessages}
+                  </span>
+                )}
+              </span>
             </Link>
             {user?.roles.includes('seller') && (
               <Link className="block p-2" href="/seller">
@@ -114,6 +169,14 @@ export function BuyerHeader() {
               <SearchIcon className="h-5 w-5" />
             </button>
           </form>
+          <Link href="/messages" aria-label={messagesLabel} className="relative shrink-0">
+            <MessageIcon className="h-7 w-7" />
+            {status === 'authenticated' && user?.roles.includes('buyer') && unreadMessages > 0 && (
+              <span className="absolute -right-2 -top-2 min-w-5 rounded-full bg-white px-1 text-center text-xs font-medium text-orange-700">
+                {unreadMessages}
+              </span>
+            )}
+          </Link>
           <Link href="/cart" aria-label={t('cart')} className="relative shrink-0">
             <CartIcon className="h-7 w-7" />
             <span className="absolute -right-3 -top-2 min-w-5 rounded-full bg-white px-1 text-center text-xs font-medium text-orange-700">

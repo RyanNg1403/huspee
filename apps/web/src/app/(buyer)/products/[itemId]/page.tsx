@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import { VoiceWidget } from '@/components/assistant/VoiceWidget';
 import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -203,6 +204,7 @@ function Product({ product }: { product: ProductDetail }) {
   }
   return (
     <div className="space-y-4">
+      <VoiceWidget shopId={product.shop.shop_id} />
       <section
         className={`${panel} grid gap-6 grid-cols-[minmax(0,1fr)] md:grid-cols-[minmax(0,40%)_minmax(0,1fr)]`}
       >

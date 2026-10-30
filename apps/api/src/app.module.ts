@@ -1,5 +1,9 @@
 import { Module } from '@nestjs/common';
+import { VoiceModule } from './assistant/voice/voice.module';
 import { APP_FILTER } from '@nestjs/core';
+import { AssistantModule } from './assistant/assistant.module';
+import { MessagesController } from './assistant/messages.controller';
+import { AssistantController } from './assistant/assistant.controller';
 import { AuthController } from './auth/auth.controller';
 import { SessionGuard } from './auth/session.guard';
 import { SessionService } from './auth/session.service';
@@ -41,7 +45,10 @@ const opProviders = [AuthOps, ShopOps, ProductOps, MediaPushOps, VoucherOps, Ord
  * project-owned signed extensions (/api/v2/custom/*).
  */
 @Module({
+  imports: [VoiceModule, AssistantModule],
   controllers: [
+    AssistantController,
+    MessagesController,
     PlatformController,
     AuthController,
     MarketplaceController,

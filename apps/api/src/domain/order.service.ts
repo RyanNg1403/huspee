@@ -117,6 +117,11 @@ export interface Quote {
   can_checkout: boolean;
 }
 
+/** Stable buyer-visible checkout facts bound to an assistant confirmation. */
+export function assistantQuoteSnapshot(quote: Quote, address: { id: number; name: string; phone: string; region: string; state: string; city: string; district: string; town: string; address: string; zipcode: string }) {
+  return { payment_method: quote.payment_method, address, groups: quote.groups.map((g) => ({ shop_id: g.shop_id, shop_name: g.shop_name, lines: g.lines.map((l) => ({ item_id: l.item_id, model_id: l.model_id, item_name: l.item_name, model_name: l.model_name, quantity: l.quantity, unit_price: l.unit_price })), shipping_fee: g.shipping_fee, shipping_discount: g.shipping_discount, voucher: g.voucher ? { code: g.voucher.code, eligible: g.voucher.eligible, discount: g.voucher.discount } : null, total: g.total })), totals: quote.totals };
+}
+
 export const orderInclude = {
   items: { orderBy: { id: 'asc' } },
   package: { include: { events: { orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] } } },
@@ -290,7 +295,7 @@ export class OrderService {
    * Create one order per shop atomically: conditional stock decrements, voucher usage,
    * cart cleanup. Retries with the same Idempotency-Key return the original orders.
    */
-  async checkout(buyerId: number, input: CheckoutInput, idempotencyKey?: string): Promise<{ checkout_id: string; order_sn_list: string[]; replayed: boolean }> {
+  async checkout(buyerId: number, input: CheckoutInput, idempotencyKey?: string, assistant?: { actionId: string; shopId: number; snapshotHash: string; confirmationKey: string }): Promise<{ checkout_id: string; order_sn_list: string[]; replayed: boolean }> {
     if (!input.address_id) throw validation('address_id is required');
     const requestHash = createHash('sha256').update(JSON.stringify(input)).digest('hex');
     if (idempotencyKey) {
@@ -309,6 +314,14 @@ export class OrderService {
             await tx.checkoutRequest.create({ data: { buyerId, idempotencyKey, checkoutId, requestHash } });
           }
           const quote = await this.quote(buyerId, input, tx);
+          if (assistant) {
+            const currentAddress = await tx.buyerAddress.findFirst({ where: { id: input.address_id, userId: buyerId, deletedAt: null }, select: { id: true, name: true, phone: true, region: true, state: true, city: true, district: true, town: true, address: true, zipcode: true } });
+            const initialAddress = { id: address.id, name: address.name, phone: address.phone, region: address.region, state: address.state, city: address.city, district: address.district, town: address.town, address: address.address, zipcode: address.zipcode };
+            const hash = currentAddress && createHash('sha256').update(JSON.stringify(assistantQuoteSnapshot(quote, currentAddress))).digest('hex');
+            if (JSON.stringify(currentAddress) !== JSON.stringify(initialAddress) || quote.groups.length !== 1 || quote.groups[0]?.shop_id !== assistant.shopId || hash !== assistant.snapshotHash) throw invalidState('Checkout details changed; please confirm again');
+            const claimed = await tx.pendingAction.updateMany({ where: { id: assistant.actionId, buyerId, shopId: assistant.shopId, type: 'PLACE_ORDER', status: 'PENDING', expiresAt: { gt: new Date() } }, data: { status: 'EXECUTED', idempotencyKey: assistant.confirmationKey } });
+            if (!claimed.count) throw invalidState('Action is no longer pending');
+          }
           if (quote.groups.length === 0) throw validation('Nothing to check out');
           if (!quote.can_checkout) {
             const outOfStock = quote.groups.some((g) => g.lines.some((l) => !l.available && /stock/i.test(l.issue ?? '')));
@@ -401,9 +414,10 @@ export class OrderService {
           }
           const cartIds = quote.groups.flatMap((g) => g.lines.map((l) => l.cart_item_id)).filter((id): id is number => id !== null);
           if (cartIds.length) await tx.cartItem.deleteMany({ where: { id: { in: cartIds }, userId: buyerId } });
+          if (assistant) await tx.pendingAction.update({ where: { id: assistant.actionId }, data: { result: { order_sn: orderSns[0] } } });
           return orderSns;
         },
-        { timeout: 20000 },
+        { timeout: 20000, ...(assistant ? { isolationLevel: Prisma.TransactionIsolationLevel.Serializable } : {}) },
       );
     } catch (err) {
       if (idempotencyKey && err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {

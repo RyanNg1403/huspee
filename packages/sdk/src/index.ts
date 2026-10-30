@@ -11,6 +11,7 @@
 import { HttpTransport, HuspeeClientOptions } from './http.js';
 import type {
   Address,
+  AssistantProfile, AssistantConfig, AssistantConfigInput, AssistantFaq, AssistantFaqInput, AssistantConversation, AssistantConversationDetail, PendingActionView, HandoffTicket, HandoffTicketDetail, HandoffMessage,
   AddressInput,
   BuyerOrder,
   BuyerOrderListQuery,
@@ -104,7 +105,31 @@ export class HuspeeClient {
       >('POST', '/api/v1/shipping/quote', { body: { items, payment_method: paymentMethod } }),
   };
 
+  readonly assistant = {
+    profile: (shopId: number) => this.http.request<AssistantProfile>('GET', `/api/v1/assistant/shops/${shopId}/profile`),
+    voices: () => this.http.request<{ voices: string[] }>('GET', '/api/v1/assistant/voices'),
+    text: {
+      start: (input: { shop_id: number; lang?: string }) => this.http.request<{ conversation_id: string }>('POST', '/api/v1/assistant/text/sessions', { body: input }),
+    },
+    voice: {
+      start: (input: { shop_id: number; sdp_offer: string; lang?: string }) => this.http.request<{ conversation_id: string; sdp_answer: string }>('POST', '/api/v1/assistant/voice/sessions', { body: input }),
+      text: (conversationId: string, text: string) => this.http.request<{ ok: true }>('POST', `/api/v1/assistant/voice/sessions/${encodeURIComponent(conversationId)}/text`, { body: { text } }),
+      stop: (conversationId: string) => this.http.request<{ ok: true }>('POST', `/api/v1/assistant/voice/sessions/${encodeURIComponent(conversationId)}/stop`),
+      eventsUrl: (conversationId: string) => this.http.url(`/api/v1/assistant/voice/sessions/${encodeURIComponent(conversationId)}/events`),
+    },
+    actions: {
+      confirm: (actionId: string, idempotencyKey: string) => this.http.request<{ action: PendingActionView }>('POST', `/api/v1/assistant/actions/${encodeURIComponent(actionId)}/confirm`, { body: { idempotency_key: idempotencyKey } }),
+      cancel: (actionId: string) => this.http.request<{ action: PendingActionView }>('POST', `/api/v1/assistant/actions/${encodeURIComponent(actionId)}/cancel`),
+    },
+  };
+
   readonly buyer = {
+    messages: {
+      list: (query: { page?: number; page_size?: number } = {}) => this.http.request<Paginated<HandoffTicket>>('GET', '/api/v1/buyer/messages', { query, raw: true }),
+      unreadCount: () => this.http.request<{ count: number }>('GET', '/api/v1/buyer/messages/unread-count'),
+      get: (ticketId: number) => this.http.request<HandoffTicketDetail>('GET', `/api/v1/buyer/messages/${ticketId}`),
+      reply: (ticketId: number, body: string) => this.http.request<HandoffMessage>('POST', `/api/v1/buyer/messages/${ticketId}/replies`, { body: { body } }),
+    },
     addresses: {
       list: () => this.http.request<Address[]>('GET', '/api/v1/buyer/addresses'),
       create: (input: AddressInput) => this.http.request<Address>('POST', '/api/v1/buyer/addresses', { body: input }),
@@ -143,6 +168,26 @@ export class HuspeeClient {
   };
 
   readonly seller = {
+    assistant: {
+      getConfig: (shopId: number) => this.http.request<AssistantConfig>('GET', `/api/v1/seller/shops/${shopId}/assistant/config`),
+      updateConfig: (shopId: number, input: AssistantConfigInput) => this.http.request<AssistantConfig>('PUT', `/api/v1/seller/shops/${shopId}/assistant/config`, { body: input }),
+      faqs: {
+        list: (shopId: number) => this.http.request<AssistantFaq[]>('GET', `/api/v1/seller/shops/${shopId}/assistant/faqs`),
+        create: (shopId: number, input: AssistantFaqInput) => this.http.request<AssistantFaq>('POST', `/api/v1/seller/shops/${shopId}/assistant/faqs`, { body: input }),
+        update: (shopId: number, faqId: number, input: Partial<AssistantFaqInput>) => this.http.request<AssistantFaq>('PUT', `/api/v1/seller/shops/${shopId}/assistant/faqs/${faqId}`, { body: input }),
+        remove: (shopId: number, faqId: number) => this.http.request<{ deleted: boolean }>('DELETE', `/api/v1/seller/shops/${shopId}/assistant/faqs/${faqId}`),
+      },
+      conversations: {
+        list: (shopId: number, query: { status?: 'ACTIVE' | 'ENDED'; has_handoff?: boolean; from?: number; to?: number; page?: number; page_size?: number } = {}) => this.http.request<Paginated<AssistantConversation>>('GET', `/api/v1/seller/shops/${shopId}/assistant/conversations`, { query, raw: true }),
+        get: (shopId: number, conversationId: string) => this.http.request<AssistantConversationDetail>('GET', `/api/v1/seller/shops/${shopId}/assistant/conversations/${encodeURIComponent(conversationId)}`),
+      },
+    },
+    inbox: {
+      list: (shopId: number, query: { status?: 'OPEN' | 'ANSWERED' | 'CLOSED'; page?: number; page_size?: number } = {}) => this.http.request<Paginated<HandoffTicket>>('GET', `/api/v1/seller/shops/${shopId}/inbox`, { query, raw: true }),
+      get: (shopId: number, ticketId: number) => this.http.request<HandoffTicketDetail>('GET', `/api/v1/seller/shops/${shopId}/inbox/${ticketId}`),
+      reply: (shopId: number, ticketId: number, body: string) => this.http.request<HandoffMessage>('POST', `/api/v1/seller/shops/${shopId}/inbox/${ticketId}/replies`, { body: { body } }),
+      close: (shopId: number, ticketId: number) => this.http.request<HandoffTicket>('POST', `/api/v1/seller/shops/${shopId}/inbox/${ticketId}/close`),
+    },
     shops: {
       create: (input: CreateShopInput) => this.http.request<SellerShop>('POST', '/api/v1/seller/shops', { body: input }),
       list: () => this.http.request<SellerShop[]>('GET', '/api/v1/seller/shops'),

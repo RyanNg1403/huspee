@@ -14,6 +14,7 @@ const apiDir = resolve(root, 'apps/api');
 export const serverEnv = {
   ...process.env,
   NODE_ENV: 'test',
+  ASSISTANT_TOOL_DEBUG: 'true',
   DATABASE_URL,
   PORT: String(TEST_PORT),
   PUBLIC_BASE_URL: API,

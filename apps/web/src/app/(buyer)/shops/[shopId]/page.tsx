@@ -1,5 +1,6 @@
 'use client';
 import Image from 'next/image';
+import { VoiceWidget } from '@/components/assistant/VoiceWidget';
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import type { ProductSearchQuery } from '@huspee/sdk';
@@ -25,6 +26,7 @@ export default function ShopPage() {
   }, [shop.data, t]);
   return (
     <div className="space-y-4">
+      <VoiceWidget shopId={id} />
       <section className={panel}>
         <QueryState {...shop} retry={shop.reload} />
         {!shop.loading && !shop.error && shop.data && (

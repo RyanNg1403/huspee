@@ -241,10 +241,35 @@ All of the following are covered by `tests/e2e/flows.test.ts` (plus the upstream
 - One **shared platform-managed Partner identity** (`partner_id` 2001001 by default) is seeded; its key is read from the `HUSPEE_PARTNER_KEY` runtime secret (the DB stores only a reference). The data model (`PartnerApp`, `ShopAuthorization`) supports multiple Partner apps; registration routes are out of scope.
 - The seller dashboard never receives `partner_key` or shop tokens: the platform's own tokens are stored AES-256-GCM encrypted and used by the gateway, which invokes compat operations in-process after the same token validation as external calls.
 - Original SDK endpoints are not repurposed for buyer semantics; buyer features are separate `/api/v1` routes.
-- No AI/voice functionality, agent-tool endpoints, handoff or conversation analytics in this phase.
+- Phase 1 excluded AI/voice functionality, agent-tool endpoints, handoff and conversation analytics; the separate Phase 2 section below tracks the active additions.
 
 ## Sources for contract verification
 
 - SDK schema directory: https://github.com/congminh1254/shopee-sdk/tree/main/schemas
 - SDK manager docs: https://github.com/congminh1254/shopee-sdk/tree/main/docs/managers
 - Official API portal: https://open.shopee.com/documents
+
+## Phase 2 assistant (project-defined custom routes)
+
+These `/api/v1` routes use platform sessions and the browser-safe `@huspee/sdk` methods named below; they are not Shopee endpoints. Voice routes are supplied by the voice module. Automated coverage is in `tests/extensions/assistant.test.ts`, `messages.test.ts`, and `voice.test.ts`.
+
+| Method | Path | Auth | SDK | Status / coverage |
+|---|---|---|---|---|
+| GET | `/assistant/shops/:shopId/profile` | public | `assistant.profile` | implemented; assistant tests |
+| GET | `/assistant/voices` | public | `assistant.voices` | voice module; voice tests |
+| POST | `/assistant/text/sessions` | buyer session | `assistant.text.start` | custom text thread; voice tests |
+| POST | `/assistant/voice/sessions` | buyer session | `assistant.voice.start` | voice module; voice tests |
+| GET | `/assistant/voice/sessions/:conversationId/events` | buyer session | `assistant.voice.eventsUrl` | voice module; voice tests |
+| POST | `/assistant/voice/sessions/:conversationId/text` | buyer session | `assistant.voice.text` | voice module; voice tests |
+| POST | `/assistant/voice/sessions/:conversationId/stop` | buyer session | `assistant.voice.stop` | voice module; voice tests |
+| POST | `/assistant/actions/:actionId/confirm` | buyer session | `assistant.actions.confirm` | implemented; assistant tests |
+| POST | `/assistant/actions/:actionId/cancel` | buyer session | `assistant.actions.cancel` | implemented; assistant tests |
+| GET | `/buyer/messages`, `/buyer/messages/unread-count`, `/buyer/messages/:ticketId` | buyer session | `buyer.messages.list`, `.unreadCount`, `.get` | implemented; messages tests |
+| POST | `/buyer/messages/:ticketId/replies` | buyer session | `buyer.messages.reply` | implemented; messages tests |
+| GET, PUT | `/seller/shops/:shopId/assistant/config` | seller membership | `seller.assistant.getConfig`, `.updateConfig` | implemented; assistant tests |
+| GET, POST | `/seller/shops/:shopId/assistant/faqs` | seller membership | `seller.assistant.faqs.list`, `.create` | implemented; assistant tests |
+| PUT, DELETE | `/seller/shops/:shopId/assistant/faqs/:faqId` | seller membership | `seller.assistant.faqs.update`, `.remove` | implemented; assistant tests |
+| GET | `/seller/shops/:shopId/assistant/conversations`, `/seller/shops/:shopId/assistant/conversations/:conversationId` | seller membership | `seller.assistant.conversations.list`, `.get` | implemented; assistant tests |
+| GET | `/seller/shops/:shopId/inbox`, `/seller/shops/:shopId/inbox/:ticketId` | seller membership | `seller.inbox.list`, `.get` | implemented; messages tests |
+| POST | `/seller/shops/:shopId/inbox/:ticketId/replies`, `/seller/shops/:shopId/inbox/:ticketId/close` | seller membership | `seller.inbox.reply`, `.close` | implemented; messages tests |
+| POST | `/assistant/_debug/tools/:name` | buyer session; `ASSISTANT_TOOL_DEBUG=true` | low-level test transport only | test-only; disabled by default |

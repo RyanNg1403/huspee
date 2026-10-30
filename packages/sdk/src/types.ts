@@ -435,3 +435,31 @@ export interface ShopeeEnvelope<T = unknown> {
   response?: T;
   [key: string]: unknown;
 }
+
+// Project-defined Phase 2 assistant contracts.
+export interface AssistantProfile { shop_id: number; shop_name: string; enabled: boolean; voice: string; greeting: { vi: string; en: string } }
+export interface AssistantConfig { shop_id: number; enabled: boolean; tone: 'FRIENDLY' | 'PROFESSIONAL' | 'ENTHUSIASTIC'; voice: string; greeting_vi: string; greeting_en: string; updated_at: number }
+export type AssistantConfigInput = Partial<Pick<AssistantConfig, 'enabled' | 'tone' | 'voice' | 'greeting_vi' | 'greeting_en'>>;
+export interface AssistantFaq { id: number; shop_id: number; question: string; answer: string; lang: 'vi' | 'en' | 'any'; enabled: boolean; created_at: number; updated_at: number }
+export type AssistantFaqInput = Pick<AssistantFaq, 'question' | 'answer' | 'lang' | 'enabled'>;
+export interface PendingActionView { action_id: string; type: 'ADD_TO_CART' | 'UPDATE_CART_ITEM' | 'PLACE_ORDER' | 'OPEN_RETURN'; status: 'PENDING' | 'EXECUTED' | 'CANCELLED' | 'EXPIRED' | 'FAILED'; requires_tap: boolean; expires_at: number; summary: { title: string; lines: Array<{label: string; value: string}>; total?: number }; result?: { order_sn?: string; return_sn?: string; message?: string } }
+export type AssistantCard =
+  | { kind: 'products'; items: Array<{ item_id: number; name: string; image: string | null; price_min: number; price_max: number; stock: number; rating: number | null }> }
+  | { kind: 'product'; item_id: number; name: string; image: string | null; models: Array<{ model_id: number; name: string; price: number; stock: number }> }
+  | { kind: 'compare'; items: Array<{ item_id: number; name: string; image: string | null; price_min: number; rows: Record<string, string> }> }
+  | { kind: 'cart'; lines: Array<{ item_id: number; model_id: number; name: string; quantity: number; price: number }>; total: number }
+  | { kind: 'order'; order_sn: string; status: string; tracking: Array<{ time: number; description: string }> }
+  | { kind: 'handoff'; ticket_id: number }
+  | { kind: 'action'; action: PendingActionView };
+export type AssistantEvent =
+  | { type: 'transcript'; role: 'user' | 'assistant'; text: string; final: boolean }
+  | { type: 'tool'; name: string; status: 'started' | 'done' | 'error' }
+  | { type: 'card'; card: AssistantCard }
+  | { type: 'action'; action: PendingActionView }
+  | { type: 'closed'; reason: string | null }
+  | { type: 'error'; message: string };
+export interface HandoffMessage { id: number; ticket_id: number; author: 'BUYER' | 'SELLER' | 'ASSISTANT'; author_user_id: number | null; body: string; created_at: number }
+export interface HandoffTicket { ticket_id: number; shop_id: number; shop_name: string; logo_url: string | null; subject: string; status: 'OPEN' | 'ANSWERED' | 'CLOSED'; buyer_unread: number; seller_unread: number; updated_at: number; last_message: HandoffMessage | null; conversation_id?: string | null }
+export interface HandoffTicketDetail extends HandoffTicket { messages: HandoffMessage[] }
+export interface AssistantConversation { conversation_id: string; shop_id: number; buyer_id: number; channel: 'VOICE' | 'TEXT'; status: 'ACTIVE' | 'ENDED'; started_at: number; ended_at: number | null; language: string | null; summary: unknown }
+export interface AssistantConversationDetail extends AssistantConversation { messages: Array<{ id: number; role: 'USER' | 'ASSISTANT'; text: string; created_at: number }>; tool_calls: Array<{ id: number; tool: string; args: unknown; result: unknown; success: boolean; error: string | null; latency_ms: number; created_at: number }> }

@@ -36,6 +36,10 @@ model User {
   orders      Order[]
   returns     ReturnRequest[]
   reviews     Review[]
+  conversations Conversation[]
+  pendingActions PendingAction[]
+  handoffTickets HandoffTicket[]
+  handoffMessages HandoffMessage[]
 
   @@map("users")
 }
@@ -82,6 +86,11 @@ model Shop {
   createdAt        DateTime   @default(now()) @map("created_at")
   updatedAt        DateTime   @updatedAt @map("updated_at")
 
+  assistantConfig AssistantConfig?
+  assistantFaqs AssistantFaq[]
+  conversations Conversation[]
+  pendingActions PendingAction[]
+  handoffTickets HandoffTicket[]
   members        ShopMember[]
   policy         ShopPolicy?
   addresses      ShopAddress[]
@@ -825,4 +834,188 @@ model PushEvent {
 
   @@index([status])
   @@map("push_events")
+}
+
+enum AssistantTone {
+  FRIENDLY
+  PROFESSIONAL
+  ENTHUSIASTIC
+}
+
+enum ConversationChannel {
+  VOICE
+  TEXT
+}
+
+enum ConversationStatus {
+  ACTIVE
+  ENDED
+}
+
+enum ConversationRole {
+  USER
+  ASSISTANT
+}
+
+enum PendingActionType {
+  ADD_TO_CART
+  UPDATE_CART_ITEM
+  PLACE_ORDER
+  OPEN_RETURN
+}
+
+enum PendingActionStatus {
+  PENDING
+  EXECUTED
+  CANCELLED
+  EXPIRED
+  FAILED
+}
+
+enum HandoffStatus {
+  OPEN
+  ANSWERED
+  CLOSED
+}
+
+enum HandoffAuthor {
+  BUYER
+  SELLER
+  ASSISTANT
+}
+
+model AssistantConfig {
+  shopId     Int           @id @map("shop_id")
+  enabled    Boolean       @default(true)
+  tone       AssistantTone @default(FRIENDLY)
+  voice      String        @default("spruce")
+  greetingVi String        @map("greeting_vi")
+  greetingEn String        @map("greeting_en")
+  updatedAt  DateTime      @updatedAt @map("updated_at")
+  shop       Shop          @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@map("assistant_configs")
+}
+
+model AssistantFaq {
+  id        Int      @id @default(autoincrement())
+  shopId    Int      @map("shop_id")
+  question  String
+  answer    String
+  lang      String
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  shop      Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@index([shopId])
+  @@map("assistant_faqs")
+}
+
+model Conversation {
+  id        String                 @id @default(uuid()) @db.Uuid
+  shopId    Int                    @map("shop_id")
+  buyerId   Int                    @map("buyer_id")
+  channel   ConversationChannel
+  status    ConversationStatus     @default(ACTIVE)
+  startedAt DateTime               @default(now()) @map("started_at")
+  endedAt   DateTime?              @map("ended_at")
+  language  String?
+  summary   Json?
+  shop      Shop                   @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  buyer     User                   @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  messages  ConversationMessage[]
+  toolCalls ConversationToolCall[]
+  actions   PendingAction[]
+  tickets   HandoffTicket[]
+
+  @@index([shopId, startedAt])
+  @@index([buyerId])
+  @@map("conversations")
+}
+
+model ConversationMessage {
+  id             Int              @id @default(autoincrement())
+  conversationId String           @map("conversation_id") @db.Uuid
+  role           ConversationRole
+  text           String
+  createdAt      DateTime         @default(now()) @map("created_at")
+  conversation   Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@map("conversation_messages")
+}
+
+model ConversationToolCall {
+  id             Int          @id @default(autoincrement())
+  conversationId String       @map("conversation_id") @db.Uuid
+  tool           String
+  args           Json
+  result         Json
+  success        Boolean
+  error          String?
+  latencyMs      Int          @map("latency_ms")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@map("conversation_tool_calls")
+}
+
+model PendingAction {
+  id             String              @id @default(uuid()) @db.Uuid
+  conversationId String              @map("conversation_id") @db.Uuid
+  buyerId        Int                 @map("buyer_id")
+  shopId         Int                 @map("shop_id")
+  type           PendingActionType
+  payload        Json
+  summary        Json
+  requiresTap    Boolean             @map("requires_tap")
+  status         PendingActionStatus @default(PENDING)
+  expiresAt      DateTime            @map("expires_at")
+  result         Json?
+  idempotencyKey String?             @unique @map("idempotency_key")
+  createdAt      DateTime            @default(now()) @map("created_at")
+  updatedAt      DateTime            @updatedAt @map("updated_at")
+  conversation   Conversation        @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  buyer          User                @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  shop           Shop                @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@index([buyerId, shopId])
+  @@map("pending_actions")
+}
+
+model HandoffTicket {
+  id             Int              @id @default(autoincrement())
+  shopId         Int              @map("shop_id")
+  buyerId        Int              @map("buyer_id")
+  conversationId String?          @map("conversation_id") @db.Uuid
+  subject        String
+  status         HandoffStatus    @default(OPEN)
+  buyerUnread    Int              @default(0) @map("buyer_unread")
+  sellerUnread   Int              @default(0) @map("seller_unread")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+  shop           Shop             @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  buyer          User             @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  conversation   Conversation?    @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  messages       HandoffMessage[]
+
+  @@index([shopId, status])
+  @@index([buyerId])
+  @@map("handoff_tickets")
+}
+
+model HandoffMessage {
+  id           Int           @id @default(autoincrement())
+  ticketId     Int           @map("ticket_id")
+  author       HandoffAuthor
+  authorUserId Int?          @map("author_user_id")
+  body         String
+  createdAt    DateTime      @default(now()) @map("created_at")
+  ticket       HandoffTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorUser   User?         @relation(fields: [authorUserId], references: [id], onDelete: SetNull)
+
+  @@index([ticketId, createdAt])
+  @@map("handoff_messages")
 }

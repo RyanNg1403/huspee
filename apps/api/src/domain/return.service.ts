@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma, ReturnRequest, ReturnStatus } from '@prisma/client';
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { DomainError, invalidState, notFound, validation } from '../common/errors';
 import { dec, roundVnd, toNumber } from '../common/money';
 import { PrismaService } from '../common/prisma.service';
@@ -46,6 +46,10 @@ interface ReturnLine {
   image_url: string | null;
 }
 
+export function returnSnapshot(lines: ReturnLine[], refund: number) {
+  return { lines: lines.map((line) => ({ item_id: line.item_id, model_id: line.external_model_id, name: line.item_name, variant: line.model_name, quantity: line.quantity, price: line.item_price, refund_amount: line.refund_amount })), refund };
+}
+
 interface Negotiation {
   negotiation_status: 'PENDING_RESPOND' | 'PENDING_BUYER_RESPOND' | 'TERMINATED' | 'ACCEPTED';
   latest_solution: 'return_refund' | 'refund' | '';
@@ -82,7 +86,7 @@ export class ReturnService {
     private readonly push: PushService,
   ) {}
 
-  async create(buyerId: number, input: CreateReturnInput): Promise<ReturnRequest> {
+  async preview(buyerId: number, input: CreateReturnInput) {
     const order = await this.prisma.order.findFirst({
       where: { orderSn: input.order_sn, buyerId },
       include: { items: true, package: true, shop: { include: { policy: true } }, returns: true },
@@ -132,12 +136,22 @@ export class ReturnService {
     }
     if (lines.length === 0) throw validation('Nothing left to return for this order');
     const refund = lines.reduce((s, l) => s + l.refund_amount, 0);
+    return { order, lines, refund };
+  }
 
+  async create(buyerId: number, input: CreateReturnInput, assistant?: { actionId: string; shopId: number; confirmationKey: string; snapshotHash: string }): Promise<ReturnRequest> {
+    const { order, lines, refund } = await this.preview(buyerId, input);
+    if (assistant && order.shopId !== assistant.shopId) throw notFound('Order');
+    if (assistant && createHash('sha256').update(JSON.stringify(returnSnapshot(lines, refund))).digest('hex') !== assistant.snapshotHash) throw invalidState('Return details changed; please confirm again');
     const created = await this.prisma.$transaction(async (tx) => {
+      if (assistant) {
+        const claimed = await tx.pendingAction.updateMany({ where: { id: assistant.actionId, buyerId, shopId: assistant.shopId, type: 'OPEN_RETURN', status: 'PENDING', expiresAt: { gt: new Date() } }, data: { status: 'EXECUTED', idempotencyKey: assistant.confirmationKey } });
+        if (!claimed.count) throw invalidState('Action is no longer pending');
+      }
       assertTransition(order.status, 'TO_RETURN');
       const moved = await tx.order.updateMany({ where: { orderSn: order.orderSn, status: order.status }, data: { status: 'TO_RETURN' } });
       if (moved.count !== 1) throw invalidState('Order status changed concurrently, retry');
-      return tx.returnRequest.create({
+      const created = await tx.returnRequest.create({
         data: {
           returnSn: generateReturnSn(),
           orderSn: order.orderSn,
@@ -154,6 +168,8 @@ export class ReturnService {
           dueDate: addDays(new Date(), SELLER_RESPONSE_DAYS),
         },
       });
+      if (assistant) await tx.pendingAction.update({ where: { id: assistant.actionId }, data: { result: { return_sn: created.returnSn } } });
+      return created;
     });
     await this.emit(created);
     return created;

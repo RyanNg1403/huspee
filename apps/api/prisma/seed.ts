@@ -1,3 +1,4 @@
+import { defaultAssistantConfig } from '../src/assistant/assistant-defaults';
 /* Deterministic demo seed. Truncates all tables, then recreates the fixed dataset. */
 import { Prisma, PrismaClient } from '@prisma/client';
 import { scryptSync } from 'node:crypto';
@@ -123,6 +124,13 @@ async function main() {
         addresses: { create: { ...s.address, isDefault: true, isPickup: true, isReturn: true, createdAt: SEED_BASE_TIME } },
       },
     });
+    await prisma.assistantConfig.create({ data: { shopId: s.id, ...defaultAssistantConfig(s.name) } });
+    await prisma.assistantFaq.createMany({ data: [
+      { shopId: s.id, question: 'Chính sách vận chuyển là gì?', answer: s.policy.shippingPolicy, lang: 'vi' },
+      { shopId: s.id, question: 'Chính sách đổi trả là gì?', answer: s.policy.returnPolicy, lang: 'vi' },
+      { shopId: s.id, question: 'Chính sách bảo hành là gì?', answer: s.policy.warrantyPolicy, lang: 'vi' },
+      { shopId: s.id, question: 'What is the return policy?', answer: s.policy.returnPolicy, lang: 'en' },
+    ] });
     await prisma.mediaImage.create({
       data: { imageId: logoId, shopId: s.id, mimeType: 'image/svg+xml', data: new Uint8Array(svgImage(s.name, s.city, s.color, 0)), createdAt: SEED_BASE_TIME },
     });
