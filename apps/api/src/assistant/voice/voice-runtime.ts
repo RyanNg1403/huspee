@@ -1,9 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { appendFileSync } from 'node:fs';
 import { CodexTransport } from './codex-transport';
-import { realtimeVoicePrompt, voicePrompt, type VoicePromptConfig } from './prompt';
-import { synthesizeSpeech, type SpeechAudio } from './speech-audio';
-import { checkSpeech, detectLanguage, promisesAction, speechText, statesFact, type SpeechLanguage } from './speech-check';
+import { realtimeIdentity, realtimeVoicePrompt, voicePrompt, type VoicePromptConfig } from './prompt';
+import { checkSpeech, detectLanguage, offPersona, promisesAction, speechText, statesFact, type SpeechLanguage } from './speech-check';
 
 type Event = Record<string, unknown>;
 function traceValue(value: unknown, key = ''): unknown {
@@ -32,12 +31,15 @@ type Session = {
   /** Tool results and buyer words: the only facts speech may contain. */
   evidence: string[];
   lastUser?: string;
+  /** The buyer's last few utterances, so a turn the server starts keeps the conversation's context. */
+  recentUser: string[];
   reply?: string;
   readback?: { vi: string; en: string; tap: boolean };
   spoken: Set<string>;
   /**
-   * checked: the realtime model listens; its own audio is not played. The server checks every
-   * assistant sentence and sends approved speech to the browser. codex: the realtime voice speaks.
+   * codex (default): the realtime voice speaks. checked (opt-in): the realtime model listens; its
+   * own audio is not played. The server checks every assistant sentence and the browser speaks the
+   * approved text with its own speech synthesis.
    */
   output: 'checked' | 'codex';
   /** A buyer utterance arrived since the last thing we said (guards against answering our own echo). */
@@ -52,7 +54,7 @@ type Session = {
 };
 /** How assistant speech reaches the buyer; see Session.output. */
 export function voiceOutputMode(): 'checked' | 'codex' {
-  return process.env.ASSISTANT_VOICE_OUTPUT === 'codex' ? 'codex' : 'checked';
+  return process.env.ASSISTANT_VOICE_OUTPUT === 'checked' ? 'checked' : 'codex';
 }
 export type SpeechLog = { kind: 'blocked_unverified' | 'corrected'; text: string; unsupported: string[]; spoken: string };
 
@@ -64,7 +66,6 @@ export class VoiceRuntime {
   private reservations = 0;
   onTurnCompleted?: (conversationId: string, status: string | undefined) => void;
   onSpeechCheck?: (ctx: Context, log: SpeechLog) => void;
-  synthesize: (text: string, lang: SpeechLanguage) => Promise<SpeechAudio | null> = synthesizeSpeech;
   /** How long a spoken "let me check" may go without a handoff before the server sends the request on. */
   stallMs = 2500;
   constructor(
@@ -132,6 +133,7 @@ export class VoiceRuntime {
         handoff: false,
         turnActive: false,
         silentTurns: 0,
+        recentUser: [],
       };
       this.sessions.set(ctx.conversationId, session);
       this.reservations--;
@@ -157,6 +159,8 @@ export class VoiceRuntime {
             // Thread answers are checked by the backend before anyone hears them.
             clientManagedHandoffs: true,
             prompt: realtimeVoicePrompt(config),
+            // A developer item weighs more than session instructions with the backend voice model.
+            initialItems: [{ role: 'developer', text: realtimeIdentity(config) }],
           }),
           answer,
         ]);
@@ -299,8 +303,7 @@ export class VoiceRuntime {
       const id = randomUUID();
       const lang = detectLanguage(text);
       this.emit(session, { type: 'transcript', role: 'assistant', text, final: true, item_id: id });
-      const audio = await this.synthesize(text, lang).catch(() => null);
-      this.emit(session, { type: 'speak', id, text, lang, ...(audio ? { audio: audio.data, mime: audio.mime } : {}) });
+      this.emit(session, { type: 'speak', id, text, lang });
       await this.saveTranscript(session.context, 'assistant', text).catch(() => undefined);
       return;
     }
@@ -339,7 +342,7 @@ export class VoiceRuntime {
     session.handoff = true;
     await this.speak(session, speechText.checking[lang]);
     await this.transport
-      .request('turn/start', { threadId: session.threadId, input: [{ type: 'text', text: session.lastUser!, text_elements: [] }] })
+      .request('turn/start', { threadId: session.threadId, input: [{ type: 'text', text: withContext(session, session.lastUser!), text_elements: [] }] })
       .catch(() => {
         session.handoff = false;
       });
@@ -348,7 +351,7 @@ export class VoiceRuntime {
     if (session.closed || session.handoff || session.turnActive || !asked || session.lastUser !== asked) return;
     session.handoff = true;
     await this.transport
-      .request('turn/start', { threadId: session.threadId, input: [{ type: 'text', text: asked, text_elements: [] }] })
+      .request('turn/start', { threadId: session.threadId, input: [{ type: 'text', text: withContext(session, asked), text_elements: [] }] })
       .catch(() => {
         session.handoff = false;
       });
@@ -375,7 +378,11 @@ export class VoiceRuntime {
     this.emit(session, { type: 'speech_check', status: 'blocked' });
     await this.speak(session, fallback);
   }
-  /** The realtime voice may still say something itself; unverified facts get an immediate spoken correction. */
+  /**
+   * The realtime voice may still say something itself. Unverified facts get an immediate spoken
+   * correction, and any real answer it gave without handing off (anything but a short neutral reply
+   * such as "Mình nghe rõ") sends the buyer's words to the thread, which answers from tools.
+   */
   private async checkOwnSpeech(session: Session, text: string): Promise<void> {
     const spoken = text.trim();
     if (session.spoken.has(spoken)) {
@@ -383,11 +390,21 @@ export class VoiceRuntime {
       return;
     }
     const check = checkSpeech(text, session.evidence);
-    if (check.ok) return;
-    const correction = speechText.correction[this.language(session)];
-    this.onSpeechCheck?.(session.context, { kind: 'corrected', text, unsupported: check.unsupported, spoken: correction });
-    this.emit(session, { type: 'speech_check', status: 'corrected' });
-    await this.speak(session, correction);
+    if (!check.ok) {
+      const correction = speechText.correction[this.language(session)];
+      this.onSpeechCheck?.(session.context, { kind: 'corrected', text, unsupported: check.unsupported, spoken: correction });
+      this.emit(session, { type: 'speech_check', status: 'corrected' });
+      await this.speak(session, correction);
+    }
+    if (session.handoff || session.turnActive || !session.lastUser) return;
+    if (!check.ok || statesFact(spoken) || offPersona(spoken) || spoken.length > 80) {
+      await this.delegateStalled(session, session.lastUser);
+      return;
+    }
+    if (promisesAction(spoken)) {
+      const asked = session.lastUser;
+      setTimeout(() => void this.delegateStalled(session, asked), this.stallMs).unref?.();
+    }
   }
   private async handle(message: { id?: number; method?: string; params?: Record<string, unknown> }): Promise<void> {
     if (process.env.ASSISTANT_VOICE_TRACE && message.method && message.id === undefined) {
@@ -429,6 +446,7 @@ export class VoiceRuntime {
       if (final && role === 'user') {
         session.evidence.push(text);
         session.lastUser = text;
+        session.recentUser = [...session.recentUser, text].slice(-4);
         session.heardUser = true;
         if (!session.turnActive) session.handoff = session.pendingHandoff ?? false;
         session.pendingHandoff = undefined;
@@ -490,4 +508,10 @@ export class VoiceRuntime {
       await this.stopSession(session, 'runtime_unavailable');
     } else if (message.method === 'thread/realtime/closed') await this.stopSession(session, 'runtime_closed', false);
   }
+}
+/** The buyer's latest words, with what they said just before when the server starts the turn itself. */
+function withContext(session: Session, asked: string): string {
+  const earlier = session.recentUser.slice(0, -1).filter((text) => text !== asked);
+  if (!earlier.length || session.recentUser.at(-1) !== asked) return asked;
+  return `Earlier the buyer said: ${earlier.map((text) => `"${text.trim()}"`).join(', ')}.\nNow the buyer says: ${asked.trim()}`;
 }

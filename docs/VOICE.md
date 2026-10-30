@@ -22,9 +22,20 @@ The interruption label is inferred, not a protocol-provided fact. The browser sa
 
 The installed codex-cli 0.166.0 experimental generated TypeScript protocol has no turn-detection, VAD, silence-duration, or eagerness field in `ThreadRealtimeStartParams`; a search of the generated types for those terms found no setting. The runtime therefore cannot configure turn splitting through the exposed app-server protocol, and rapid sentences may still merge.
 
-## Checked output (default)
+## Voice output
 
-`ASSISTANT_VOICE_OUTPUT=checked` (default) makes Codex realtime the listener only. Its own audio is
+By default (`ASSISTANT_VOICE_OUTPUT=codex`) the buyer hears Codex's own realtime voice, with the
+voice the seller picked in the studio. Facts are checked after they are spoken: when a sentence
+states a number, voucher code or colour that no tool result or seller FAQ supports, the server
+makes the voice say a correction and logs it as `corrected`.
+
+The realtime voice model does not reliably follow its instructions or hand off on its own, so the
+server does not depend on it. The shop identity is also sent as a developer `initialItems` entry.
+When the voice answers by itself with anything but a short neutral reply (a fact, more than 80
+characters, or talking as a general AI or as having no shop), the server starts the thread turn
+with the buyer's words and the previous few utterances, and the tool-backed answer is spoken next.
+
+`ASSISTANT_VOICE_OUTPUT=checked` (opt-in) makes Codex realtime the listener only. Its own audio is
 not played. The buyer hears only text the server has checked:
 
 - Thread answers are spoken after every number, voucher code and colour in them appears in a tool
@@ -37,13 +48,9 @@ not played. The buyer hears only text the server has checked:
   within 2.5 s, the server also sends the request on.
 - Text after the answer that the buyer did not prompt is dropped.
 
-Speech is synthesized on the API host with macOS `say` (`ASSISTANT_TTS=say`, voices
-`ASSISTANT_TTS_VOICE_VI` default Linh, `ASSISTANT_TTS_VOICE_EN` default Samantha) and sent as AAC in
-the `speak` SSE event. With `ASSISTANT_TTS=browser`, or on other hosts, the page uses the browser's
-speech synthesis. The page plays speech through its AudioContext so echo cancellation applies and
-the interruption detector can compare it with the microphone; a new buyer turn stops playback.
-`ASSISTANT_VOICE_OUTPUT=codex` restores Codex's own voice, with spoken corrections after an
-unverified fact instead of blocking it. The start response reports the mode as `voice_output`.
+In checked mode the approved text is sent in the `speak` SSE event and the page speaks it with the
+browser's speech synthesis; a new buyer turn stops playback. The start response reports the mode as
+`voice_output`.
 
 Each realtime turn uses the operator's Codex subscription. When its usage window is exhausted,
 Codex may draw on account credits; check usage before long test sessions.

@@ -84,9 +84,9 @@ describe('voice runtime with fake app-server', () => {
         ended.push(ctx);
       },
     );
-    runtime.synthesize = async () => null;
     const ctx = { conversationId: 'conversation-1', buyerId: 1, shopId: 2 };
     const config = { shopName: 'Shop', tone: 'FRIENDLY', greetingVi: 'Xin chào', greetingEn: 'Hello', voice: 'spruce' };
+    process.env.ASSISTANT_VOICE_OUTPUT = 'checked';
     try {
       expect(await runtime.start(ctx, config, 'offer')).toBe('fake-answer');
       await expect(runtime.start({ ...ctx, conversationId: 'conversation-2' }, config, 'offer')).rejects.toThrow(
@@ -123,6 +123,7 @@ describe('voice runtime with fake app-server', () => {
       await runtime.stop(ctx.conversationId, 1);
       expect(ended).toEqual([ctx]);
     } finally {
+      delete process.env.ASSISTANT_VOICE_OUTPUT;
       runtime.close();
     }
   });

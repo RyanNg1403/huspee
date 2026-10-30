@@ -219,7 +219,7 @@ const definitions = {
   get_vouchers: { schema: z.object({}).strict(), properties: {}, required: [] },
 } as const;
 const descriptions: Record<string, string> = {
-  search_products: 'Find public products in this shop by query and optional price range.',
+  search_products: 'Find public products in this shop by query and optional price range; an empty query lists everything the shop sells.',
   get_product_details: 'Get verified public product details and available variants for this shop.',
   compare_products: 'Compare two to four public products from this shop.',
   get_vouchers: 'List currently public, unexpired shop vouchers that this buyer has not used; eligibility rules still apply.',

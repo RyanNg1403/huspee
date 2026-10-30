@@ -74,6 +74,16 @@ export function statesFact(text: string): boolean {
   return claimPattern.test(fold(text));
 }
 
+/** The realtime voice talking about itself as a general-purpose AI instead of the shop's assistant. */
+export function offPersona(text: string): boolean {
+  const t = fold(text);
+  return (
+    /\b(chatgpt|gpt|openai|codex|mo hinh ngon ngu|language model)\b/.test(t) ||
+    /\b(khong|chang) (co|ban|mo) (shop|cua hang|san pham)/.test(t) ||
+    /\bdon'?t (have|own|run) (a )?(shop|store)\b/.test(t)
+  );
+}
+
 /** An acknowledgement that promises a lookup or an action, e.g. "để mình kiểm tra nhé", "let me check". */
 export function promisesAction(text: string): boolean {
   return /\b(de minh|minh se|minh dang|toi se|de toi|let me|i ll|i will|i m checking|checking|one moment|mot chut|chot|kiem tra|xem|xu ly)\b/.test(

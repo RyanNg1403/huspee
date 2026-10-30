@@ -37,6 +37,8 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
       const own = (text) => send({ method: 'thread/realtime/transcript/done', params: { threadId: params.threadId, role: 'assistant', text } });
       setTimeout(() => {
         if (marker === 'OWN') return own('Màu tím giá 17.990.000đ');
+        if (marker === 'NOSHOP') return own('À, mình không có shop hay bán sản phẩm gì đâu.');
+        if (marker === 'PERSONA') return own('Mình là ChatGPT, một trợ lý nói chuyện và hỗ trợ công việc.');
         if (marker === 'STALL') return own('Cảm ơn bạn, để mình chốt giúp nhé.');
         if (marker === 'ACK') {
           send({ method: 'thread/realtime/itemAdded', params: { threadId: params.threadId, item: { type: 'handoff_request', handoff_id: 'h-1' } } });
