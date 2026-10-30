@@ -72,7 +72,12 @@ Things to try:
 
 Each shop page has an assistant that answers from that shop's data and can add to cart, place orders
 and open returns after confirmation. It runs on your own Codex login (`codex-cli 0.166.0`), not an
-OpenAI API key. It is off by default; to turn it on, log in with `codex login`, set
+OpenAI API key.
+
+**Requires a paid ChatGPT plan:** Plus or above (Plus, Pro). Codex voice (`/voice`) is not available on the Free
+plan, so the assistant cannot start a voice session with a Free account.
+
+It is off by default; to turn it on, log in with `codex login`, set
 `ASSISTANT_VOICE_ENABLED=true` in `apps/api/.env` and restart the API. Each session uses your Codex
 subscription. Without it, the rest of the app works normally. Details: [`docs/VOICE.md`](docs/VOICE.md).
 
