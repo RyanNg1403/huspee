@@ -36,7 +36,6 @@ export const common = defineMessages({
     decrease: 'Giảm số lượng',
     increase: 'Tăng số lượng',
     pagination: 'Phân trang',
-    disclaimer: 'Đây là trang mô phỏng, không liên kết với Shopee.',
   },
   en: {
     unauthorized: 'Please sign in',
@@ -74,6 +73,5 @@ export const common = defineMessages({
     decrease: 'Decrease quantity',
     increase: 'Increase quantity',
     pagination: 'Pagination',
-    disclaimer: 'This is a simulation unaffiliated with Shopee.',
   },
 });
