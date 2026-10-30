@@ -36,14 +36,6 @@ type Session = {
   reply?: string;
   readback?: { vi: string; en: string; tap: boolean };
   spoken: Set<string>;
-  /**
-   * codex (default): the realtime voice speaks. checked (opt-in): the realtime model listens; its
-   * own audio is not played. The server checks every assistant sentence and the browser speaks the
-   * approved text with its own speech synthesis.
-   */
-  output: 'checked' | 'codex';
-  /** A buyer utterance arrived since the last thing we said (guards against answering our own echo). */
-  heardUser: boolean;
   /** The realtime model handed the current utterance to the thread, or we started a turn ourselves. */
   handoff: boolean;
   turnActive: boolean;
@@ -60,10 +52,6 @@ type Session = {
   /** handoff_request seen before the matching user transcript arrived. */
   pendingHandoff?: boolean;
 };
-/** How assistant speech reaches the buyer; see Session.output. */
-export function voiceOutputMode(): 'checked' | 'codex' {
-  return process.env.ASSISTANT_VOICE_OUTPUT === 'checked' ? 'checked' : 'codex';
-}
 export type SpeechLog = { kind: 'blocked_unverified' | 'corrected'; text: string; unsupported: string[]; spoken: string };
 
 /** Runtime state is ephemeral; identity and tool scope are fixed from the authenticated session. */
@@ -136,8 +124,6 @@ export class VoiceRuntime {
         mode: sdp === undefined ? 'text' : 'voice',
         evidence: [],
         spoken: new Set(),
-        output: voiceOutputMode(),
-        heardUser: false,
         handoff: false,
         turnActive: false,
         silentTurns: 0,
@@ -162,11 +148,10 @@ export class VoiceRuntime {
             threadId: session.threadId,
             version: 'v3',
             voice: config.voice,
-            // v3 supports audio output only; in checked mode the browser does not play this audio.
             outputModality: 'audio',
             transport: { type: 'webrtc', sdp },
             includeStartupContext: false,
-            // Thread answers are checked by the backend before anyone hears them.
+            // Thread answers are checked by the backend before the voice says them.
             clientManagedHandoffs: true,
             prompt: realtimeVoicePrompt(config),
             // A developer item weighs more than session instructions with the backend voice model.
@@ -210,7 +195,6 @@ export class VoiceRuntime {
     }
     session.evidence.push(text);
     session.lastUser = text;
-    session.heardUser = true;
     session.handoff = false;
     this.emit(session, { type: 'transcript', role: 'user', text, final: true, ...(session.mode === 'text' ? { item_id: randomUUID() } : {}) });
     await this.saveTranscript(session.context, 'user', text);
@@ -327,54 +311,9 @@ export class VoiceRuntime {
     return detectLanguage(session.lastUser);
   }
   private async speak(session: Session, text: string): Promise<void> {
-    if (session.output === 'checked') {
-      session.heardUser = false;
-      const id = randomUUID();
-      const lang = detectLanguage(text);
-      this.emit(session, { type: 'transcript', role: 'assistant', text, final: true, item_id: id });
-      this.emit(session, { type: 'speak', id, text, lang });
-      await this.saveTranscript(session.context, 'assistant', text).catch(() => undefined);
-      return;
-    }
     if (session.spoken.size > 50) session.spoken.clear();
     session.spoken.add(text.trim());
     await this.transport.request('thread/realtime/appendSpeech', { threadId: session.threadId, text }).catch(() => undefined);
-  }
-  /**
-   * Checked mode: the realtime model's own sentence is spoken only when it states no fact. A fact it
-   * produced without handing off is dropped and the utterance goes to the thread, which uses tools.
-   */
-  private async gateOwnText(session: Session, text: string): Promise<void> {
-    if (!text.trim() || !session.heardUser) return;
-    if (!statesFact(text) && text.length <= 160) {
-      // speak() clears heardUser before its first await; decide now, not after the audio is ready,
-      // or a thread answer spoken meanwhile would be followed by a re-opened gate.
-      const spoken = this.speak(session, text.trim());
-      session.heardUser = !session.handoff;
-      // "Let me check" with no handoff behind it would leave the buyer waiting: send the request on.
-      if (!session.handoff && !session.turnActive && promisesAction(text)) {
-        const asked = session.lastUser;
-        setTimeout(() => void this.delegateStalled(session, asked), this.stallMs).unref?.();
-      }
-      await spoken;
-      return;
-    }
-    const lang = this.language(session);
-    const delegate = !session.handoff && !session.turnActive && session.lastUser;
-    this.onSpeechCheck?.(session.context, {
-      kind: 'blocked_unverified',
-      text,
-      unsupported: checkSpeech(text, session.evidence).unsupported,
-      spoken: delegate ? speechText.checking[lang] : '',
-    });
-    if (!delegate) return;
-    session.handoff = true;
-    await this.speak(session, speechText.checking[lang]);
-    await this.transport
-      .request('turn/start', { threadId: session.threadId, input: [{ type: 'text', text: withContext(session, session.lastUser!), text_elements: [] }] })
-      .catch(() => {
-        session.handoff = false;
-      });
   }
   private async delegateStalled(session: Session, asked: string | undefined): Promise<void> {
     if (session.closed || session.handoff || session.turnActive || !asked || session.lastUser !== asked) return;
@@ -488,16 +427,11 @@ export class VoiceRuntime {
       const role = params.role === 'user' ? 'user' : 'assistant';
       const final = message.method.endsWith('/done');
       const text = String(final ? params.text : params.delta);
-      if (role === 'assistant' && session.output === 'checked') {
-        if (final) await this.gateOwnText(session, text);
-        return;
-      }
       this.emit(session, { type: 'transcript', role, text, final, ...(typeof params.itemId === 'string' ? { item_id: params.itemId } : {}) });
       if (final && role === 'user') {
         session.evidence.push(text);
         session.lastUser = text;
         session.recentUser = [...session.recentUser, text].slice(-4);
-        session.heardUser = true;
         if (!session.turnActive) session.handoff = session.pendingHandoff ?? false;
         else this.supersede(session, text);
         session.pendingHandoff = undefined;

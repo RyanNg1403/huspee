@@ -85,9 +85,9 @@ orders and open returns after the buyer confirms. It runs on your own Codex logi
 **Requires a paid ChatGPT plan:** Plus or above (Plus, Pro). Codex voice (`/voice`) is not
 available on the Free plan, so the assistant cannot start a voice session with a Free account.
 
-To turn it on: run `codex login`, set `ASSISTANT_VOICE_ENABLED=true` in `apps/api/.env`, and
-restart the API. The Docker images do not include Codex. Without voice, the rest of the app works
-normally. Details: [`docs/VOICE.md`](docs/VOICE.md).
+It is on by default: install `codex-cli 0.166.0`, run `codex login`, and start the API. To turn it
+off, set `ASSISTANT_VOICE_ENABLED=false` in `apps/api/.env`. The Docker images do not include Codex,
+so there the assistant shows as unavailable and the rest of the app works normally. Details: [`docs/VOICE.md`](docs/VOICE.md).
 
 ## Tests
 

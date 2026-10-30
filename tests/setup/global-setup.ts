@@ -15,6 +15,8 @@ export const serverEnv = {
   ...process.env,
   NODE_ENV: 'test',
   ASSISTANT_TOOL_DEBUG: 'true',
+  // Voice is on by default and would find a real Codex CLI on PATH; tests never start real Codex.
+  ASSISTANT_VOICE_ENABLED: 'false',
   DATABASE_URL,
   PORT: String(TEST_PORT),
   PUBLIC_BASE_URL: API,

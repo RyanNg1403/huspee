@@ -2,7 +2,7 @@
 
 The optional per-shop voice bridge uses `codex-cli 0.166.0` and the operator's existing Codex subscription. It does not use an OpenAI API key. Realtime v3 is experimental; revalidate the protocol before changing the pinned CLI version. Automated tests must use the fake app-server.
 
-Set `ASSISTANT_VOICE_ENABLED=true` in the API environment to enable voice. `ASSISTANT_CODEX_BIN` selects the CLI executable (default `codex`); `ASSISTANT_CODEX_HOME` selects a private writable directory (default `./.token/assistant-codex`, relative to the API process working directory); and `ASSISTANT_MAX_VOICE_SESSIONS` limits concurrent sessions (default 2). The runtime creates the directory and links its `auth.json` to the operator's existing Codex login without reading the credentials. Protect this directory and do not copy, log, or commit credentials. The API needs access to the existing login, and the browser communicates only with the API for signaling and events.
+Voice is on by default wherever the Codex CLI is installed; set `ASSISTANT_VOICE_ENABLED=false` in the API environment to turn it off. Where the CLI is missing (the Docker images, for example) the assistant reports itself unavailable instead of failing. `ASSISTANT_CODEX_BIN` selects the CLI executable (default `codex`); `ASSISTANT_CODEX_HOME` selects a private writable directory (default `./.token/assistant-codex`, relative to the API process working directory); and `ASSISTANT_MAX_VOICE_SESSIONS` limits concurrent sessions (default 2). The runtime creates the directory and links its `auth.json` to the operator's existing Codex login without reading the credentials. Protect this directory and do not copy, log, or commit credentials. The API needs access to the existing login, and the browser communicates only with the API for signaling and events.
 
 The bridge starts one app-server lazily and a separate ephemeral thread per buyer conversation. The authenticated session determines buyer and shop scope. Tool-backed answers take several seconds: in one early synthetic Vietnamese run, speech end to acknowledgement was about 1.94 s, to tool call 4.99 s, and to spoken price 9.69 s. These are single observations, not guarantees; microphone quality and noisy environments were not assessed.
 
@@ -20,11 +20,10 @@ The live voice widget reads the WebRTC data channel's `turn.created`, `turn.delt
 
 The interruption label is inferred, not a protocol-provided fact. The browser samples the existing microphone and remote audio tracks: after approximately one second of noise calibration, microphone audio counts as speech when Silero VAD (v5, run in the browser by `@ricky0123/vad-web` on the same microphone stream) gives the latest 32 ms frame a speech probability of at least 0.6 and the microphone is above the noise floor; 300 ms of such speech during assistant playback is a barge-in unless it tracks remote energy (the assistant's own voice leaking into the microphone). Noise such as a fan, hum, knocks or a clap does not count. The model and ONNX runtime (about 15 MB of WebAssembly and a 2.3 MB model, cached by the browser) are served from `/vad/`; `scripts/copy-vad-assets.mjs` copies them into `apps/web/public/vad` before `dev` and `build`, and that folder is not committed. Until Silero has loaded, or if it fails to load, the detector falls back to loudness alone: microphone energy above an adaptive threshold. An assistant turn ending within 1.5 seconds of that speech onset is labeled interrupted; if audio analysis is unavailable, the earlier channel timing heuristic is used. This is an approximation: echo cancellation, loud speakers, background noise, speech below the threshold, and a natural ending near speech can cause missed or false labels. Audio that ends before sustained speech is detected cannot be labeled retroactively. No audio samples are stored by this detector.
 
-Barge-in does not wait for the server. In Codex voice output the page turns the assistant's audio
+Barge-in does not wait for the server. The page turns the assistant's audio
 down after about 120 ms of buyer speech over it and mutes it at 300 ms, using the detector above.
 Sound returns when the assistant starts a new turn on the data channel, when the cut-off speech has
-been silent for 600 ms, or after 2 s if no buyer turn followed (a false alarm). In checked output the
-browser's speech is stopped at 300 ms, as before. On the server, a final buyer transcript that
+been silent for 600 ms, or after 2 s if no buyer turn followed (a false alarm). On the server, a final buyer transcript that
 arrives while a thread turn is still answering an earlier utterance interrupts that turn
 (`turn/interrupt`) and drops its answer and read-back; once it ends, the new utterance goes to the
 thread unless the voice already handed it off (then the server waits 2.5 s for that turn first). A
@@ -37,8 +36,8 @@ The installed codex-cli 0.166.0 experimental generated TypeScript protocol has n
 
 ## Voice output
 
-By default (`ASSISTANT_VOICE_OUTPUT=codex`) the buyer hears Codex's own realtime voice, with the
-voice the seller picked in the studio. Facts are checked after they are spoken: when a sentence
+The buyer hears Codex's own realtime voice, with the voice the seller picked in the studio; the
+browser never synthesizes speech itself. Facts are checked after they are spoken: when a sentence
 states a number, voucher code or colour that no tool result or seller FAQ supports, the server
 makes the voice say a correction and logs it as `corrected`.
 
@@ -48,22 +47,12 @@ When the voice answers by itself with anything but a short neutral reply (a fact
 characters, or talking as a general AI or as having no shop), the server starts the thread turn
 with the buyer's words and the previous few utterances, and the tool-backed answer is spoken next.
 
-`ASSISTANT_VOICE_OUTPUT=checked` (opt-in) makes Codex realtime the listener only. Its own audio is
-not played. The buyer hears only text the server has checked:
-
-- Thread answers are spoken after every number, voucher code and colour in them appears in a tool
-  result or seller FAQ from the conversation; otherwise a fixed "no verified data, ask the seller?"
-  sentence is spoken and the attempt is logged as `blocked_unverified`.
-- Action read-backs (cart, order, return) are the server's own text, not the model's wording.
-- The realtime voice's own sentences are spoken only when they state no fact (short
-  acknowledgements). If it states a fact without handing off, the server says it is checking and
-  sends the buyer's words to the thread itself. If it says "let me check" and does not hand off
-  within 2.5 s, the server also sends the request on.
-- Text after the answer that the buyer did not prompt is dropped.
-
-In checked mode the approved text is sent in the `speak` SSE event and the page speaks it with the
-browser's speech synthesis; a new buyer turn stops playback. The start response reports the mode as
-`voice_output`.
+Thread answers are checked before the voice says them: they are spoken only when every number,
+voucher code and colour in them appears in a tool result or seller FAQ from the conversation;
+otherwise a fixed "no verified data, ask the seller?" sentence is spoken and the attempt is logged as
+`blocked_unverified`. Action read-backs (cart, order, return) are the server's own text, not the
+model's wording. If the voice says "let me check" and does not hand off within 2.5 s, the server
+sends the request on.
 
 Each realtime turn uses the operator's Codex subscription. When its usage window is exhausted,
 Codex may draw on account credits; check usage before long test sessions.

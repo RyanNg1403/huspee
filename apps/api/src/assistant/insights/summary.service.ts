@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { PrismaService } from "../../common/prisma.service";
 import { CodexTransport } from "../voice/codex-transport";
+import { voiceEnabled } from "../voice/voice-enabled";
 
 const schema = z.object({
   topics: z.array(z.string()),
@@ -18,7 +19,7 @@ export class SummaryService {
   private readonly logger = new Logger(SummaryService.name);
   constructor(private readonly prisma: PrismaService) {}
   schedule(id: string): boolean {
-    if (process.env.ASSISTANT_VOICE_ENABLED !== "true") return false;
+    if (!voiceEnabled()) return false;
     void this.generate(id);
     return true;
   }

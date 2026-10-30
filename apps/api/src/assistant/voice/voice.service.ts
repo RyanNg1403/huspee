@@ -3,6 +3,7 @@ import { AssistantEvents } from '../assistant.events';
 import { VoiceCatalogRegistry } from '../voice-catalog';
 import { ConversationService } from '../conversation.service';
 import { actionText, AssistantToolRegistry } from '../tools/assistant-tool.registry';
+import { voiceEnabled } from './voice-enabled';
 import { VoiceRuntime } from './voice-runtime';
 
 @Injectable()
@@ -31,7 +32,7 @@ export class VoiceService implements OnModuleInit, OnModuleDestroy {
     this.catalog.register(this);
   }
   async list(): Promise<string[]> {
-    if (process.env.ASSISTANT_VOICE_ENABLED !== 'true') return [];
+    if (!voiceEnabled()) return [];
     if (!this.voiceCache) {
       const voices = await this.runtime.voices();
       if (voices.length) this.voiceCache = voices;

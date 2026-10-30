@@ -58,7 +58,7 @@ API environment variables; `apps/api/.env.example` has working dev values.
 | `SIGNATURE_MAX_AGE_SECONDS`, `ACCESS_TOKEN_TTL_SECONDS`, `REFRESH_TOKEN_TTL_SECONDS`, `AUTH_CODE_TTL_SECONDS`, `SESSION_TTL_SECONDS` | Security timings (defaults: 300 s, 4 h, 30 d, 10 min, 7 d) |
 | `PUSH_DELIVERY_ENABLED` | Deliver outbound push events (default `true`) |
 | `HUSPEE_SEED_ON_START` | Docker only: reseed the database on every API start (compose default `true`; it wipes data) |
-| `ASSISTANT_VOICE_ENABLED`, `ASSISTANT_CODEX_BIN`, `ASSISTANT_CODEX_HOME`, `ASSISTANT_MAX_VOICE_SESSIONS`, `ASSISTANT_VOICE_OUTPUT`, `ASSISTANT_VOICE_TRACE` | Voice assistant; see [`VOICE.md`](VOICE.md) |
+| `ASSISTANT_VOICE_ENABLED`, `ASSISTANT_CODEX_BIN`, `ASSISTANT_CODEX_HOME`, `ASSISTANT_MAX_VOICE_SESSIONS`, `ASSISTANT_VOICE_TRACE` | Voice assistant; see [`VOICE.md`](VOICE.md) |
 | `ASSISTANT_TOOL_DEBUG` | Test-only debug route for assistant tools; never enable outside tests |
 
 Never commit real secrets; `apps/api/.env` is git-ignored and `.env.example` holds dev placeholders.

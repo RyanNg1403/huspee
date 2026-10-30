@@ -260,8 +260,8 @@ These `/api/v1` routes use platform sessions and the browser-safe `@huspee/sdk` 
 | POST | `/assistant/text/sessions` | buyer session | `assistant.text.start` | custom text thread; optional `resume_conversation_id` (own conversation); voice tests |
 | GET | `/assistant/shops/:shopId/conversations` | buyer session | `assistant.conversations.list` | buyer's own past sessions with the shop; assistant tests |
 | GET | `/assistant/conversations/:conversationId` | buyer session | `assistant.conversations.get` | own transcript plus cards from stored tool results; assistant tests |
-| POST | `/assistant/voice/sessions` | buyer session | `assistant.voice.start` | voice module; returns `voice_output` (checked or codex); optional `resume_conversation_id`; voice tests |
-| GET | `/assistant/voice/sessions/:conversationId/events` | buyer session | `assistant.voice.eventsUrl` | voice module; SSE incl. `speak` (checked text, `checked` output mode only); voice tests |
+| POST | `/assistant/voice/sessions` | buyer session | `assistant.voice.start` | voice module; optional `resume_conversation_id`; voice tests |
+| GET | `/assistant/voice/sessions/:conversationId/events` | buyer session | `assistant.voice.eventsUrl` | voice module; SSE (transcripts, tools, cards, actions); voice tests |
 | POST | `/assistant/voice/sessions/:conversationId/text` | buyer session | `assistant.voice.text` | voice module; voice tests |
 | POST | `/assistant/voice/sessions/:conversationId/stop` | buyer session | `assistant.voice.stop` | voice module; voice tests |
 | GET | `/assistant/actions/:actionId/options` | buyer session | `assistant.actions.options` | custom; pending cart, order or return edit options; assistant tests |

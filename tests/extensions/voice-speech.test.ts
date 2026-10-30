@@ -3,7 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { checkSpeech, detectLanguage, extractNumbers, speechText, statesFact } from '../../apps/api/src/assistant/voice/speech-check.js';
-import { VoiceRuntime, voiceOutputMode, type SpeechLog } from '../../apps/api/src/assistant/voice/voice-runtime.js';
+import { VoiceRuntime, type SpeechLog } from '../../apps/api/src/assistant/voice/voice-runtime.js';
 import { realtimeIdentity, voicePrompt } from '../../apps/api/src/assistant/voice/prompt.js';
 
 const evidence = [
@@ -42,10 +42,8 @@ describe('voice runtime speaks only checked answers', () => {
     shopName: string,
     toolText: string,
     card?: { kind: string; action?: unknown },
-    output = 'checked',
     midway?: (runtime: VoiceRuntime, conversationId: string) => void,
   ) => {
-    process.env.ASSISTANT_VOICE_OUTPUT = output;
     const logs: SpeechLog[] = [];
     const runtime = new VoiceRuntime(
       { specs: () => [], run: async () => ({ success: true, text: toolText, ...(card ? { card } : {}) }) },
@@ -71,31 +69,15 @@ describe('voice runtime speaks only checked answers', () => {
       await runtime.stop(ctx.conversationId, 1);
     } finally {
       runtime.close();
-      delete process.env.ASSISTANT_VOICE_OUTPUT;
     }
     const spoken = events.filter((e) => e.type === 'transcript' && e.role === 'assistant' && e.final).map((e) => e.text);
     return { logs, spoken, events, requests };
   };
 
   it('speaks a verified thread answer', async () => {
-    const { spoken, logs, events } = await run('SPEECH_OK', '{"price":790000}');
-    expect(spoken).toEqual(['Giá 790.000đ']);
+    const { spoken, logs } = await run('SPEECH_OK', '{"price":790000}');
+    expect(spoken).toContain('Giá 790.000đ');
     expect(logs).toEqual([]);
-    expect(events).toContainEqual(
-      expect.objectContaining({ type: 'speak', text: 'Giá 790.000đ', lang: 'vi' }),
-    );
-  });
-  it('speaks the voice model acknowledgement but never its unprompted facts', async () => {
-    const { spoken, logs, events } = await run('SPEECH_ACK', '{"price":790000}');
-    expect(spoken).toEqual(['Dạ, để mình xem nhé.', 'Giá 790.000đ']);
-    expect(logs).toEqual([]);
-    expect(JSON.stringify(events)).not.toContain('Còn 3 máy');
-  });
-  it('drops a fact the voice model states without a lookup and asks the thread instead', async () => {
-    const { spoken, logs, events } = await run('SPEECH_OWN', '{"price":790000}');
-    expect(spoken).toEqual([speechText.checking.vi, 'Final answer']);
-    expect(logs).toEqual([{ kind: 'blocked_unverified', text: 'Màu tím giá 17.990.000đ', unsupported: ['17.990.000', 'tím'], spoken: speechText.checking.vi }]);
-    expect(JSON.stringify(events)).not.toContain('17.990.000');
   });
   it('sends the request on when the voice promises to check but never hands off', async () => {
     const { spoken, logs } = await run('SPEECH_STALL', '{"price":790000}');
@@ -113,10 +95,9 @@ describe('voice runtime speaks only checked answers', () => {
     const { spoken } = await run('SPEECH_OK', text, { kind: 'action', action: { requires_tap: false } });
     expect(spoken).toEqual([`Thêm vào giỏ hàng. Sản phẩm: Tai nghe; Số lượng: 1. Tổng cộng: 790000 VND. ${speechText.confirm.vi}`]);
   });
-  for (const output of ['codex', 'checked'])
-    it(`${output} output: a tap while the thread is still answering drops its stale "please tap" and tells the thread`, async () => {
+  it('a tap while the thread is still answering drops its stale "please tap" and tells the thread', async () => {
       const text = 'Action ID (do not read aloud): a1\nreadback_vi: Đặt hàng. Tai nghe x 1. Tổng cộng: 790000 VND.\nreadback_en: Place order. Earbuds x 1. Total: 790000 VND.';
-      const { spoken, requests } = await run('SPEECH_TAP', text, { kind: 'action', action: { requires_tap: true } }, output, (runtime, id) =>
+      const { spoken, requests } = await run('SPEECH_TAP', text, { kind: 'action', action: { requires_tap: true } }, (runtime, id) =>
         runtime.action(id, { status: 'EXECUTED', requires_tap: true, summary: { title: 'Order confirmed' }, result: { order_sn: 'SN1' } }),
       );
       expect(spoken).toContain(speechText.orderPlaced.vi);
@@ -128,9 +109,8 @@ describe('voice runtime speaks only checked answers', () => {
       expect(requests.indexOf(note!)).toBeGreaterThan(requests.findIndex((r) => r.method === 'thread/realtime/appendText'));
       expect(spoken).not.toContain('OK');
     });
-  for (const output of ['codex', 'checked'])
-    it(`${output} output: speaking over a running answer stops it and answers the new question instead`, async () => {
-      const { spoken, requests } = await run('SPEECH_BARGE', '{"price":790000}', undefined, output);
+  it('speaking over a running answer stops it and answers the new question instead', async () => {
+      const { spoken, requests } = await run('SPEECH_BARGE', '{"price":790000}');
       expect(requests).toContainEqual({ method: 'turn/interrupt', params: { threadId: expect.any(String), turnId: 'v-turn' } });
       expect(spoken).not.toContain('Giá 790.000đ');
       const next = requests.filter((r) => r.method === 'turn/start').at(-1);
@@ -146,18 +126,18 @@ describe('voice runtime speaks only checked answers', () => {
     expect(speechText.confirmTap.vi).not.toContain('đồng ý');
     expect(speechText.confirmTap.en).not.toMatch(/say yes/);
   });
-  it('codex output: corrects the voice out loud when it states an unverified fact itself', async () => {
-    const { spoken, logs } = await run('SPEECH_OWN', '{"price":790000}', undefined, 'codex');
+  it('corrects the voice out loud when it states an unverified fact itself', async () => {
+    const { spoken, logs } = await run('SPEECH_OWN', '{"price":790000}');
     expect(spoken).toContain(speechText.correction.vi);
     expect(logs[0]).toMatchObject({ kind: 'corrected', unsupported: ['17.990.000', 'tím'] });
   });
-  it('codex output: an answer the voice gave itself as a general AI goes to the thread instead', async () => {
-    const { spoken } = await run('SPEECH_PERSONA', '{"items":[]}', undefined, 'codex');
+  it('an answer the voice gave itself as a general AI goes to the thread instead', async () => {
+    const { spoken } = await run('SPEECH_PERSONA', '{"items":[]}');
     // 'Final answer' only comes from a thread turn, which the voice itself never started here.
     expect(spoken).toContain('Final answer');
   });
-  it('codex output: a short reply denying the shop also goes to the thread', async () => {
-    const { spoken } = await run('SPEECH_NOSHOP', '{"items":[]}', undefined, 'codex');
+  it('a short reply denying the shop also goes to the thread', async () => {
+    const { spoken } = await run('SPEECH_NOSHOP', '{"items":[]}');
     expect(spoken).toContain('Final answer');
   });
   it('gives a continued conversation its earlier messages as context, not as facts', () => {
@@ -167,13 +147,6 @@ describe('voice runtime speaks only checked answers', () => {
       expect(prompt).toContain('check them again with tools');
     }
     expect(voicePrompt({ ...config, history: undefined })).not.toContain('continuing an earlier conversation');
-  });
-  it("defaults to Codex's own voice", () => {
-    delete process.env.ASSISTANT_VOICE_OUTPUT;
-    expect(voiceOutputMode()).toBe('codex');
-    process.env.ASSISTANT_VOICE_OUTPUT = 'checked';
-    expect(voiceOutputMode()).toBe('checked');
-    delete process.env.ASSISTANT_VOICE_OUTPUT;
   });
 });
 

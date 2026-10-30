@@ -112,7 +112,7 @@ export class HuspeeClient {
       start: (input: { shop_id: number; lang?: string; resume_conversation_id?: string }) => this.http.request<{ conversation_id: string }>('POST', '/api/v1/assistant/text/sessions', { body: input }),
     },
     voice: {
-      start: (input: { shop_id: number; sdp_offer: string; lang?: string; resume_conversation_id?: string }) => this.http.request<{ conversation_id: string; sdp_answer: string; voice_output?: 'checked' | 'codex' }>('POST', '/api/v1/assistant/voice/sessions', { body: input }),
+      start: (input: { shop_id: number; sdp_offer: string; lang?: string; resume_conversation_id?: string }) => this.http.request<{ conversation_id: string; sdp_answer: string }>('POST', '/api/v1/assistant/voice/sessions', { body: input }),
       text: (conversationId: string, text: string) => this.http.request<{ ok: true }>('POST', `/api/v1/assistant/voice/sessions/${encodeURIComponent(conversationId)}/text`, { body: { text } }),
       stop: (conversationId: string) => this.http.request<{ ok: true }>('POST', `/api/v1/assistant/voice/sessions/${encodeURIComponent(conversationId)}/stop`),
       eventsUrl: (conversationId: string) => this.http.url(`/api/v1/assistant/voice/sessions/${encodeURIComponent(conversationId)}/events`),

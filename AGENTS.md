@@ -286,11 +286,9 @@ Phase 2 adds a per-shop, real-time voice assistant for buyers and seller-side co
   experimental (tested: codex-cli 0.166.0). Tools are registered as `dynamicTools` on the Codex
   thread (`thread/start`); the realtime v3 voice hands questions off to that thread
   (`clientManagedHandoffs: true`), and the backend answers `item/tool/call` requests. Realtime
-  start has no tool field. By default (`ASSISTANT_VOICE_OUTPUT=codex`) the buyer hears Codex's own
-  realtime voice; facts are checked after speaking and corrected aloud. With
-  `ASSISTANT_VOICE_OUTPUT=checked` (opt-in) Codex realtime only listens: the backend checks every
-  sentence against tool results first and the browser speaks it with its own speech synthesis. No
-  host-side text-to-speech. Expect several
+  start has no tool field. The buyer hears Codex's own realtime voice; thread answers are checked
+  against tool results before it says them, and anything the voice states itself is checked after
+  speaking and corrected aloud. No browser or host-side text-to-speech. Expect several
   seconds before a tool-backed answer is spoken: the UI shows tool status and cards as soon as a
   tool returns. Details in `docs/VOICE.md`.
 - **Tool layer.** Typed tools (e.g. `search_products`, `compare_products`, `get_product_details`,

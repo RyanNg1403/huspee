@@ -153,9 +153,9 @@ app-server` child process (private `CODEX_HOME`, `auth.json` symlinked from the 
 `~/.codex`, never read or logged); per conversation an ephemeral thread started with the
 registry's `dynamicTools` and the prompt, then `thread/realtime/start` (v3, WebRTC, configured
 voice, `clientManagedHandoffs: true`, so the backend decides what is spoken); `item/tool/call` requests are answered by
-`AssistantToolRegistry.run`; transcripts go to `ConversationMessage` and SSE. Enabled only when
-`ASSISTANT_VOICE_ENABLED=true`; otherwise the voice routes return a clear `assistant_unavailable`
-error. Tests use a fake app-server, never the real one.
+`AssistantToolRegistry.run`; transcripts go to `ConversationMessage` and SSE. On by default when
+the Codex CLI is installed; with `ASSISTANT_VOICE_ENABLED=false` or no CLI, the voice routes return a
+clear `assistant_unavailable` error. Tests use a fake app-server, never the real one.
 
 ## 6. Module seam between core and voice
 

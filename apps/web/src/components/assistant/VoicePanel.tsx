@@ -11,7 +11,6 @@ import { upsertCard } from './card-state';
 import { BargeInGate, InterruptionDetector } from './interruption';
 import { startVoiceActivity, type VoiceActivity } from './voice-activity';
 import { setMicrophoneEnabled } from './microphone';
-import { SpeechPlayer, type SpeechItem } from './speech-player';
 import {
   appendFinalTranscript,
   applyChannelEvent,
@@ -23,7 +22,6 @@ type LiveEvent =
   | { type: 'transcript'; role: 'user' | 'assistant'; text: string; final: boolean; item_id?: string }
   | { type: 'tool'; name: string; status: 'started' | 'done' | 'error' }
   | { type: 'card'; card: Card }
-  | ({ type: 'speak' } & SpeechItem)
   | { type: 'action'; action: Action }
   | { type: 'closed'; reason: string | null }
   | { type: 'error'; message: string };
@@ -45,7 +43,7 @@ type Adapter = {
     sdp_offer: string;
     lang: string;
     resume_conversation_id?: string;
-  }) => Promise<{ conversation_id: string; sdp_answer: string; voice_output?: 'checked' | 'codex' }>;
+  }) => Promise<{ conversation_id: string; sdp_answer: string }>;
   startText: (input: {
     shop_id: number;
     lang: string;
@@ -213,9 +211,6 @@ export function VoicePanel({
   const followConversation = useRef(true);
   const sequence = useRef(0);
   const channelOpened = useRef(false);
-  // Checked output: the server sends only verified assistant text; the voice model's own text is never shown or played.
-  const checkedMode = useRef(false);
-  const player = useRef<SpeechPlayer | undefined>(undefined);
   const actionKeys = useRef(new Map<string, string>());
   const generation = useRef(0);
   const stopRef = useRef(adapter.stop);
@@ -224,8 +219,6 @@ export function VoicePanel({
     generation.current++;
     const current = resources.current;
     resources.current = {};
-    player.current?.stop();
-    player.current = undefined;
     if (current.analyserTimer !== undefined) window.clearInterval(current.analyserTimer);
     current.voiceActivity?.stop();
     void current.audioContext?.close().catch(() => undefined);
@@ -281,7 +274,6 @@ export function VoicePanel({
     () => () => {
       generation.current++;
       const current = resources.current;
-      player.current?.stop();
       if (current.analyserTimer !== undefined) window.clearInterval(current.analyserTimer);
       current.voiceActivity?.stop();
       void current.audioContext?.close().catch(() => undefined);
@@ -297,10 +289,7 @@ export function VoicePanel({
     [],
   );
   function onEvent(event: LiveEvent) {
-    if (
-      event.type === 'transcript' &&
-      (!channelOpened.current || (checkedMode.current && event.role === 'assistant'))
-    ) {
+    if (event.type === 'transcript' && !channelOpened.current) {
       const id = sequence.current++;
       const now = Date.now();
       setEntries((previous) =>
@@ -309,7 +298,6 @@ export function VoicePanel({
         ),
       );
     }
-    if (event.type === 'speak') player.current?.enqueue(event);
     if (event.type === 'tool') setChecking(event.status === 'started');
     if (event.type === 'card') setCards((previous) => upsertTimed(previous, event.card));
     if (event.type === 'action')
@@ -339,7 +327,6 @@ export function VoicePanel({
     setState('connecting');
     setEntries([]);
     channelOpened.current = false;
-    checkedMode.current = false;
     setCards([]);
     const token = ++generation.current;
     try {
@@ -402,7 +389,6 @@ export function VoicePanel({
           void context.close().catch(() => undefined);
           return;
         }
-        player.current = new SpeechPlayer(context);
         const detector = new InterruptionDetector();
         // Silero tells speech from noise; until it has loaded (or if it cannot), loudness alone is used.
         void startVoiceActivity(stream, context)
@@ -417,33 +403,20 @@ export function VoicePanel({
           analyser.getFloatTimeDomainData(data);
           return Math.sqrt(data.reduce((sum, value) => sum + value * value, 0) / data.length);
         };
-        let wasSpeaking = false;
         resources.current.analyserTimer = window.setInterval(() => {
-          const nowSpeaking = !!player.current?.speaking;
-          if (nowSpeaking !== wasSpeaking) {
-            wasSpeaking = nowSpeaking;
-            setSpeaking(nowSpeaking);
-          }
-          const output = checkedMode.current ? player.current?.analyser : remoteAnalyser;
-          if (!output) return;
-          const remote = rms(output);
-          const playing = checkedMode.current ? !!player.current?.speaking : assistantPlaying;
+          if (!remoteAnalyser) return;
+          const remote = rms(remoteAnalyser);
           const detected = detector.sample(
             Date.now(),
             rms(micAnalyser),
             remote,
-            playing || remote > 0.01,
+            assistantPlaying || remote > 0.01,
             resources.current.voiceActivity?.probability(Date.now()),
           );
-          if (detected !== undefined) {
-            speechStart = detected;
-            if (checkedMode.current) player.current?.stop();
-          }
-          if (!checkedMode.current) {
-            const volume = gate.sample(Date.now(), detector.ducking, detected !== undefined, remote < 0.005);
-            audio.muted = volume === 0;
-            audio.volume = volume || 1;
-          }
+          if (detected !== undefined) speechStart = detected;
+          const volume = gate.sample(Date.now(), detector.ducking, detected !== undefined, remote < 0.005);
+          audio.muted = volume === 0;
+          audio.volume = volume || 1;
         }, 50);
       } catch {
         void context?.close().catch(() => undefined);
@@ -461,16 +434,12 @@ export function VoicePanel({
           const payload = JSON.parse(event.data) as ChannelEvent;
           const now = Date.now();
           const role = 'turn' in payload ? (payload.turn as { role?: string } | undefined)?.role : undefined;
-          if (checkedMode.current) {
-            // Only the buyer's turns come from the channel; a new buyer turn interrupts playback.
-            if (role !== 'user' && payload.type !== 'turn.delta') return;
-            if (payload.type === 'turn.created') player.current?.stop();
-          }
           if (
             (payload.type === 'turn.created' || payload.type === 'turn.done') &&
             (payload.turn as { role?: string } | undefined)?.role === 'assistant'
           ) {
             assistantPlaying = payload.type === 'turn.created';
+            setSpeaking(assistantPlaying);
           }
           if (payload.type === 'turn.created') {
             if (role === 'user') gate.buyerTurn();
@@ -490,8 +459,6 @@ export function VoicePanel({
         }
       };
       pc.ontrack = (event) => {
-        // Checked output: the realtime model's own audio is never played; only checked speech is.
-        if (checkedMode.current) return;
         audio.srcObject = event.streams[0];
         if (context && event.streams[0]) {
           try {
@@ -527,7 +494,6 @@ export function VoicePanel({
       }
       resources.current.conversationId = result.conversation_id;
       setLiveId(result.conversation_id);
-      checkedMode.current = result.voice_output === 'checked';
       await pc.setRemoteDescription({ type: 'answer', sdp: result.sdp_answer });
       connectEvents(result.conversation_id);
       setMuted(false);

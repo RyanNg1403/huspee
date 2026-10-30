@@ -86,7 +86,6 @@ describe('voice runtime with fake app-server', () => {
     );
     const ctx = { conversationId: 'conversation-1', buyerId: 1, shopId: 2 };
     const config = { shopName: 'Shop', tone: 'FRIENDLY', greetingVi: 'Xin chào', greetingEn: 'Hello', voice: 'spruce' };
-    process.env.ASSISTANT_VOICE_OUTPUT = 'checked';
     try {
       expect(await runtime.start(ctx, config, 'offer')).toBe('fake-answer');
       await expect(runtime.start({ ...ctx, conversationId: 'conversation-2' }, config, 'offer')).rejects.toThrow(
@@ -111,9 +110,9 @@ describe('voice runtime with fake app-server', () => {
         result: { order_sn: 'SN1' },
       });
       await new Promise((resolveWait) => setTimeout(resolveWait, 30));
-      // Checked output: a fixed server sentence is spoken; the realtime model's reply to the app note is not.
-      expect(events).toContainEqual(expect.objectContaining({ type: 'speak', text: speechText.orderPlaced.en, lang: 'en' }));
-      expect(JSON.stringify(events)).not.toContain('[App]');
+      // A fixed server sentence is spoken; the realtime model's reply to the app note is not.
+      expect(events).toContainEqual(expect.objectContaining({ type: 'transcript', role: 'assistant', text: speechText.orderPlaced.en }));
+      expect(JSON.stringify(events.filter((event) => event.final))).not.toContain('[App]');
       expect(events).toContainEqual({
         type: 'action',
         action: { status: 'EXECUTED', requires_tap: true, summary: { title: 'Order confirmed' }, result: { order_sn: 'SN1' } },
@@ -123,7 +122,6 @@ describe('voice runtime with fake app-server', () => {
       await runtime.stop(ctx.conversationId, 1);
       expect(ended).toEqual([ctx]);
     } finally {
-      delete process.env.ASSISTANT_VOICE_OUTPUT;
       runtime.close();
     }
   });
@@ -276,3 +274,27 @@ it('serves a fake voice session over HTTP and protects its event stream', async 
     server.kill('SIGTERM');
   }
 }, 30000);
+
+describe('voice availability', () => {
+  it('is on by default when Codex is installed, and off when turned off or Codex is missing', async () => {
+    const { voiceEnabled } = await import('../../apps/api/src/assistant/voice/voice-enabled.js');
+    const saved = { enabled: process.env.ASSISTANT_VOICE_ENABLED, bin: process.env.ASSISTANT_CODEX_BIN };
+    try {
+      delete process.env.ASSISTANT_VOICE_ENABLED;
+      process.env.ASSISTANT_CODEX_BIN = resolve(__dirname, '../helpers/fake-codex/codex');
+      expect(voiceEnabled()).toBe(true);
+      process.env.ASSISTANT_VOICE_ENABLED = 'false';
+      expect(voiceEnabled()).toBe(false);
+      delete process.env.ASSISTANT_VOICE_ENABLED;
+      process.env.ASSISTANT_CODEX_BIN = resolve(__dirname, '../helpers/fake-codex/missing-codex');
+      expect(voiceEnabled()).toBe(false);
+      process.env.ASSISTANT_CODEX_BIN = 'huspee-no-such-codex';
+      expect(voiceEnabled()).toBe(false);
+    } finally {
+      if (saved.enabled === undefined) delete process.env.ASSISTANT_VOICE_ENABLED;
+      else process.env.ASSISTANT_VOICE_ENABLED = saved.enabled;
+      if (saved.bin === undefined) delete process.env.ASSISTANT_CODEX_BIN;
+      else process.env.ASSISTANT_CODEX_BIN = saved.bin;
+    }
+  });
+});

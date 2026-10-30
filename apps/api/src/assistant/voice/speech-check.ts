@@ -137,7 +137,6 @@ export const speechText = {
     vi: 'Xin lỗi, mình vừa nói một thông tin chưa được xác nhận, bạn đừng dựa vào nó nhé. Để mình kiểm tra lại.',
     en: "Sorry, I just said something I haven't verified, please don't rely on it. Let me check.",
   },
-  checking: { vi: 'Để mình kiểm tra dữ liệu của shop nhé.', en: "Let me check the shop's data." },
   orderPlaced: {
     vi: 'Đơn hàng đã được đặt thành công. Bạn có thể xem chi tiết trong mục Đơn mua nhé.',
     en: 'Your order has been placed. You can see the details under My orders.',
