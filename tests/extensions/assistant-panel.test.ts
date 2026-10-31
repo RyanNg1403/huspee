@@ -10,7 +10,7 @@ import {
 } from '../../apps/web/src/components/assistant/timeline.js';
 import { upsertTimed } from '../../apps/web/src/components/assistant/card-state.js';
 import { toolLabelKey, toolMakesCard } from '../../apps/web/src/components/assistant/tool-labels.js';
-import type { Card } from '../../apps/web/src/components/assistant/card-types.js';
+import type { Card } from '../../packages/web-ui/src/components/assistant/card-types.js';
 import { pickLanguage, summaryRows } from '../../packages/web-ui/src/components/assistant/summary.js';
 import { formatCountdown, secondsLeft } from '../../packages/web-ui/src/components/assistant/time.js';
 
