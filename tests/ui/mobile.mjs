@@ -28,6 +28,34 @@ try {
   await page.locator('button[type="submit"]').click();
   await page.waitForURL((target) => !target.pathname.includes('/login'));
 
+  // Mobile browse: tab bar, search sheet, filter drawer, then a product from the filtered results.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`${url}/`, { waitUntil: 'networkidle' });
+  const tabs = page.getByRole('navigation', { name: 'Main navigation' });
+  assert.equal(await tabs.getByRole('link', { name: 'Home' }).getAttribute('aria-current'), 'page');
+  await page.getByRole('button', { name: 'Search Huspee' }).click();
+  const sheet = page.getByRole('dialog', { name: 'Search' });
+  await sheet.getByRole('searchbox').fill('iphone');
+  await sheet.getByRole('searchbox').press('Enter');
+  await page.waitForURL((target) => target.pathname === '/search' && target.searchParams.get('q') === 'iphone');
+  assert.equal(await tabs.count(), 0, 'Search results have no tab bar');
+  await page.getByRole('button', { name: 'Filter', exact: true }).click();
+  const drawer = page.getByRole('dialog', { name: 'Search filters' });
+  await drawer.getByRole('button', { name: 'On sale' }).click();
+  await drawer.getByRole('button', { name: 'Apply' }).click();
+  await page.waitForURL((target) => target.searchParams.get('has_promotion') === 'true');
+  const results = page.getByRole('region', { name: 'Search results' }).locator('a[href^="/products/"]');
+  await results.first().waitFor();
+  const total = await page.evaluate(
+    async () => (await (await fetch('/api/v1/marketplace/products?q=iphone&has_promotion=true')).json()).page.total,
+  );
+  assert.equal(await results.count(), total, 'Filtered mobile results follow the API');
+  await page.screenshot({ path: `${out}/${engine}-390-search-filtered.png` });
+  const product = await results.first().getAttribute('href');
+  await results.first().click();
+  await page.waitForURL((target) => target.pathname === product);
+  console.log(`${engine}: mobile tab bar, search sheet, filter drawer and product link passed`);
+
   for (const width of [320, 375, 390, 430]) {
     await page.setViewportSize({ width, height: 812 });
     for (const path of ['/', '/search?q=Redmi', '/products/2000103', '/shops/880001', '/cart', '/orders', '/messages']) {
