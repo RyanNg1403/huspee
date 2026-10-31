@@ -1,7 +1,7 @@
 'use client';
 import { createContext, useContext, useEffect, useState } from 'react';
-import { getApiClient } from '@/lib/api';
-import { useApi } from '@/lib/use-api';
+import { getApiClient } from '@huspee/web-ui/lib/api';
+import { useApi } from '@huspee/web-ui/lib/use-api';
 import { VoicePanel } from './VoicePanel';
 import type { ViewedProduct } from './product-context';
 import { useChatScrollLock } from './use-chat-scroll-lock';

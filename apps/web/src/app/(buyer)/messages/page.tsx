@@ -4,12 +4,12 @@ import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import type { HandoffTicket, Paginated } from '@huspee/sdk';
-import { RequireRole } from '@/components/session';
-import { Button, Card, Icon, Pagination, QueryState, Tabs } from '@/components/ui';
-import { useLang, useT } from '@/i18n';
-import { getApiClient } from '@/lib/api';
-import { formatDateTime } from '@/lib/format';
-import { useApi } from '@/lib/use-api';
+import { RequireRole } from '@huspee/web-ui/components/session';
+import { Button, Card, Icon, Pagination, QueryState, Tabs } from '@huspee/web-ui/components/ui';
+import { useLang, useT } from '@huspee/web-ui/i18n';
+import { getApiClient } from '@huspee/web-ui/lib/api';
+import { formatDateTime } from '@huspee/web-ui/lib/format';
+import { useApi } from '@huspee/web-ui/lib/use-api';
 import { messages } from './messages';
 import { StatusBadge } from './_components/StatusBadge';
 

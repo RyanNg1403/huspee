@@ -1,0 +1,70 @@
+{
+  "name": "@huspee/web-ui",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./styles.css": "./src/styles.css",
+    "./components/assistant/card-types": "./src/components/assistant/card-types.ts",
+    "./components/assistant/product-details": "./src/components/assistant/product-details.tsx",
+    "./components/assistant/messages": "./src/components/assistant/messages.ts",
+    "./components/assistant/cards": "./src/components/assistant/cards.tsx",
+    "./components/ui/Pagination": "./src/components/ui/Pagination.tsx",
+    "./components/ui/Tabs": "./src/components/ui/Tabs.tsx",
+    "./components/ui/Card": "./src/components/ui/Card.tsx",
+    "./components/ui/Icon": "./src/components/ui/Icon.tsx",
+    "./components/ui/ErrorState": "./src/components/ui/ErrorState.tsx",
+    "./components/ui/Price": "./src/components/ui/Price.tsx",
+    "./components/ui/QueryState": "./src/components/ui/QueryState.tsx",
+    "./components/ui/Badge": "./src/components/ui/Badge.tsx",
+    "./components/ui/Rating": "./src/components/ui/Rating.tsx",
+    "./components/ui/index": "./src/components/ui/index.ts",
+    "./components/ui": "./src/components/ui/index.ts",
+    "./components/ui/Button": "./src/components/ui/Button.tsx",
+    "./components/ui/Modal": "./src/components/ui/Modal.tsx",
+    "./components/ui/Toast": "./src/components/ui/Toast.tsx",
+    "./components/ui/EmptyState": "./src/components/ui/EmptyState.tsx",
+    "./components/ui/Spinner": "./src/components/ui/Spinner.tsx",
+    "./components/ui/Select": "./src/components/ui/Select.tsx",
+    "./components/ui/Textarea": "./src/components/ui/Textarea.tsx",
+    "./components/ui/Input": "./src/components/ui/Input.tsx",
+    "./components/ui/field": "./src/components/ui/field.ts",
+    "./components/ui/Skeleton": "./src/components/ui/Skeleton.tsx",
+    "./components/ui/QuantityStepper": "./src/components/ui/QuantityStepper.tsx",
+    "./components/layout/LanguageSwitch": "./src/components/layout/LanguageSwitch.tsx",
+    "./components/brand/Logo": "./src/components/brand/Logo.tsx",
+    "./components/icons/index": "./src/components/icons/index.tsx",
+    "./components/icons": "./src/components/icons/index.tsx",
+    "./components/session/RequireRole": "./src/components/session/RequireRole.tsx",
+    "./components/session/AuthForm": "./src/components/session/AuthForm.tsx",
+    "./components/session/SessionProvider": "./src/components/session/SessionProvider.tsx",
+    "./components/session/index": "./src/components/session/index.ts",
+    "./components/session": "./src/components/session/index.ts",
+    "./lib/api": "./src/lib/api.ts",
+    "./lib/use-api": "./src/lib/use-api.ts",
+    "./lib/format": "./src/lib/format.ts",
+    "./i18n/common": "./src/i18n/common.ts",
+    "./i18n/types": "./src/i18n/types.ts",
+    "./i18n/index": "./src/i18n/index.ts",
+    "./i18n": "./src/i18n/index.ts",
+    "./i18n/client": "./src/i18n/client.tsx",
+    "./i18n/server": "./src/i18n/server.ts",
+    "./lib/cookies": "./src/lib/cookies.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@huspee/sdk": "workspace:*"
+  },
+  "peerDependencies": {
+    "next": "16.4.1",
+    "react": "19.2.0",
+    "react-dom": "19.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.0",
+    "@types/react": "19.2.2",
+    "@types/react-dom": "19.2.2",
+    "typescript": "5.9.3"
+  }
+}

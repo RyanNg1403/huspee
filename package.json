@@ -15,7 +15,7 @@
     "test:extensions": "pnpm --filter @huspee/tests run test:extensions",
     "test:e2e": "pnpm --filter @huspee/tests run test:e2e",
     "dev:web": "pnpm --filter @huspee/web dev",
-    "build:web": "pnpm --filter @huspee/sdk build && pnpm --filter @huspee/web build",
+    "build:web": "pnpm --filter @huspee/sdk build && pnpm --filter @huspee/web build && pnpm --filter @huspee/seller-web build",
     "demo:reset": "pnpm --filter @huspee/api exec prisma migrate reset --force",
     "smoke:ui": "node tests/ui/smoke.mjs",
     "smoke:mobile": "node tests/ui/mobile.mjs",
@@ -23,7 +23,10 @@
     "smoke:chat-continuity": "node tests/ui/chat-continuity.mjs",
     "smoke:microphone-meter": "node tests/ui/microphone-meter.mjs",
     "smoke:chat-layout": "node tests/ui/chat-layout.mjs",
-    "eval:assistant": "pnpm --filter @huspee/api run eval:assistant"
+    "eval:assistant": "pnpm --filter @huspee/api run eval:assistant",
+    "dev:seller-web": "pnpm --filter @huspee/seller-web dev",
+    "build:seller-web": "pnpm --filter @huspee/sdk build && pnpm --filter @huspee/seller-web build",
+    "smoke:dual-session": "node tests/ui/dual-session.mjs"
   },
   "engines": {
     "node": ">=22"

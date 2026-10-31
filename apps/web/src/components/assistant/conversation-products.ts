@@ -1,4 +1,4 @@
-import type { Card } from './card-types.js';
+import type { Card } from '@huspee/web-ui/components/assistant/card-types';
 
 export type ConversationProduct = {
   item_id: number;

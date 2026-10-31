@@ -287,3 +287,10 @@ These `/api/v1` routes use platform sessions unless marked public, and the brows
 | POST | `/assistant/_debug/tools/:name` | buyer session; `ASSISTANT_TOOL_DEBUG=true` | low-level test transport only | test-only; disabled by default |
 | GET | `/seller/shops/:shopId/assistant/insights` | seller membership | `seller.assistant.insights` | custom; insights tests |
 | POST | `/seller/shops/:shopId/assistant/conversations/:id/summary` | seller membership | `seller.assistant.summarize` | custom; insights tests |
+
+## Frontend surfaces (U1)
+
+Seller Centre now uses its own Next.js origin and `huspee_seller_sid` browser cookie.
+Its proxy maps that cookie to the existing API session cookie, preserves consent/callback
+navigation on the seller origin and blocks buyer-only routes. Buyer proxy strips the
+seller cookie. No API endpoints or backend auth contracts changed.

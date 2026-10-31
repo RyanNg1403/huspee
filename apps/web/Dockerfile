@@ -14,6 +14,7 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
 COPY packages/sdk/package.json packages/sdk/
+COPY packages/web-ui/package.json packages/web-ui/
 COPY tests/package.json tests/
 
 RUN pnpm install --frozen-lockfile --filter @huspee/web...
@@ -21,6 +22,7 @@ RUN pnpm install --frozen-lockfile --filter @huspee/web...
 COPY packages/sdk packages/sdk
 RUN pnpm --filter @huspee/sdk build
 
+COPY packages/web-ui packages/web-ui
 COPY apps/web apps/web
 RUN pnpm --filter @huspee/web build
 

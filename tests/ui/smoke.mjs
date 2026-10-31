@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const WEB_URL = process.env.WEB_URL || 'http://localhost:3210';
+const SELLER_URL = process.env.SELLER_URL || 'http://localhost:3002';
 const API_URL = process.env.API_URL || 'http://localhost:3110';
 const CHROME_BIN =
   process.env.CHROME_BIN ||
@@ -230,7 +231,7 @@ async function run() {
 
     // 2.1 Seller Login
     log('2.1 Logging in as seller huy.techzone@example.com (shop 880001)...');
-    await sellerPage.goto(`${WEB_URL}/login`, { waitUntil: 'networkidle' });
+    await sellerPage.goto(`${SELLER_URL}/login`, { waitUntil: 'networkidle' });
     await sellerPage.fill('input[name="email"]', 'huy.techzone@example.com');
     await sellerPage.fill('input[name="password"]', 'Password123!');
     await sellerPage.click('button[type="submit"]');
@@ -241,8 +242,8 @@ async function run() {
     log('2.1 Seller logged in.');
 
     // 2.2 Check shop connection
-    log('2.2 Checking shop connection at /seller/shops...');
-    await sellerPage.goto(`${WEB_URL}/seller/shops`, {
+    log('2.2 Checking shop connection at /shops...');
+    await sellerPage.goto(`${SELLER_URL}/shops`, {
       waitUntil: 'networkidle',
     });
 
@@ -254,7 +255,7 @@ async function run() {
       log('2.2 Shop needs connection. Clicking connect...');
       await connectBtn.first().click();
 
-      // Wait for consent page on API
+      // Consent HTML is rendered by the API through the seller origin
       await sellerPage.waitForURL(
         (url) => url.pathname.includes('/auth_partner/consent'),
         { timeout: 15000 },
@@ -269,7 +270,7 @@ async function run() {
 
       // Wait for redirect back to seller shops
       await sellerPage.waitForURL(
-        (url) => url.pathname.includes('/seller/shops'),
+        (url) => url.origin === new URL(SELLER_URL).origin && url.pathname.startsWith('/shops'),
         { timeout: 15000 },
       );
       log('2.2 Shop connected successfully.');
@@ -282,8 +283,8 @@ async function run() {
     });
 
     // 2.3 Seller Orders List
-    log(`2.3 Navigating to /seller/orders to find order ${orderSn}...`);
-    await sellerPage.goto(`${WEB_URL}/seller/orders`, {
+    log(`2.3 Navigating to /orders to find order ${orderSn}...`);
+    await sellerPage.goto(`${SELLER_URL}/orders`, {
       waitUntil: 'networkidle',
     });
     await sellerPage.waitForSelector(`text=${orderSn}`, { timeout: 30000 });
@@ -293,8 +294,8 @@ async function run() {
     });
 
     // 2.4 Navigate to order detail in seller ops
-    log(`2.4 Navigating to /seller/orders/${orderSn}...`);
-    await sellerPage.goto(`${WEB_URL}/seller/orders/${orderSn}`, {
+    log(`2.4 Navigating to /orders/${orderSn}...`);
+    await sellerPage.goto(`${SELLER_URL}/orders/${orderSn}`, {
       waitUntil: 'networkidle',
     });
     const shipBtn = sellerPage.locator(
@@ -418,7 +419,7 @@ async function run() {
           scrollWidth: document.documentElement.scrollWidth,
         }));
         throw new Error(
-          `Horizontal overflow detected on ${p.name}: clientWidth=${widths.clientWidth}, scrollWidth=${widths.widths}`,
+          `Horizontal overflow detected on ${p.name}: clientWidth=${widths.clientWidth}, scrollWidth=${widths.scrollWidth}`,
         );
       }
 

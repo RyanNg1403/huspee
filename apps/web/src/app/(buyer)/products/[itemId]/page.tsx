@@ -13,13 +13,13 @@ import {
   QueryState,
   Rating,
   useToast,
-} from '@/components/ui';
-import { useSession } from '@/components/session';
-import { useLang, useT } from '@/i18n';
-import { common } from '@/i18n/common';
-import { errorMessageKey, getApiClient } from '@/lib/api';
-import { formatCount, formatDate, formatVnd } from '@/lib/format';
-import { useApi } from '@/lib/use-api';
+} from '@huspee/web-ui/components/ui';
+import { useSession } from '@huspee/web-ui/components/session';
+import { useLang, useT } from '@huspee/web-ui/i18n';
+import { common } from '@huspee/web-ui/i18n/common';
+import { errorMessageKey, getApiClient } from '@huspee/web-ui/lib/api';
+import { formatCount, formatDate, formatVnd } from '@huspee/web-ui/lib/format';
+import { useApi } from '@huspee/web-ui/lib/use-api';
 import { messages } from '../../_browse/messages';
 import { panel, Vouchers } from '../../_browse/shared';
 

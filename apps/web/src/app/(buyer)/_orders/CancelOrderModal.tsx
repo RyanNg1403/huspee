@@ -1,10 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { Button, Modal, Select, useToast } from '@/components/ui';
-import { useT } from '@/i18n';
-import { common } from '@/i18n/common';
-import { getApiClient } from '@/lib/api';
+import { Button, Modal, Select, useToast } from '@huspee/web-ui/components/ui';
+import { useT } from '@huspee/web-ui/i18n';
+import { common } from '@huspee/web-ui/i18n/common';
+import { getApiClient } from '@huspee/web-ui/lib/api';
 import { messages } from './messages';
 import { getErrorMessage } from './shared';
 

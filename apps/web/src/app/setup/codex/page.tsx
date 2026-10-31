@@ -2,9 +2,9 @@
 
 import Link from 'next/link';
 import { ConnectionCard } from './ConnectionCard';
-import { Logo } from '@/components/brand/Logo';
-import { LanguageSwitch } from '@/components/layout/LanguageSwitch';
-import { useT } from '@/i18n';
+import { Logo } from '@huspee/web-ui/components/brand/Logo';
+import { LanguageSwitch } from '@huspee/web-ui/components/layout/LanguageSwitch';
+import { useT } from '@huspee/web-ui/i18n';
 import { setupMessages } from './messages';
 
 export default function CodexSetupPage() {

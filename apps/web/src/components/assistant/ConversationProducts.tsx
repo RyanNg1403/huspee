@@ -2,8 +2,8 @@
 import { useId, useState, useSyncExternalStore } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useT } from '@/i18n';
-import { messages } from './messages';
+import { useT } from '@huspee/web-ui/i18n';
+import { messages } from '@huspee/web-ui/components/assistant/messages';
 import type { ConversationProduct } from './conversation-products';
 
 function subscribeViewport(notify: () => void) {

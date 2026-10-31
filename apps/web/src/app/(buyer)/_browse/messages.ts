@@ -1,4 +1,4 @@
-import { defineMessages } from '@/i18n';
+import { defineMessages } from '@huspee/web-ui/i18n';
 export const messages = defineMessages({
   vi: {
     categories: 'Danh mục',

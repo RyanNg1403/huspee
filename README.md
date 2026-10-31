@@ -8,12 +8,14 @@ Huspee is unaffiliated with Shopee.
 
 ```mermaid
 flowchart LR
-    WEB[Next.js web app<br/>buyer storefront + seller dashboard] -->|session cookie| API
+    WEB[Next.js buyer + Seller Centre apps] -->|session cookie| API
     API[NestJS API<br/>buyer routes, Shopee-compatible seller API,<br/>assistant tools] --> DB[(PostgreSQL)]
     API -.->|voice| CODEX[codex app-server<br/>ChatGPT login connected at /setup/codex]
 ```
 
-- `apps/web`: Next.js buyer storefront and seller dashboard.
+- `apps/web`: Next.js buyer storefront (port 3001).
+- `apps/seller-web`: Huspee Kênh Người Bán (port 3002), seller routes without `/seller`.
+- `packages/web-ui`: shared browser UI, translations, session/API client and assistant cards.
 - `apps/api`: NestJS + Prisma backend. It serves custom buyer routes, a Shopee Open API v2-compatible
   seller API (signed, per-shop tokens) and the assistant's tools. `prisma/` has the schema and seed.
 - `packages/sdk`: `@huspee/sdk`, a browser client and a server-only Shopee-compatible client.
@@ -30,8 +32,14 @@ More detail: [`docs/PLATFORM.md`](docs/PLATFORM.md).
    cd huspee
    docker compose up --build
    ```
-3. Open http://localhost:3001. The shop works right away with mock data; every password is
+3. Open http://localhost:3001 for buyers and http://localhost:3002 for Seller Centre. The shop works right away with mock data; every password is
    `Password123!`.
+
+Sign in as buyer `an.nguyen@example.com` and seller `huy.techzone@example.com`
+(TechZone 880001) or `lan.glowup@example.com` (GlowUp 880002), all with `Password123!`.
+Both apps can stay signed in within one browser profile. The buyer uses `huspee_sid`;
+Seller Centre uses `huspee_seller_sid`. The frontend proxies translate cookies for the
+unchanged API; logging out of one app leaves the other signed in.
 
 To turn on voice (once per machine, needs ChatGPT Plus or Pro):
 
@@ -43,7 +51,7 @@ To turn on voice (once per machine, needs ChatGPT Plus or Pro):
 
 Steps 4 to 6 happen once: the sign-in is shared by all shops and survives restarts and rebuilds.
 `docker compose down -v` deletes the saved sign-in. The first build takes a few minutes. Every start reloads fresh mock data. Compose uses
-ports 3000 (API), 3001 (web) and 5432; stop anything else on them first (a local Postgres often
+ports 3000 (API), 3001 (buyer), 3002 (seller) and 5432; stop anything else on them first (a local Postgres often
 holds 5432).
 
 `/setup/codex` is the only Codex sign-in page. **Seller Centre > Assistant** contains per-shop
@@ -53,12 +61,12 @@ disconnection remains a seller-authenticated maintenance API operation, not a pu
 
 ## Open on a phone
 
-Forward **port 3001** and open its **HTTPS** URL on the phone. The web server proxies API,
-media, session cookies, seller authorization and assistant events through that same port; leave
-`NEXT_PUBLIC_API_URL` empty. With local processes, set the web server's `API_INTERNAL_URL` to
-the API's listening address and enable `BROWSER_PROXY_ENABLED=true` on the API (the example
-environment and Docker Compose already do this). `API_PUBLIC_URL` on the web server must match
-the API's `PUBLIC_BASE_URL`, so seller consent redirects stay on the forwarded origin.
+Forward **port 3001** and open its **HTTPS** URL on the phone. The buyer server proxies
+API, media, session cookies and assistant events through that origin. Set its
+`API_INTERNAL_URL` to the API's listening address. Seller Centre is a separate desktop
+site: forward port 3002 separately when needed and set buyer `SELLER_APP_URL` to that URL.
+Seller `API_PUBLIC_URL` must match the API's `PUBLIC_BASE_URL`; its proxy handles both
+absolute and relative consent URLs. Seller `WEB_APP_URL` points back to the buyer site.
 
 Plain HTTP on a LAN IP supports browsing but cannot request a phone microphone. HTTPS forwarding
 and microphone permission are required for voice, along with the ChatGPT connection described above.
@@ -95,7 +103,7 @@ images. With Docker, run `docker compose exec api pnpm db:catalog:sync` after re
 use `HUSPEE_SEED_ON_START=false docker compose up -d --build` to preserve existing data on restart.
 `pnpm db:seed` and the default Compose startup reset the demo database.
 
-A seller must link their shop once before managing it: sign in, open `/seller/shops`, click Connect
+A seller must link their shop once before managing it: sign in, open http://localhost:3002/shops, click Connect
 and approve.
 
 ## Run it locally (for development)
@@ -116,8 +124,21 @@ pnpm --filter @huspee/sdk build   # the web app uses the built SDK
 pnpm db:migrate
 pnpm db:seed                      # load mock data; run again any time to reset it
 pnpm dev                          # API -> http://localhost:3000
-pnpm dev:web                      # web -> http://localhost:3001 (second terminal)
+pnpm dev:web                      # buyer -> http://localhost:3001 (second terminal)
+pnpm dev:seller-web               # seller -> http://localhost:3002 (third terminal)
+pnpm build:web                   # builds both Next.js apps
 ```
+
+Both frontend apps use `API_INTERNAL_URL` (server-to-API), `API_PUBLIC_URL` (the API's
+public origin for consent URLs) and `WEB_APP_URL` (buyer origin). Buyer also reads
+`SELLER_APP_URL` at runtime, defaulting to `http://localhost:3002`. Copy the buyer's
+`.env.example` to `apps/seller-web/.env.local` when using non-default ports. Browser
+requests always go through their app origin; `NEXT_PUBLIC_API_URL` is no longer used.
+Old buyer `/seller/*` links redirect to Seller Centre. `/setup/codex` stays on buyer;
+Seller Centre links to it through the runtime buyer origin. No API routes were added.
+
+Run `WEB_URL=http://localhost:3001 SELLER_URL=http://localhost:3002 pnpm smoke:dual-session`
+for the single-context browser regression (voice stays disabled for automated checks).
 
 ## Voice assistant
 
@@ -143,7 +164,7 @@ for Docker). Details: [`docs/VOICE.md`](docs/VOICE.md).
 
 ```bash
 pnpm test   # builds, then runs all suites against a reseeded huspee_test database
-WEB_URL=http://localhost:3001 API_URL=http://localhost:3000 pnpm smoke:ui   # browser smoke test; needs running servers and Chrome
+WEB_URL=http://localhost:3001 SELLER_URL=http://localhost:3002 API_URL=http://localhost:3000 pnpm smoke:ui   # browser smoke test; needs running servers and Chrome
 ```
 
 `pnpm test` needs a Postgres role that can create `huspee_test` (override with `TEST_DATABASE_URL`).

@@ -1,4 +1,4 @@
-import type { Card } from './card-types.js';
+import type { Card } from '@huspee/web-ui/components/assistant/card-types';
 
 /** What a product, search or comparison card is about; cards with the same topic show the same thing. */
 function topic(card: Card): string | undefined {
