@@ -17,6 +17,8 @@ export interface ToolContext {
   conversationId: string;
   buyerId: number;
   shopId: number;
+  /** Verified page context, supplied by the runtime rather than the model. */
+  viewedItemId?: number | null;
 }
 export interface ToolOutput {
   text: string;
@@ -134,6 +136,11 @@ const definitions = {
     },
     required: ['query'],
   },
+  get_viewed_product: {
+    schema: z.object({ requested_attributes: requestedAttributes }).strict(),
+    properties: { requested_attributes: requestedAttributesProperty },
+    required: [],
+  },
   get_product_details: {
     schema: z.object({ item_id: z.number().int(), requested_attributes: requestedAttributes }).strict(),
     properties: { item_id: { type: 'integer' }, requested_attributes: requestedAttributesProperty },
@@ -220,6 +227,7 @@ const definitions = {
   get_vouchers: { schema: z.object({}).strict(), properties: {}, required: [] },
 } as const;
 const descriptions: Record<string, string> = {
+  get_viewed_product: 'Read the product the buyer is currently viewing in this shop, with fresh details and a product card. Check every time the buyer refers to this product, this item or the product on screen; the buyer may navigate between turns. Returns no product when they leave its page.',
   search_products: 'Find public products in this shop by query and optional price range; an empty query lists everything the shop sells.',
   get_product_details: 'Get verified public product details and available variants for this shop.',
   compare_products: 'Compare two to four public products from this shop.',
@@ -300,6 +308,10 @@ export class AssistantToolRegistry {
   }
 
   private async execute(name: Name, input: Record<string, unknown>, ctx: ToolContext): Promise<ToolOutput> {
+    if (name === 'get_viewed_product') {
+      if (ctx.viewedItemId == null) return { success: true, text: 'The buyer is not currently viewing a product in this shop. Ask which product they mean; do not treat an earlier viewed product as current.' };
+      return this.execute('get_product_details', { ...input, item_id: ctx.viewedItemId }, ctx);
+    }
     if (name === 'add_to_cart') {
       if (input.requested_attributes) {
         const item = await this.prisma.item.findFirst({ where: { id: input.item_id as number, shopId: ctx.shopId, status: 'NORMAL', shop: { status: 'NORMAL' } }, include: itemInclude });

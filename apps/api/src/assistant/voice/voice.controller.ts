@@ -1,5 +1,5 @@
 import { defaultAssistantConfig } from '../assistant-defaults';
-import { Body, Controller, Get, Param, Post, Query, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, Res, UseGuards } from '@nestjs/common';
 import type { Response } from 'express';
 import type { User } from '@prisma/client';
 import { z } from 'zod';
@@ -17,11 +17,13 @@ const startSchema = z.object({
   sdp_offer: z.string().min(1).max(100000),
   lang: z.enum(['vi', 'en']).optional(),
   resume_conversation_id: z.string().uuid().optional(),
+  item_id: z.number().int().positive().optional(),
 });
 const textStartSchema = z.object({
   shop_id: z.number().int().positive(),
   lang: z.enum(['vi', 'en']).optional(),
   resume_conversation_id: z.string().uuid().optional(),
+  item_id: z.number().int().positive().optional(),
 });
 const unix = (date: Date) => Math.floor(date.getTime() / 1000);
 const textSchema = z.object({ text: z.string().trim().min(1).max(4000) });
@@ -38,6 +40,12 @@ export class VoiceController {
   ) {}
   private enabled(): boolean {
     return voiceEnabled();
+  }
+  private async viewedItem(shopId: number, itemId?: number | null): Promise<number | null> {
+    if (itemId == null) return null;
+    const item = await this.prisma.item.findFirst({ where: { id: itemId, shopId, status: 'NORMAL', shop: { status: 'NORMAL' } }, select: { id: true } });
+    if (!item) throw notFound('Product');
+    return item.id;
   }
   /** The buyer's earlier messages in one of their own conversations with this shop, oldest first. */
   private async history(buyerId: number, shopId: number, resumeId?: string) {
@@ -133,11 +141,12 @@ export class VoiceController {
       return res
         .status(503)
         .json({ error: { code: 'assistant_unavailable', message: 'Shop assistant is unavailable' } });
+    const viewedItemId = await this.viewedItem(input.shop_id, input.item_id);
     const history = await this.history(user.id, input.shop_id, input.resume_conversation_id);
     const conversation = await this.conversations.start({ shopId: input.shop_id, buyerId: user.id, channel: 'VOICE', language: input.lang });
     try {
       const sdp = await this.voice.runtime.start(
-        { conversationId: conversation.id, buyerId: user.id, shopId: input.shop_id },
+        { conversationId: conversation.id, buyerId: user.id, shopId: input.shop_id, viewedItemId },
         {
           shopName: shop.name,
           tone: config.tone,
@@ -168,16 +177,57 @@ export class VoiceController {
     if (!shop || shop.status !== 'NORMAL') throw notFound('Shop assistant');
     const config = shop.assistantConfig ?? defaultAssistantConfig(shop.name);
     if (!config.enabled) return res.status(503).json({ error: { code: 'assistant_unavailable', message: 'Shop assistant is unavailable' } });
+    const viewedItemId = await this.viewedItem(input.shop_id, input.item_id);
     const history = await this.history(user.id, input.shop_id, input.resume_conversation_id);
     const conversation = await this.conversations.start({ shopId: input.shop_id, buyerId: user.id, channel: 'TEXT', language: input.lang });
     try {
-      await this.voice.runtime.startText({ conversationId: conversation.id, buyerId: user.id, shopId: input.shop_id }, { shopName: shop.name, ...config, history });
+      await this.voice.runtime.startText({ conversationId: conversation.id, buyerId: user.id, shopId: input.shop_id, viewedItemId }, { shopName: shop.name, ...config, history });
       return res.status(201).json({ data: { conversation_id: conversation.id } });
     } catch (error) {
       await this.conversations.end(conversation.id);
       const busy = error instanceof Error && error.message === 'assistant_busy';
       return res.status(503).json({ error: { code: busy ? 'assistant_busy' : 'assistant_unavailable', message: busy ? 'Assistant is busy' : 'Assistant is unavailable' } });
     }
+  }
+  @Post('voice/sessions/:conversationId/call')
+  async startCall(@CurrentUser() user: User, @Param('conversationId') id: string, @Body() body: unknown, @Res() res: Response) {
+    if (!this.enabled()) return res.status(503).json({ error: { code: 'assistant_unavailable', message: 'Assistant is unavailable' } });
+    if (!z.string().uuid().safeParse(id).success) throw notFound('Conversation');
+    const input = parseInput(z.object({ sdp_offer: z.string().min(1).max(100000) }).strict(), body);
+    await this.conversations.assertBuyer(id, user.id);
+    try {
+      const result = await this.voice.runtime.startCall(id, user.id, input.sdp_offer);
+      return res.json({ data: { conversation_id: id, ...result } });
+    } catch (error) {
+      if (error instanceof Error && error.message === 'not_found') throw notFound('Conversation');
+      const busy = error instanceof Error && error.message === 'assistant_busy';
+      return res.status(busy ? 409 : 503).json({ error: { code: busy ? 'assistant_busy' : 'assistant_unavailable', message: busy ? 'Wait for the current reply or call to finish' : 'Voice call is unavailable; you can continue typing' } });
+    }
+  }
+  @Post('voice/sessions/:conversationId/call/stop')
+  async stopCall(@CurrentUser() user: User, @Param('conversationId') id: string, @Body() body: unknown) {
+    if (!z.string().uuid().safeParse(id).success) throw notFound('Conversation');
+    const input = parseInput(z.object({ call_id: z.string().uuid().optional() }).strict(), body ?? {});
+    await this.conversations.assertBuyer(id, user.id);
+    try { await this.voice.runtime.stopCall(id, user.id, input.call_id); }
+    catch (error) {
+      if (error instanceof Error && error.message === 'not_found') throw notFound('Conversation');
+      throw validation('Could not finish the voice call; please retry');
+    }
+    return { data: { ok: true } };
+  }
+  @Patch('voice/sessions/:conversationId/context')
+  async context(@CurrentUser() user: User, @Param('conversationId') id: string, @Body() body: unknown) {
+    if (!z.string().uuid().safeParse(id).success) throw notFound('Conversation');
+    const input = parseInput(z.object({ item_id: z.number().int().positive().nullable() }).strict(), body);
+    const conversation = await this.conversations.assertBuyer(id, user.id);
+    const itemId = await this.viewedItem(conversation.shopId, input.item_id);
+    try {
+      this.voice.runtime.setViewedItem(id, user.id, itemId);
+    } catch {
+      throw notFound('Voice session');
+    }
+    return { data: { item_id: itemId } };
   }
   @Get('voice/sessions/:conversationId/poll')
   async poll(@CurrentUser() user: User, @Param('conversationId') id: string, @Query() query: unknown, @Res() res: Response) {

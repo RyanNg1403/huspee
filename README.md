@@ -62,7 +62,7 @@ the API's `PUBLIC_BASE_URL`, so seller consent redirects stay on the forwarded o
 
 Plain HTTP on a LAN IP supports browsing but cannot request a phone microphone. HTTPS forwarding
 and microphone permission are required for voice, along with the ChatGPT connection described above.
-The assistant fills small screens and follows the visible viewport when the keyboard opens.
+The assistant fills phone screens and follows the visible viewport when the keyboard opens. The page behind it is locked; only messages scroll, while the header and composer stay visible. The back arrow hides the chat and restores the page position. During a call, the microphone meter shows actual local input, with separate quiet, muted, push-to-talk and interrupted states.
 
 For a temporary public link, run `cloudflared tunnel --url http://localhost:3001` and open the
 printed HTTPS URL. On `*.trycloudflare.com`, the assistant automatically polls for JSON events

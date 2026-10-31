@@ -78,3 +78,21 @@ await sdk.authenticateWithCode(code, 880001);
 await sdk.product.getItemList({ offset: 0, page_size: 20, item_status: ['NORMAL'] }); // upstream method
 await sdk.custom.shop.updatePolicies({ return_window_days: 10 });                    // Huspee extension
 ```
+
+Product page context: `assistant.text.start` and `assistant.voice.start` accept an optional
+`item_id` from the public catalog. `assistant.voice.setContext(conversationId, itemId)` updates
+that context for either session type; pass `null` to clear it when leaving the product page.
+Only the owning buyer can update an active session, and the item must be public in that shop.
+
+Text → voice → text uses one live conversation:
+
+```ts
+const { conversation_id: id } = await api.assistant.text.start({ shop_id: 880002 });
+await api.assistant.voice.text(id, 'Does La Roche have a discount?');
+// Wait for the reply, then create the browser WebRTC SDP offer.
+const call = await api.assistant.voice.startCall(id, sdpOffer);
+// Apply call.sdp_answer to the peer connection and talk about Cocoon.
+await api.assistant.voice.stopCall(id, call.call_id); // preserves chat and model history
+await api.assistant.voice.text(id, 'Compare the two products we discussed.');
+await api.assistant.voice.stop(id); // ends the entire conversation
+```

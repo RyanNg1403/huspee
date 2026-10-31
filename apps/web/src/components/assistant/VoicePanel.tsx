@@ -1,5 +1,6 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useLang, useT } from '@/i18n';
@@ -7,6 +8,10 @@ import { formatDateTime } from '@/lib/format';
 import { useSession } from '@/components/session';
 import { AssistantCard, type Action, type Card, type EditOptions } from './cards';
 import { messages } from './messages';
+import { ConversationProducts } from './ConversationProducts';
+import { MicrophoneMeter } from './MicrophoneMeter';
+import { collectConversationProducts, type ConversationProduct } from './conversation-products';
+import type { ViewedProduct } from './product-context';
 import { upsertCard } from './card-state';
 import { BargeInGate, InterruptionDetector } from './interruption';
 import { startVoiceActivity, type VoiceActivity } from './voice-activity';
@@ -16,15 +21,17 @@ import {
   applyChannelEvent,
   type ChannelEvent,
   type TranscriptEntry,
+  scopeCallEvent,
 } from './transcript';
 
 type LiveEvent =
-  | { type: 'transcript'; role: 'user' | 'assistant'; text: string; final: boolean; item_id?: string }
+  | { type: 'transcript'; role: 'user' | 'assistant'; text: string; final: boolean; item_id?: string; source?: 'text' | 'voice' }
   | { type: 'tool'; name: string; status: 'started' | 'done' | 'error' }
-  | { type: 'card'; card: Card }
+  | { type: 'card'; card: Card; source?: 'text' | 'voice' }
   | { type: 'action'; action: Action }
   | { type: 'closed'; reason: string | null }
-  | { type: 'error'; message: string };
+  | { type: 'error'; message: string }
+  | { type: 'call'; state: 'active' | 'ended'; call_id: string; reason?: string | null };
 type HistoryItem = {
   conversation_id: string;
   channel: 'VOICE' | 'TEXT';
@@ -43,17 +50,22 @@ type Adapter = {
     sdp_offer: string;
     lang: string;
     resume_conversation_id?: string;
+    item_id?: number;
   }) => Promise<{ conversation_id: string; sdp_answer: string }>;
   startText: (input: {
     shop_id: number;
     lang: string;
     resume_conversation_id?: string;
+    item_id?: number;
   }) => Promise<{ conversation_id: string }>;
   history: (shopId: number) => Promise<HistoryItem[]>;
   conversation: (id: string) => Promise<HistoryDetail>;
   text: (id: string, text: string) => Promise<unknown>;
   stop: (id: string) => Promise<unknown>;
   eventsUrl: (id: string) => string;
+  startCall: (id: string, sdp: string) => Promise<{ conversation_id: string; sdp_answer: string; call_id: string }>;
+  stopCall: (id: string, callId?: string) => Promise<unknown>;
+  setContext: (id: string, itemId: number | null) => Promise<{ item_id: number | null }>;
   poll: (id: string, after: number) => Promise<{ events: Record<string, unknown>[]; cursor: number; closed: boolean }>;
   confirm: (id: string, key: string) => Promise<{ action: Action }>;
   options: (id: string) => Promise<EditOptions>;
@@ -74,6 +86,9 @@ function upsertTimed(previous: TimedCard[], incoming: Card, now = Date.now()): T
   return next.map((card, i) => ({ card, at: previous[i]?.at ?? now }));
 }
 type Profile = { shop_name: string; connected?: boolean; greeting: { vi: string; en: string } };
+const subscribeToDocument = () => () => {};
+const getDocumentBody = () => document.body;
+const getServerBody = () => null;
 
 function MicGlyph({ className = '' }: { className?: string }) {
   return (
@@ -167,32 +182,42 @@ function MicOffGlyph({ className = '' }: { className?: string }) {
 }
 
 export function VoicePanel({
+  visible = true,
   shopId,
+  product,
   adapter,
   profile,
   onActiveChange,
   onOpenChange,
 }: {
+  visible?: boolean;
   shopId: number;
+  product?: ViewedProduct;
   adapter: Adapter;
   profile?: Profile;
   onActiveChange?: (active: boolean) => void;
   onOpenChange?: (open: boolean) => void;
 }) {
   const t = useT(messages);
+  const portalTarget = useSyncExternalStore(subscribeToDocument, getDocumentBody, getServerBody);
   const pathname = usePathname();
   const { lang } = useLang();
   const session = useSession();
   const [open, setOpen] = useState(false);
   const [state, setState] = useState<'idle' | 'connecting' | 'active'>('idle');
   const [error, setError] = useState('');
+  const [callState, setCallState] = useState<'idle' | 'connecting' | 'active' | 'ending'>('idle');
+  const callGeneration = useRef(0);
   const [muted, setMuted] = useState(false);
   const [pushToTalk, setPushToTalk] = useState(false);
+  const [holdingToTalk, setHoldingToTalk] = useState(false);
+  const [microphone, setMicrophone] = useState<{ stream: MediaStream; analyser?: AnalyserNode; audioContext?: AudioContext } | null>(null);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const [checking, setChecking] = useState(false);
   const [entries, setEntries] = useState<TranscriptEntry[]>([]);
   const [cards, setCards] = useState<TimedCard[]>([]);
+  const [contextProducts, setContextProducts] = useState<ConversationProduct[]>([]);
   const [speaking, setSpeaking] = useState(false);
   const [view, setView] = useState<'chat' | 'history'>('chat');
   const [historyList, setHistoryList] = useState<HistoryItem[] | null>(null);
@@ -206,11 +231,18 @@ export function VoicePanel({
     events?: EventSource;
     pollTimer?: number;
     conversationId?: string;
+    contextItemId?: number | null;
+    callId?: string;
     audio?: HTMLAudioElement;
     audioContext?: AudioContext;
+    micAnalyser?: AnalyserNode;
     analyserTimer?: number;
     voiceActivity?: VoiceActivity;
   }>({});
+  const [appliedItemId, setAppliedItemId] = useState<number | null>(null);
+  const desiredItemId = useRef<number | null>(product?.item_id ?? null);
+  desiredItemId.current = product?.item_id ?? null;
+  const contextQueue = useRef<Promise<void>>(Promise.resolve());
   const scrollArea = useRef<HTMLDivElement>(null);
   const dock = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -219,6 +251,9 @@ export function VoicePanel({
     const resize = () => {
       dock.current?.style.setProperty('--assistant-height', `${viewport.height}px`);
       dock.current?.style.setProperty('--assistant-top', `${viewport.offsetTop}px`);
+      dock.current?.style.setProperty('--assistant-left', `${viewport.offsetLeft}px`);
+      dock.current?.style.setProperty('--assistant-width', `${viewport.width}px`);
+      dock.current?.classList.toggle('assistant-compact-height', viewport.height < 520);
     };
     resize();
     viewport.addEventListener('resize', resize);
@@ -235,27 +270,77 @@ export function VoicePanel({
   const generation = useRef(0);
   const stopRef = useRef(adapter.stop);
   stopRef.current = adapter.stop;
-  function cleanup(sendStop: boolean) {
-    generation.current++;
+  function releaseAudio() {
+    callGeneration.current++;
     const current = resources.current;
-    resources.current = {};
     if (current.analyserTimer !== undefined) window.clearInterval(current.analyserTimer);
     current.voiceActivity?.stop();
     void current.audioContext?.close().catch(() => undefined);
+    if (current.pc) {
+      current.pc.onconnectionstatechange = null;
+      current.pc.ontrack = null;
+      current.pc.close();
+    }
+    current.stream?.getTracks().forEach((track) => track.stop());
+    if (current.audio) { current.audio.pause(); current.audio.srcObject = null; }
+    delete current.pc; delete current.stream; delete current.audio; delete current.audioContext;
+    delete current.micAnalyser;
+    delete current.analyserTimer; delete current.voiceActivity; delete current.callId;
+    channelOpened.current = false;
+    setSpeaking(false);
+    setMuted(false);
+    setPushToTalk(false);
+    setHoldingToTalk(false);
+    setMicrophone(null);
+    setCallState('idle');
+  }
+  function cleanup(sendStop: boolean) {
+    generation.current++;
+    releaseAudio();
+    const current = resources.current;
+    resources.current = {};
+    contextQueue.current = Promise.resolve();
     current.events?.close();
     if (current.pollTimer !== undefined) window.clearTimeout(current.pollTimer);
-    current.pc?.close();
-    current.stream?.getTracks().forEach((track) => track.stop());
-    if (current.audio) {
-      current.audio.pause();
-      current.audio.srcObject = null;
-    }
-    if (sendStop && current.conversationId)
-      void stopRef.current(current.conversationId).catch(() => undefined);
+    if (sendStop && current.conversationId) void stopRef.current(current.conversationId).catch(() => undefined);
     setChecking(false);
-    setSpeaking(false);
     setState('idle');
   }
+  async function endCall() {
+    const id = resources.current.conversationId;
+    const callId = resources.current.callId;
+    const token = generation.current;
+    releaseAudio();
+    if (!id) return;
+    setCallState('ending');
+    try { await adapter.stopCall(id, callId); }
+    catch { if (generation.current === token) setError(t('callEndError')); }
+    finally { if (generation.current === token) setCallState('idle'); }
+  }
+  const synchronizeProduct = useCallback(() => {
+    const current = resources.current;
+    const id = current.conversationId;
+    const token = generation.current;
+    const desired = desiredItemId.current;
+    const work = contextQueue.current.catch(() => undefined).then(async () => {
+      if (!id || generation.current !== token || current.contextItemId === desired) return;
+      const result = await adapter.setContext(id, desired);
+      if (generation.current !== token) return;
+      current.contextItemId = result.item_id;
+      setAppliedItemId(result.item_id);
+    });
+    contextQueue.current = work;
+    return work;
+  }, [adapter]);
+  const contextFailure = useRef(() => {});
+  contextFailure.current = () => { cleanup(true); setError(t('contextError')); };
+  useEffect(() => {
+    if (state !== 'active') return;
+    const token = generation.current;
+    void synchronizeProduct().catch(() => {
+      if (generation.current === token) contextFailure.current();
+    });
+  }, [state, product?.item_id, synchronizeProduct]);
   useEffect(() => {
     onActiveChange?.(state !== 'idle');
   }, [state, onActiveChange]);
@@ -298,6 +383,7 @@ export function VoicePanel({
   useEffect(
     () => () => {
       generation.current++;
+      callGeneration.current++;
       const current = resources.current;
       if (current.analyserTimer !== undefined) window.clearInterval(current.analyserTimer);
       current.voiceActivity?.stop();
@@ -315,17 +401,24 @@ export function VoicePanel({
     [],
   );
   function onEvent(event: LiveEvent) {
-    if (event.type === 'transcript' && !channelOpened.current) {
+    if (event.type === 'call' && event.state === 'ended' && event.call_id === resources.current.callId) {
+      releaseAudio();
+      if (event.reason) setError(t('callDropped'));
+    }
+    if (event.type === 'transcript' && (event.source === 'text' || !channelOpened.current)) {
       const id = sequence.current++;
       const now = Date.now();
       setEntries((previous) =>
         appendFinalTranscript(previous, event, id).map((entry) =>
-          entry.createdAt === undefined ? { ...entry, createdAt: now } : entry,
+          entry.createdAt === undefined ? { ...entry, id: event.source === 'voice' ? `call-fallback-${callGeneration.current}-${entry.id}` : entry.id, createdAt: now } : entry,
         ),
       );
     }
     if (event.type === 'tool') setChecking(event.status === 'started');
-    if (event.type === 'card') setCards((previous) => upsertTimed(previous, event.card));
+    if (event.type === 'card') {
+      setCards((previous) => upsertTimed(previous, event.card));
+      setContextProducts((previous) => collectConversationProducts(previous, event.card, event.source));
+    }
     if (event.type === 'action')
       setCards((previous) => upsertTimed(previous, { kind: 'action', action: event.action }));
     if (event.type === 'closed') cleanup(false);
@@ -376,27 +469,49 @@ export function VoicePanel({
     };
   }
   async function start(textOnly = false, resumeId?: string) {
+    if (resources.current.conversationId) {
+      if (!textOnly) await startCall();
+      return;
+    }
     if (!resumeId) setEarlier(null);
     followConversation.current = true;
     setError('');
     setState('connecting');
     setEntries([]);
-    channelOpened.current = false;
     setCards([]);
+    setContextProducts([]);
+    channelOpened.current = false;
     const token = ++generation.current;
+    const itemId = desiredItemId.current;
     try {
-      if (textOnly) {
-        const result = await adapter.startText({ shop_id: shopId, lang, resume_conversation_id: resumeId });
-        if (generation.current !== token) {
-          void adapter.stop(result.conversation_id).catch(() => undefined);
-          return;
-        }
-        resources.current.conversationId = result.conversation_id;
-        setLiveId(result.conversation_id);
-        connectEvents(result.conversation_id);
-        setState('active');
+      const result = await adapter.startText({ shop_id: shopId, lang, resume_conversation_id: resumeId, item_id: itemId ?? undefined });
+      if (generation.current !== token) {
+        void adapter.stop(result.conversation_id).catch(() => undefined);
         return;
       }
+      resources.current.conversationId = result.conversation_id;
+      resources.current.contextItemId = itemId;
+      setAppliedItemId(itemId);
+      setLiveId(result.conversation_id);
+      connectEvents(result.conversation_id);
+      setState('active');
+      if (!textOnly) await startCall();
+    } catch {
+      if (generation.current !== token) return;
+      setError(t('unavailable'));
+      cleanup(true);
+    }
+  }
+  async function startCall() {
+    const id = resources.current.conversationId;
+    if (!id || resources.current.pc || callState === 'ending') return;
+    const token = ++callGeneration.current;
+    let joinedCallId: string | undefined;
+    setCallState('connecting');
+    setError('');
+    try {
+      await synchronizeProduct();
+      if (callGeneration.current !== token) return;
       if (!window.isSecureContext) throw new Error('secureContext');
       if (!window.RTCPeerConnection || !navigator.mediaDevices?.getUserMedia) throw new Error('microphone');
       let stream: MediaStream | undefined;
@@ -407,7 +522,7 @@ export function VoicePanel({
       } catch {
         throw new Error('microphone');
       }
-      if (generation.current !== token) {
+      if (callGeneration.current !== token) {
         stream?.getTracks().forEach((track) => track.stop());
         return;
       }
@@ -416,11 +531,11 @@ export function VoicePanel({
       resources.current.pc = pc;
       pc.onconnectionstatechange = () => {
         if (
-          generation.current === token &&
+          callGeneration.current === token &&
           (pc.connectionState === 'failed' || pc.connectionState === 'disconnected')
         ) {
-          setError(t('unavailable'));
-          cleanup(true);
+          setError(t('callDropped'));
+          void endCall();
         }
       };
       if (stream) pc.addTrack(stream.getAudioTracks()[0], stream);
@@ -440,8 +555,11 @@ export function VoicePanel({
         micAnalyser = context.createAnalyser();
         micAnalyser.fftSize = 1024;
         context.createMediaStreamSource(stream).connect(micAnalyser);
-        await context.resume();
-        if (generation.current !== token) {
+        resources.current.micAnalyser = micAnalyser;
+        // Mobile browsers may suspend analysis until another gesture. The meter offers a resume
+        // button; a pending resume must not prevent the WebRTC call from connecting.
+        void context.resume().catch(() => undefined);
+        if (callGeneration.current !== token) {
           void context.close().catch(() => undefined);
           return;
         }
@@ -449,7 +567,7 @@ export function VoicePanel({
         // Silero tells speech from noise; until it has loaded (or if it cannot), loudness alone is used.
         void startVoiceActivity(stream, context)
           .then((activity) => {
-            if (generation.current === token) resources.current.voiceActivity = activity;
+            if (callGeneration.current === token) resources.current.voiceActivity = activity;
             else activity.stop();
           })
           .catch(() => undefined);
@@ -476,18 +594,20 @@ export function VoicePanel({
         }, 50);
       } catch {
         void context?.close().catch(() => undefined);
+        delete resources.current.micAnalyser;
         context = undefined;
       }
+      setMicrophone({ stream, analyser: resources.current.micAnalyser, audioContext: resources.current.audioContext });
       const channel = pc.createDataChannel('oai-events');
       channel.onopen = () => {
-        if (generation.current !== token) return;
+        if (callGeneration.current !== token) return;
         channelOpened.current = true;
-        setEntries([]);
+        setEntries((previous) => previous.filter((entry) => !entry.id.startsWith(`call-fallback-${token}-`)));
       };
       channel.onmessage = (event) => {
-        if (generation.current !== token || typeof event.data !== 'string') return;
+        if (callGeneration.current !== token || typeof event.data !== 'string') return;
         try {
-          const payload = JSON.parse(event.data) as ChannelEvent;
+          const payload = scopeCallEvent(JSON.parse(event.data) as ChannelEvent, String(token));
           const now = Date.now();
           const role = 'turn' in payload ? (payload.turn as { role?: string } | undefined)?.role : undefined;
           if (
@@ -538,25 +658,19 @@ export function VoicePanel({
           }
         });
       });
-      const result = await adapter.start({
-        shop_id: shopId,
-        sdp_offer: pc.localDescription?.sdp ?? '',
-        lang,
-        resume_conversation_id: resumeId,
-      });
-      if (generation.current !== token) {
-        void adapter.stop(result.conversation_id).catch(() => undefined);
+      if (callGeneration.current !== token) return;
+      const result = await adapter.startCall(id, pc.localDescription?.sdp ?? '');
+      if (callGeneration.current !== token) {
+        void adapter.stopCall(id, result.call_id).catch(() => undefined);
         return;
       }
-      resources.current.conversationId = result.conversation_id;
-      setLiveId(result.conversation_id);
+      joinedCallId = result.call_id;
+      resources.current.callId = result.call_id;
       await pc.setRemoteDescription({ type: 'answer', sdp: result.sdp_answer });
-      connectEvents(result.conversation_id);
-      setMuted(false);
-      setPushToTalk(false);
-      setState('active');
+      if (callGeneration.current !== token) return;
+      setCallState('active');
     } catch (e) {
-      if (generation.current !== token) return;
+      if (callGeneration.current !== token) return;
       const code = typeof e === 'object' && e && 'code' in e ? String(e.code).toLowerCase() : '';
       const microphone =
         (e instanceof DOMException &&
@@ -571,15 +685,18 @@ export function VoicePanel({
               ? t('busy')
               : t('unavailable'),
       );
-      cleanup(true);
+      releaseAudio();
+      if (joinedCallId) await adapter.stopCall(id, joinedCallId).catch(() => undefined);
     }
   }
   async function send(override?: string) {
     const text = (override ?? message).trim();
     const id = resources.current.conversationId;
-    if (!text || !id || busy) return;
+    if (!text || !id || busy || callState === 'connecting' || callState === 'ending') return;
     setBusy(true);
     try {
+      await synchronizeProduct();
+      if (resources.current.conversationId !== id) return;
       await adapter.text(id, text);
       if (override === undefined) setMessage('');
     } catch {
@@ -611,9 +728,15 @@ export function VoicePanel({
   }
   const shopName = profile?.shop_name ?? t('open');
   const greeting = (lang === 'en' ? profile?.greeting.en : profile?.greeting.vi) || t('greetingFallback');
-  const voiceActive = state === 'active' && !!resources.current.stream;
+  const voiceActive = callState === 'active';
+  function holdMicrophone(enabled: boolean) {
+    setMicrophoneEnabled(resources.current.stream, enabled);
+    setHoldingToTalk(enabled);
+  }
   const status =
-    state === 'connecting'
+    callState === 'connecting'
+      ? t('calling')
+      : state === 'connecting'
       ? t('connecting')
       : state !== 'active'
         ? t('subtitle')
@@ -622,7 +745,7 @@ export function VoicePanel({
           : speaking
             ? t('speaking')
             : voiceActive
-              ? muted || pushToTalk
+              ? (pushToTalk ? !holdingToTalk : muted)
                 ? t('muted')
                 : t('listening')
               : t('online');
@@ -641,21 +764,25 @@ export function VoicePanel({
     for (; c < cards.length; c++) timeline.push({ kind: 'card', card: cards[c]!.card, index: c });
   }
   const suggestions = [t('suggest1'), t('suggest2'), t('suggest3'), t('suggest4')];
+  const compactPageContext = state === 'active' && contextProducts.length > 0;
   const canChat = session.status === 'authenticated';
   const roundButton =
     'flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-line bg-white text-gray-700 transition hover:bg-gray-50 disabled:opacity-40';
-  return (
+  return visible && portalTarget ? createPortal(
     <div
       ref={dock}
       className={`assistant-dock fixed right-4 bottom-4 z-50 flex flex-col items-end sm:right-6 sm:bottom-6 ${open ? 'assistant-dock-open' : ''}`}
     >
       {open && (
         <section
-          className="assistant-panel mb-3 flex h-[min(78dvh,42rem,calc(100dvh-7rem))] w-[min(calc(100vw-2rem),25rem)] flex-col overflow-hidden rounded-3xl border border-line bg-white shadow-panel"
+          className="assistant-panel mb-3 flex min-h-0 h-[min(78dvh,42rem,calc(100dvh-7rem))] w-[min(calc(100vw-2rem),25rem)] flex-col overflow-hidden rounded-3xl border border-line bg-white shadow-panel"
           aria-label={t('open')}
         >
-          <header className="flex items-center gap-3 border-b border-line px-4 py-3">
-            <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-white">
+          <header className="assistant-header flex shrink-0 items-center gap-3 border-b border-line bg-white px-4 py-3">
+            <button type="button" className="assistant-back h-11 w-11 shrink-0 items-center justify-center text-primary" onClick={() => setOpen(false)} aria-label={t('close')}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-6 w-6" aria-hidden="true"><path d="m14 5-7 7 7 7" /></svg>
+            </button>
+            <span className="assistant-avatar relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-white">
               <MicGlyph className="h-5 w-5" />
               <span
                 className={`absolute -right-0.5 -bottom-0.5 h-3 w-3 rounded-full ring-2 ring-white ${state === 'active' ? 'bg-emerald-500' : state === 'connecting' ? 'bg-amber-400' : 'bg-gray-300'}`}
@@ -664,7 +791,7 @@ export function VoicePanel({
             <div className="min-w-0 flex-1">
               <strong className="block truncate text-sm font-semibold text-ink">{shopName}</strong>
               <span className="flex items-center gap-1.5 text-xs text-gray-500" aria-live="polite">
-                {state === 'active' && (checking || speaking || (voiceActive && !muted && !pushToTalk)) && (
+                {state === 'active' && (checking || speaking) && (
                   <span className="flex h-3 items-end gap-[2px]" aria-hidden="true">
                     {[0, 1, 2].map((bar) => (
                       <span
@@ -681,9 +808,12 @@ export function VoicePanel({
             {state === 'active' && (
               <button
                 onClick={() => cleanup(true)}
-                className="rounded-full px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50"
+                aria-label={t('stop')}
+                title={t('stop')}
+                className="assistant-end-chat rounded-full px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50"
               >
-                {t('stop')}
+                <span>{t('stop')}</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className="h-5 w-5" aria-hidden="true"><path d="M20 13V5a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v15l4-4h5m3 1 5 5m0-5-5 5" /></svg>
               </button>
             )}
             {session.status === 'authenticated' && (
@@ -701,7 +831,7 @@ export function VoicePanel({
             <button
               onClick={() => setOpen(false)}
               aria-label={t('close')}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+              className="assistant-desktop-close flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
             >
               <svg
                 viewBox="0 0 24 24"
@@ -715,6 +845,20 @@ export function VoicePanel({
               </svg>
             </button>
           </header>
+          {view === 'chat' && product && (
+            <div role="status" aria-live="polite" className={`flex shrink-0 items-center gap-3 border-b border-line bg-primary-soft px-4 ${compactPageContext ? 'py-2' : 'py-3'}`} data-testid="product-context-notice">
+              {product.image && !compactPageContext && (
+                // Product media shares the storefront's image handling.
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={product.image} alt="" className="h-10 w-10 shrink-0 rounded-lg border border-line bg-surface object-cover" />
+              )}
+              <div className={`min-w-0 ${compactPageContext ? 'flex flex-1 items-center gap-2' : ''}`}>
+                <p className="shrink-0 text-xs font-medium text-primary">{state === 'idle' ? t('contextReady') : appliedItemId === product.item_id ? t(compactPageContext ? 'contextViewing' : 'contextUsing') : t('contextUpdating')}</p>
+                <Link href={`/products/${product.item_id}`} className={`block truncate font-semibold text-ink hover:text-primary ${compactPageContext ? 'min-w-0 text-xs' : 'mt-0.5 text-sm'}`} title={product.name}>{product.name}</Link>
+              </div>
+            </div>
+          )}
+          {view === 'chat' && state === 'active' && <ConversationProducts products={contextProducts} />}
           {session.status === 'anonymous' ? (
             <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
               <span className="flex h-16 w-16 items-center justify-center rounded-full bg-primary-soft text-primary">
@@ -741,7 +885,7 @@ export function VoicePanel({
               <p className="text-sm text-gray-600">{t('notConnected')}</p>
             </div>
           ) : view === 'history' ? (
-            <div className="flex-1 overflow-y-auto bg-gray-50/60 px-4 py-4">
+            <div className="assistant-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain bg-gray-50/60 px-4 py-4">
               {viewing ? (
                 <div className="space-y-3">
                   <button
@@ -809,7 +953,8 @@ export function VoicePanel({
                   const area = event.currentTarget;
                   followConversation.current = area.scrollHeight - area.scrollTop - area.clientHeight < 48;
                 }}
-                className="flex-1 space-y-3 overflow-y-auto bg-gray-50/60 px-4 py-4"
+                className="assistant-scroll min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain bg-gray-50/60 px-4 py-4"
+                data-testid="chat-transcript"
                 aria-live="polite"
               >
                 <div className="flex gap-2">
@@ -931,7 +1076,7 @@ export function VoicePanel({
                   </p>
                 )}
               </div>
-              <div className="border-t border-line bg-white p-3">
+              <div className="assistant-composer shrink-0 border-t border-line bg-white p-3" data-testid="chat-composer">
                 {state === 'idle' && (entries.length > 0 || cards.length > 0) && (
                   <div className="flex gap-2">
                     <button
@@ -968,6 +1113,20 @@ export function VoicePanel({
                 )}
                 {state === 'active' && (
                   <div className="space-y-2">
+                    <div className="flex items-center gap-3">
+                      {microphone && (voiceActive || callState === 'connecting') ? (
+                        <MicrophoneMeter stream={microphone.stream} analyser={microphone.analyser} audioContext={microphone.audioContext} pushToTalk={pushToTalk} />
+                      ) : <p className="min-w-0 flex-1 text-xs text-muted">{t('sharedChat')}</p>}
+                      <button
+                        type="button"
+                        className={`flex h-11 shrink-0 items-center gap-2 rounded-full border border-line px-3 text-sm font-semibold transition disabled:opacity-50 ${callState === 'idle' ? 'text-primary hover:bg-primary-soft' : 'text-red-600 hover:bg-red-50'}`}
+                        disabled={callState === 'ending' || busy}
+                        onClick={() => void (callState === 'idle' ? startCall() : endCall())}
+                      >
+                        {callState === 'idle' ? <MicGlyph className="h-4 w-4" /> : <MicOffGlyph className="h-4 w-4" />}
+                        {callState === 'idle' ? t('call') : callState === 'connecting' ? t('cancelCall') : callState === 'ending' ? t('endingCall') : t('endCall')}
+                      </button>
+                    </div>
                     <form
                       className="flex items-center gap-2"
                       onSubmit={(e) => {
@@ -997,19 +1156,24 @@ export function VoicePanel({
                           aria-label={t('holdToTalk')}
                           onPointerDown={(event) => {
                             event.currentTarget.setPointerCapture(event.pointerId);
-                            setMicrophoneEnabled(resources.current.stream, true);
+                            holdMicrophone(true);
                           }}
-                          onPointerUp={() => setMicrophoneEnabled(resources.current.stream, false)}
-                          onPointerCancel={() => setMicrophoneEnabled(resources.current.stream, false)}
+                          onPointerUp={() => holdMicrophone(false)}
+                          onPointerCancel={() => holdMicrophone(false)}
+                          onLostPointerCapture={() => holdMicrophone(false)}
                           onKeyDown={(event) => {
-                            if (event.key === ' ' || event.key === 'Enter')
-                              setMicrophoneEnabled(resources.current.stream, true);
+                            if (event.key === ' ' || event.key === 'Enter') {
+                              event.preventDefault();
+                              holdMicrophone(true);
+                            }
                           }}
                           onKeyUp={(event) => {
-                            if (event.key === ' ' || event.key === 'Enter')
-                              setMicrophoneEnabled(resources.current.stream, false);
+                            if (event.key === ' ' || event.key === 'Enter') {
+                              event.preventDefault();
+                              holdMicrophone(false);
+                            }
                           }}
-                          onBlur={() => setMicrophoneEnabled(resources.current.stream, false)}
+                          onBlur={() => holdMicrophone(false)}
                         >
                           <MicGlyph className="h-5 w-5" />
                         </button>
@@ -1023,7 +1187,7 @@ export function VoicePanel({
                           aria-label={t('placeholder')}
                         />
                         <button
-                          disabled={busy || !message.trim()}
+                          disabled={busy || !message.trim() || callState === 'connecting' || callState === 'ending'}
                           aria-label={t('send')}
                           className="absolute top-1/2 right-1.5 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-primary text-white transition hover:bg-primary-hover disabled:bg-gray-300"
                         >
@@ -1051,6 +1215,7 @@ export function VoicePanel({
                           onChange={() => {
                             const next = !pushToTalk;
                             setMicrophoneEnabled(resources.current.stream, !next && !muted);
+                            setHoldingToTalk(false);
                             setPushToTalk(next);
                           }}
                         />
@@ -1094,6 +1259,6 @@ export function VoicePanel({
           </>
         )}
       </button>
-    </div>
-  );
+    </div>, portalTarget,
+  ) : null;
 }

@@ -18,6 +18,10 @@
     "demo:reset": "pnpm --filter @huspee/api exec prisma migrate reset --force",
     "smoke:ui": "node tests/ui/smoke.mjs",
     "smoke:mobile": "node tests/ui/mobile.mjs",
+    "smoke:product-context": "node tests/ui/product-context.mjs",
+    "smoke:chat-continuity": "node tests/ui/chat-continuity.mjs",
+    "smoke:microphone-meter": "node tests/ui/microphone-meter.mjs",
+    "smoke:chat-layout": "node tests/ui/chat-layout.mjs",
     "eval:assistant": "pnpm --filter @huspee/api run eval:assistant"
   },
   "engines": {

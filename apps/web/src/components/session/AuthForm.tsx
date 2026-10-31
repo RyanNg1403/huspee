@@ -1,13 +1,17 @@
 'use client';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useState, type FormEvent } from 'react';
+import { useState, useSyncExternalStore, type FormEvent } from 'react';
 import { Button, Card, Input, Select } from '@/components/ui';
 import { useSession } from '@/components/session';
 import { useT } from '@/i18n/client';
 import { common } from '@/i18n/common';
 import { errorMessageKey, getApiClient } from '@/lib/api';
+const subscribeToHydration = () => () => {};
+const clientReady = () => true;
+const serverReady = () => false;
 export function AuthForm({ signup = false }: { signup?: boolean }) {
+  const ready = useSyncExternalStore(subscribeToHydration, clientReady, serverReady);
   const t = useT(common);
   const router = useRouter();
   const params = useSearchParams();
@@ -49,7 +53,7 @@ export function AuthForm({ signup = false }: { signup?: boolean }) {
   return (
     <Card className="mx-auto mt-8 max-w-md">
       <h1 className="mb-5 text-2xl font-bold">{t(signup ? 'signup' : 'login')}</h1>
-      <form onSubmit={submit} className="space-y-4">
+      <form method="post" onSubmit={submit} className="space-y-4">
         {signup && (
           <>
             <label className="block">
@@ -88,7 +92,7 @@ export function AuthForm({ signup = false }: { signup?: boolean }) {
             {error}
           </p>
         )}
-        <Button type="submit" loading={loading} className="w-full">
+        <Button type="submit" disabled={!ready} loading={loading} className="w-full">
           {t(signup ? 'signup' : 'login')}
         </Button>
       </form>
