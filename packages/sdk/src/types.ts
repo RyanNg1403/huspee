@@ -443,6 +443,7 @@ export interface BuyerAssistantConversation { conversation_id: string; channel: 
 export interface BuyerAssistantConversationDetail extends BuyerAssistantConversation { shop_id: number; messages: Array<{ role: 'user' | 'assistant'; text: string; created_at: number }>; cards: Array<{ card: Record<string, unknown>; created_at: number }> }
 /** The platform's Codex login that the voice runtime uses (shared by every shop). */
 export interface AssistantConnection { installed: boolean; connected: boolean; source: 'app' | 'host' | null; plan: string | null; login: { verification_url: string; user_code: string; expires_at: number } | null; error: 'login_failed' | 'login_expired' | null }
+export interface AssistantSetupConnection extends AssistantConnection { busy: boolean }
 export interface AssistantConfig { shop_id: number; enabled: boolean; tone: 'FRIENDLY' | 'PROFESSIONAL' | 'ENTHUSIASTIC'; voice: string; greeting_vi: string; greeting_en: string; updated_at: number }
 export type AssistantConfigInput = Partial<Pick<AssistantConfig, 'enabled' | 'tone' | 'voice' | 'greeting_vi' | 'greeting_en'>>;
 export interface AssistantFaq { id: number; shop_id: number; question: string; answer: string; lang: 'vi' | 'en' | 'any'; enabled: boolean; created_at: number; updated_at: number }

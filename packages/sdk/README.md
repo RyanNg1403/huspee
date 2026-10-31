@@ -53,6 +53,13 @@ return the Shopee envelope as-is (check `error`).
 
 For Node scripts/tests, pass `cookieJar: true` to keep the session cookie in memory.
 
+Public Codex setup uses `api.assistant.connection.get()`, `.login()` and `.cancel()` without
+`api.auth.login()`. These project-owned routes use a separate browser setup cookie for pending
+device-code ownership. Account disconnection remains under the seller-only
+`api.seller.assistant.connection.disconnect()` maintenance method; seller status never returns a
+pending device code. The former seller `.login()` and `.cancel()` methods and routes are removed.
+The only app sign-in page is `/setup/codex`. No upstream SDK contracts change.
+
 ### Server (signed Shopee-compatible calls)
 
 ```ts

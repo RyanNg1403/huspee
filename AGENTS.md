@@ -291,6 +291,10 @@ Phase 2 adds a per-shop, real-time voice assistant for buyers and seller-side co
   speaking and corrected aloud. No browser or host-side text-to-speech. Expect several
   seconds before a tool-backed answer is spoken: the UI shows tool status and cards as soon as a
   tool returns. Details in `docs/VOICE.md`.
+- **Codex account setup.** `/setup/codex` is the only app sign-in page for the shared Codex
+  account and requires no Huspee login. Seller Centre contains per-shop controls, not account
+  sign-in. Public setup owns device-code start/cancellation; seller maintenance APIs may read
+  connection status without a device code or disconnect an app-owned login.
 - **Tool layer.** Typed tools (e.g. `search_products`, `compare_products`, `get_product_details`,
   `get_vouchers`, `get_shipping_info`, `get_return_policy`, `get_order_status`, `add_to_cart`,
   `update_cart_item`, `place_order`, `open_return`, `handoff_to_seller`) implemented in the backend
@@ -336,8 +340,9 @@ Phase 2 adds a per-shop, real-time voice assistant for buyers and seller-side co
 - Never read, print, copy or commit `auth.json` or any Codex credential; never edit the user's
   `~/.codex`.
 - Keep Phase 1 contracts unchanged (Shopee-compatible routes, SDK upstream methods, 114+ tests).
-  New assistant routes are project-defined, session-authenticated, and listed in the endpoint
-  inventory with provenance `custom`.
+  New assistant routes are project-defined and listed in the endpoint inventory with provenance
+  `custom`. Buyer/seller data and actions require sessions; Codex setup is explicitly public,
+  with browser-owned pending codes and the platform's CSRF/CORS protections.
 - Distinguish verified facts (tool results) from model wording in logs and UI.
 
 ### Not in Phase 2

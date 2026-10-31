@@ -38,7 +38,7 @@ services:
       ASSISTANT_VOICE_ENABLED: ${ASSISTANT_VOICE_ENABLED:-true}
       ASSISTANT_CODEX_HOME: /codex-home
     volumes:
-      # The voice assistant's ChatGPT login, connected in Seller Centre -> Assistant. It survives
+      # The voice assistant's ChatGPT login, connected at /setup/codex. It survives
       # restarts and rebuilds; `docker compose down -v` removes it.
       - codex-home:/codex-home
     healthcheck:

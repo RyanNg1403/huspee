@@ -251,12 +251,15 @@ All of the following are covered by `tests/e2e/flows.test.ts` (plus the upstream
 
 ## Phase 2 assistant (project-defined custom routes)
 
-These `/api/v1` routes use platform sessions and the browser-safe `@huspee/sdk` methods named below; they are not Shopee endpoints. Voice routes are supplied by the voice module. Automated coverage is in `tests/extensions/assistant.test.ts`, `messages.test.ts`, `voice.test.ts`, and `codex-connection.test.ts`.
+These `/api/v1` routes use platform sessions unless marked public, and the browser-safe `@huspee/sdk` methods named below; they are not Shopee endpoints. Voice routes are supplied by the voice module. Automated coverage is in `tests/extensions/assistant.test.ts`, `messages.test.ts`, `voice.test.ts`, `codex-connection.test.ts`, and `codex-setup.test.ts`.
 
 | Method | Path | Auth | SDK | Status / coverage |
 |---|---|---|---|---|
 | GET | `/assistant/shops/:shopId/profile` | public | `assistant.profile` | implemented; `connected` tells the widget whether voice is connected; assistant and codex-connection tests |
 | GET | `/assistant/voices` | public | `assistant.voices` | voice module; voice tests |
+| GET | `/assistant/connection` | public; pending code requires browser setup cookie | `assistant.connection.get` | custom; public `/setup/codex` page; codex-setup tests |
+| POST | `/assistant/connection/login` | public + CSRF header; issues browser setup cookie | `assistant.connection.login` | custom; starts shared Codex device login without marketplace sign-in; codex-setup tests |
+| POST | `/assistant/connection/login/cancel` | public + CSRF header + owning setup cookie | `assistant.connection.cancel` | custom; cancels only that browser's pending login, never disconnects an account; codex-setup tests |
 | POST | `/assistant/text/sessions` | buyer session | `assistant.text.start` | custom text thread; optional `resume_conversation_id` (own conversation); voice tests |
 | GET | `/assistant/shops/:shopId/conversations` | buyer session | `assistant.conversations.list` | buyer's own past sessions with the shop; assistant tests |
 | GET | `/assistant/conversations/:conversationId` | buyer session | `assistant.conversations.get` | own transcript plus cards from stored tool results; assistant tests |
@@ -270,8 +273,7 @@ These `/api/v1` routes use platform sessions and the browser-safe `@huspee/sdk` 
 | POST | `/assistant/actions/:actionId/cancel` | buyer session | `assistant.actions.cancel` | implemented; assistant tests |
 | GET | `/buyer/messages`, `/buyer/messages/unread-count`, `/buyer/messages/:ticketId` | buyer session | `buyer.messages.list`, `.unreadCount`, `.get` | implemented; messages tests |
 | POST | `/buyer/messages/:ticketId/replies` | buyer session | `buyer.messages.reply` | implemented; messages tests |
-| GET, DELETE | `/seller/assistant/connection` | any seller session | `seller.assistant.connection.get`, `.disconnect` | custom; the platform's Codex login (plan, source); disconnect signs out only a login made in the app; codex-connection tests |
-| POST | `/seller/assistant/connection/login`, `/seller/assistant/connection/login/cancel` | any seller session | `seller.assistant.connection.login`, `.cancel` | custom; Codex device-code sign-in (URL + one-time code); codex-connection tests |
+| GET, DELETE | `/seller/assistant/connection` | any seller session | `seller.assistant.connection.get`, `.disconnect` | custom; maintenance only, status never returns a pending device code; disconnect signs out only a login made in the app; codex-connection tests |
 | GET, PUT | `/seller/shops/:shopId/assistant/config` | seller membership | `seller.assistant.getConfig`, `.updateConfig` | implemented; assistant tests |
 | GET, POST | `/seller/shops/:shopId/assistant/faqs` | seller membership | `seller.assistant.faqs.list`, `.create` | implemented; assistant tests |
 | PUT, DELETE | `/seller/shops/:shopId/assistant/faqs/:faqId` | seller membership | `seller.assistant.faqs.update`, `.remove` | implemented; assistant tests |

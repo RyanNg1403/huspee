@@ -10,7 +10,7 @@ Huspee is unaffiliated with Shopee.
 flowchart LR
     WEB[Next.js web app<br/>buyer storefront + seller dashboard] -->|session cookie| API
     API[NestJS API<br/>buyer routes, Shopee-compatible seller API,<br/>assistant tools] --> DB[(PostgreSQL)]
-    API -.->|voice| CODEX[codex app-server<br/>ChatGPT login connected in Seller Centre]
+    API -.->|voice| CODEX[codex app-server<br/>ChatGPT login connected at /setup/codex]
 ```
 
 - `apps/web`: Next.js buyer storefront and seller dashboard.
@@ -37,14 +37,19 @@ To turn on voice (once per machine, needs ChatGPT Plus or Pro):
 
 4. At https://chatgpt.com/settings/security, turn on
    **Enable device code sign-in for Codex, Excel, PowerPoint, and Word**.
-5. Sign in as a seller (`huy.techzone@example.com`) and open **Seller Centre > Assistant**.
+5. Open http://localhost:3001/setup/codex. No Huspee account or seller sign-in is needed.
 6. Click **Connect ChatGPT account**, open the link and enter the code.
 7. Sign in as a buyer (`an.nguyen@example.com`), open any shop and click **Ask the assistant**.
 
-Steps 4 to 6 happen once: the sign-in survives restarts and rebuilds; only `docker compose down -v`
-removes it. The first build takes a few minutes. Every start reloads fresh mock data. Compose uses
+Steps 4 to 6 happen once: the sign-in is shared by all shops and survives restarts and rebuilds.
+`docker compose down -v` deletes the saved sign-in. The first build takes a few minutes. Every start reloads fresh mock data. Compose uses
 ports 3000 (API), 3001 (web) and 5432; stop anything else on them first (a local Postgres often
 holds 5432).
+
+`/setup/codex` is the only Codex sign-in page. **Seller Centre > Assistant** contains per-shop
+settings, FAQs, logs and insights, with no account sign-in controls. The setup page only exposes a
+pending sign-in code to the browser that started it; other browsers see a waiting status. Account
+disconnection remains a seller-authenticated maintenance API operation, not a public setup action.
 
 ## Mock data
 
@@ -94,13 +99,13 @@ orders and open returns after the buyer confirms. It runs on a ChatGPT account t
 **Requires a paid ChatGPT plan:** Plus or above (Plus, Pro). Codex voice (`/voice`) is not
 available on the Free plan, so the assistant cannot start a voice session with a Free account.
 
-It is connected once from Seller Centre (steps 4 to 6 above) and then works on every shop. Until
+It is connected once from `/setup/codex` (steps 4 to 6 above) and then works on every shop. Until
 then, the assistant panel tells buyers it is not connected yet and the rest of the app works.
 
 - **Docker:** the API image includes `codex-cli 0.166.0`; you do not need Codex on your machine.
 - **Local:** install `codex-cli 0.166.0` (`npm install -g @openai/codex@0.166.0`) and start the API.
-  If you have already run `codex login` on this machine, the API uses that login; otherwise connect
-  it from Seller Centre as above.
+  Connect from http://localhost:3001/setup/codex, the same as Docker. Existing host-linked logins
+  are still recognized for local development.
 
 To turn the assistant off, set `ASSISTANT_VOICE_ENABLED=false` (in `apps/api/.env`, or in the shell
 for Docker). Details: [`docs/VOICE.md`](docs/VOICE.md).

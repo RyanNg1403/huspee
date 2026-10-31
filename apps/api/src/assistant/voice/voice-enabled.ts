@@ -27,7 +27,7 @@ export function codexInstalled(): boolean {
 
 /**
  * The assistant is on by default; ASSISTANT_VOICE_ENABLED=false turns it off. It also stays off
- * without the Codex CLI or a Codex login (connected in Seller Centre, or `codex login` on this
+ * without the Codex CLI or a Codex login (connected at /setup/codex, or `codex login` on this
  * machine), so the app never offers a session it cannot start.
  */
 export function voiceEnabled(): boolean {

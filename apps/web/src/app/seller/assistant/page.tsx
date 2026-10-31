@@ -9,7 +9,6 @@ import { errorMessageKey, getApiClient } from '@/lib/api';
 import { useApi } from '@/lib/use-api';
 import { AssistantNav } from './_components/AssistantNav';
 import { AssistantShopGuard } from './_components/AssistantShopGuard';
-import { ConnectionCard } from './_components/ConnectionCard';
 import { assistantMessages } from './messages';
 
 export default function AssistantSettingsPage() {
@@ -24,9 +23,6 @@ export default function AssistantSettingsPage() {
 
       {/* Sub Nav */}
       <AssistantNav />
-
-      {/* Shared by every shop, so it does not need a selected shop */}
-      <ConnectionCard />
 
       <AssistantShopGuard>
         {(shop) => <AssistantSettingsContent shopId={shop.shop_id} shopName={shop.shop_name} />}

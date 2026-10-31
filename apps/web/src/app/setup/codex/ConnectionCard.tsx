@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import type { AssistantConnection } from '@huspee/sdk';
+import type { AssistantSetupConnection } from '@huspee/sdk';
 import { Badge, Button, Card, Spinner, useToast } from '@/components/ui';
 import { defineMessages, useT } from '@/i18n';
 import { getApiClient } from '@/lib/api';
@@ -14,6 +14,7 @@ const messages = defineMessages({
     connected: 'Đã kết nối',
     notConnected: 'Chưa kết nối',
     waiting: 'Đang chờ đăng nhập',
+    otherBrowser: 'Một trình duyệt khác đang kết nối Codex. Trạng thái sẽ tự cập nhật khi hoàn tất.',
     intro:
       'Trợ lý giọng nói chạy bằng tài khoản ChatGPT (gói Plus trở lên) qua Codex. Chỉ cần kết nối một lần; thông tin đăng nhập được lưu trên máy chủ của ứng dụng.',
     connect: 'Kết nối tài khoản ChatGPT',
@@ -29,11 +30,10 @@ const messages = defineMessages({
     cancel: 'Hủy',
     plan: 'Gói ChatGPT: {plan}',
     planUnknown: 'không rõ',
-    fromApp: 'Đăng nhập từ Seller Centre.',
+    fromApp: 'Đăng nhập từ ứng dụng.',
     fromHost: 'Dùng đăng nhập `codex login` trên máy chạy API.',
     needsPaid:
-      'Gói này không có giọng nói của Codex. Hãy ngắt kết nối và đăng nhập bằng tài khoản Plus hoặc Pro.',
-    disconnect: 'Ngắt kết nối',
+      'Gói này không có giọng nói của Codex. Liên hệ người vận hành để đổi sang tài khoản Plus hoặc Pro.',
     ready: 'Người mua có thể dùng trợ lý giọng nói ngay.',
     notInstalled: 'Máy chủ API chưa cài Codex CLI 0.166.0 nên chưa thể bật trợ lý giọng nói.',
     loginFailed: 'Đăng nhập không hoàn tất. Hãy thử lại.',
@@ -48,6 +48,7 @@ const messages = defineMessages({
     connected: 'Connected',
     notConnected: 'Not connected',
     waiting: 'Waiting for sign-in',
+    otherBrowser: 'Another browser is connecting Codex. This page will update when it finishes.',
     intro:
       'The voice assistant runs on a ChatGPT account (Plus plan or above) through Codex. Connect once; the login is saved on the app’s server.',
     connect: 'Connect ChatGPT account',
@@ -63,10 +64,9 @@ const messages = defineMessages({
     cancel: 'Cancel',
     plan: 'ChatGPT plan: {plan}',
     planUnknown: 'unknown',
-    fromApp: 'Signed in from Seller Centre.',
+    fromApp: 'Signed in from the app.',
     fromHost: 'Using `codex login` on the machine that runs the API.',
-    needsPaid: 'This plan has no Codex voice. Disconnect and sign in with a Plus or Pro account.',
-    disconnect: 'Disconnect',
+    needsPaid: 'This plan has no Codex voice. Ask the operator to switch to a Plus or Pro account.',
     ready: 'Buyers can use the voice assistant now.',
     notInstalled: 'The API server does not have Codex CLI 0.166.0, so the voice assistant cannot run.',
     loginFailed: 'Sign-in did not finish. Try again.',
@@ -96,28 +96,30 @@ const PLAN_NAMES: Record<string, string> = {
 export function ConnectionCard() {
   const t = useT(messages);
   const toast = useToast();
-  const status = useApi(() => getApiClient().seller.assistant.connection.get(), []);
-  const [override, setOverride] = useState<AssistantConnection | null>(null);
+  const connection = getApiClient().assistant.connection;
+  const status = useApi(() => connection.get(), []);
+  const [override, setOverride] = useState<AssistantSetupConnection | null>(null);
   const [working, setWorking] = useState(false);
   const data = override ?? status.data;
-  const waiting = !!data?.login;
+  const otherBrowser = data?.busy === true;
+  const waiting = !!data?.login || otherBrowser;
 
   // Poll while a sign-in is waiting; the server learns the result from Codex.
   useEffect(() => {
     if (!waiting) return;
     const timer = setInterval(() => {
-      getApiClient()
-        .seller.assistant.connection.get()
+      connection
+        .get()
         .then(setOverride)
         .catch(() => undefined);
     }, 3000);
     return () => clearInterval(timer);
-  }, [waiting]);
+  }, [waiting, connection]);
 
-  async function run(action: 'login' | 'cancel' | 'disconnect') {
+  async function run(action: 'login' | 'cancel') {
     setWorking(true);
     try {
-      setOverride(await getApiClient().seller.assistant.connection[action]());
+      setOverride(await connection[action]());
     } catch {
       toast(t('failed'));
     } finally {
@@ -167,12 +169,9 @@ export function ConnectionCard() {
           ) : (
             <p className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{t('ready')}</p>
           )}
-          {data.source === 'app' && (
-            <Button variant="outline" size="sm" loading={working} onClick={() => void run('disconnect')}>
-              {t('disconnect')}
-            </Button>
-          )}
         </div>
+      ) : otherBrowser ? (
+        <p className="rounded-xl bg-gray-50 p-3 text-sm text-gray-600">{t('otherBrowser')}</p>
       ) : data.login ? (
         <div className="space-y-4">
           <ol className="space-y-4 text-sm text-gray-700">

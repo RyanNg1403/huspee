@@ -3,8 +3,9 @@
 The shared contract for the Phase 2 assistant (AGENTS.md section 13). Backend, SDK and web work
 build against this file. Change it only together with the code, and say so in the change.
 
-All routes below are project-defined (`custom` provenance), live under `/api/v1`, use the Phase 1
-web session cookie and the standard custom envelope/error format. Every route checks role and
+All routes below are project-defined (`custom` provenance), live under `/api/v1`, and use the
+standard custom envelope/error format. Except for public profiles, voices and Codex setup, routes use the Phase 1
+web session cookie. Protected routes check role and
 ownership server-side: buyer routes act only for the signed-in buyer; seller routes require
 membership of `:shopId`.
 
@@ -107,6 +108,15 @@ eventsUrl}, conversations.{list, get}, actions.{options, edit, confirm, cancel}}
 `client.seller.assistant.{getConfig, updateConfig, faqs.{list, create, update, remove},
 conversations.{list, get}}`, `client.seller.inbox.{list, get, reply, close}`.
 
+Public Codex setup at web `/setup/codex` uses `client.assistant.connection.{get, login, cancel}`:
+`GET /assistant/connection`, `POST /assistant/connection/login`, and `POST /assistant/connection/login/cancel`.
+No marketplace session is required. A browser-owned setup cookie protects the pending code and
+cancellation; `busy: true` indicates that another browser is signing in. Public callers cannot
+disconnect or replace an already connected account. This is the only app sign-in location; Seller
+Centre has no connection card. Seller sign-in/cancellation routes and SDK methods are removed.
+Seller-only connection status and disconnect maintenance routes remain protected, and never
+return a pending device code.
+
 ## 4. Live events and cards
 
 SSE `data:` lines are JSON:
@@ -149,8 +159,8 @@ tap again (see `docs/VOICE.md`).
 ## 5. Voice bridge (backend, `apps/api/src/assistant/voice/`)
 
 Per AGENTS.md section 13 and `docs/VOICE.md`: one long-lived `codex
-app-server` child process (private `CODEX_HOME` holding the ChatGPT login connected in Seller
-Centre, or a link to the operator's `~/.codex/auth.json`; never read or logged); per conversation an ephemeral thread started with the
+app-server` child process (private `CODEX_HOME` holding the ChatGPT login connected at
+`/setup/codex`, or an existing link to the operator's `~/.codex/auth.json`; never read or logged); per conversation an ephemeral thread started with the
 registry's `dynamicTools` and the prompt, then `thread/realtime/start` (v3, WebRTC, configured
 voice, `clientManagedHandoffs: true`, so the backend decides what is spoken); `item/tool/call` requests are answered by
 `AssistantToolRegistry.run`; transcripts go to `ConversationMessage` and SSE. On by default when

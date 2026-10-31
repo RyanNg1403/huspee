@@ -11,7 +11,7 @@
 import { HttpTransport, HuspeeClientOptions } from './http.js';
 import type {
   Address, AssistantInsights,
-  AssistantProfile, AssistantConnection, AssistantConfig, AssistantConfigInput, AssistantFaq, AssistantFaqInput, AssistantConversation, AssistantConversationDetail, BuyerAssistantConversation, BuyerAssistantConversationDetail, PendingActionView, HandoffTicket, HandoffTicketDetail, HandoffMessage,
+  AssistantProfile, AssistantConnection, AssistantSetupConnection, AssistantConfig, AssistantConfigInput, AssistantFaq, AssistantFaqInput, AssistantConversation, AssistantConversationDetail, BuyerAssistantConversation, BuyerAssistantConversationDetail, PendingActionView, HandoffTicket, HandoffTicketDetail, HandoffMessage,
   AddressInput,
   BuyerOrder,
   BuyerOrderListQuery,
@@ -106,6 +106,11 @@ export class HuspeeClient {
   };
 
   readonly assistant = {
+    connection: {
+      get: () => this.http.request<AssistantSetupConnection>('GET', '/api/v1/assistant/connection'),
+      login: () => this.http.request<AssistantSetupConnection>('POST', '/api/v1/assistant/connection/login'),
+      cancel: () => this.http.request<AssistantSetupConnection>('POST', '/api/v1/assistant/connection/login/cancel'),
+    },
     profile: (shopId: number) => this.http.request<AssistantProfile>('GET', `/api/v1/assistant/shops/${shopId}/profile`),
     voices: () => this.http.request<{ voices: string[] }>('GET', '/api/v1/assistant/voices'),
     text: {
@@ -177,8 +182,6 @@ export class HuspeeClient {
     assistant: {
       connection: {
         get: () => this.http.request<AssistantConnection>('GET', '/api/v1/seller/assistant/connection'),
-        login: () => this.http.request<AssistantConnection>('POST', '/api/v1/seller/assistant/connection/login'),
-        cancel: () => this.http.request<AssistantConnection>('POST', '/api/v1/seller/assistant/connection/login/cancel'),
         disconnect: () => this.http.request<AssistantConnection>('DELETE', '/api/v1/seller/assistant/connection'),
       },
       insights: (shopId: number, range: { from?: number; to?: number } = {}) => this.http.request<AssistantInsights>('GET', `/api/v1/seller/shops/${shopId}/assistant/insights`, { query: range }),

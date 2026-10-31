@@ -3,7 +3,6 @@ import { lstat, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
-import { HuspeeApiError } from '@huspee/sdk';
 import { CodexAccountService } from '../../apps/api/src/assistant/voice/codex-account.service.js';
 import { voiceEnabled } from '../../apps/api/src/assistant/voice/voice-enabled.js';
 import type { VoiceService } from '../../apps/api/src/assistant/voice/voice.service.js';
@@ -48,7 +47,7 @@ describe('Codex connection from the web app (fake Codex)', () => {
       const pending = await account.start();
       expect(pending).toMatchObject({ connected: false, login: { verification_url: 'https://auth.example.test/codex/device', user_code: 'FAKE-1234' } });
       expect(pending.login!.expires_at).toBeGreaterThan(Date.now() / 1000 + 14 * 60);
-      // A second seller gets the same code instead of starting another login.
+      // Repeated calls share the pending flow instead of starting another login.
       expect((await account.start()).login).toEqual(pending.login);
 
       await until(async () => (await account.status()).connected);
@@ -103,12 +102,20 @@ describe('Codex connection from the web app (fake Codex)', () => {
 });
 
 describe('connection routes', () => {
-  it('are for sellers only', async () => {
+  it('keeps connection status and disconnection seller-only', async () => {
     const seller = await loginAs(SEED.sellers.techzone.email);
     expect(await seller.seller.assistant.connection.get()).toMatchObject({ installed: true, connected: expect.any(Boolean), login: null });
     const buyer = await loginAs(SEED.buyers.an.email);
     await expect(buyer.seller.assistant.connection.get()).rejects.toMatchObject({ status: 403 });
-    await expect(sessionClient().seller.assistant.connection.login()).rejects.toBeInstanceOf(HuspeeApiError);
+    await expect(sessionClient().seller.assistant.connection.disconnect()).rejects.toMatchObject({ status: 401 });
+  });
+  it('removes seller sign-in and pending-login cancellation routes', async () => {
+    const seller = await loginAs(SEED.sellers.techzone.email);
+    for (const client of [seller, sessionClient()]) {
+      for (const suffix of ['login', 'login/cancel']) {
+        await expect(client.http.request('POST', `/api/v1/seller/assistant/connection/${suffix}`)).rejects.toMatchObject({ status: 404 });
+      }
+    }
   });
   it('tell the buyer widget whether the assistant is connected', async () => {
     const profile = await sessionClient().assistant.profile(SEED.sellers.techzone.shopId);
