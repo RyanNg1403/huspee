@@ -116,25 +116,17 @@ export class InsightsService {
       const before = call.conversation.messages.filter(
         (m) => m.createdAt <= call.createdAt,
       );
-      // A variant lookup can land a turn after the question; prefer the recent message naming the value.
-      const missValue = (result?.missing as { value?: string } | undefined)
-        ?.value;
-      const question =
-        (missValue &&
-          before
-            .slice(-5)
-            .reverse()
-            .find((m) => plain(m.text ?? "").includes(plain(missValue)))
-            ?.text) ||
-        (before.at(-1)?.text ?? "");
+      const question = before.at(-1)?.text ?? "";
       const row = {
         conversation_id: call.conversationId,
         question,
         tool: call.tool,
         created_at: sec(call.createdAt),
       };
+      const emptySearch = call.tool === 'search_products' && body && typeof body === 'object' && 'items' in body && Array.isArray(body.items) && body.items.length === 0;
+      const validationMiss = Boolean(result?.validation_miss);
       if (
-        !call.success ||
+        !call.success || emptySearch || validationMiss ||
         body == null ||
         body === "" ||
         (Array.isArray(body) && body.length === 0)
@@ -160,12 +152,12 @@ export class InsightsService {
         walk(body, inspect);
         walk(card, inspect);
         for (const id of ids) products.set(id, (products.get(id) ?? 0) + 1);
-        if (structuredMiss || zero || (call.success && Array.isArray(body) && body.length === 0))
+        if (!validationMiss && (structuredMiss || zero))
           missing.push(row);
       }
       if (
-        ["add_to_cart", "update_cart_item"].includes(call.tool) &&
-        (structuredMiss || (!call.success && body === "Product variation not found"))
+        ["add_to_cart", "add_cart_items", "update_cart_item"].includes(call.tool) &&
+        !validationMiss && (structuredMiss || (!call.success && body === "Product variation not found"))
       )
         missing.push(row);
       if (["get_vouchers", "place_order"].includes(call.tool)) {
@@ -227,14 +219,4 @@ export class InsightsService {
         })),
     };
   }
-}
-
-function plain(value: string): string {
-  return value
-    .toLocaleLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/đ/g, "d")
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
 }

@@ -52,23 +52,13 @@ The installed codex-cli 0.166.0 experimental generated TypeScript protocol has n
 
 ## Voice output
 
-The buyer hears Codex's own realtime voice, with the voice the seller picked in the studio; the
-browser never synthesizes speech itself. Facts are checked after they are spoken: when a sentence
-states a number, voucher code or colour that no tool result or seller FAQ supports, the server
-makes the voice say a correction and logs it as `corrected`.
+The buyer hears Codex's own realtime voice with the seller-selected voice; the browser never synthesizes speech. Commerce reasoning is delegated to the tool-equipped thread. Prompts require fresh tool evidence, correct entity/variant/quantity context, clarification of ambiguous requests, and accurate pending versus executed action wording.
 
-The realtime voice model does not reliably follow its instructions or hand off on its own, so the
-server does not depend on it. The shop identity is also sent as a developer `initialItems` entry.
-When the voice answers by itself with anything but a short neutral reply (a fact, more than 80
-characters, or talking as a general AI or as having no shop), the server starts the thread turn
-with the buyer's words and the previous few utterances, and the tool-backed answer is spoken next.
+Prepared-action readbacks are sent to appendSpeech immediately after their tool returns, without waiting for turn/completed. They are tracked per action and are not repeated when the thread finishes. Late results from superseded requests or resolved order cards do not produce another confirmation request. This is delivery to the runtime, not a playback-completion guarantee. Multi-item requests use add_cart_items: one complete cart snapshot/readback and one spoken confirmation for the batch, followed by the usual checkout card and final tap. Confirmation revalidates the full batch atomically; no partial cart write survives a failure.
 
-Thread answers are checked before the voice says them: they are spoken only when every number,
-voucher code and colour in them appears in a tool result or seller FAQ from the conversation;
-otherwise a fixed "no verified data, ask the seller?" sentence is spoken and the attempt is logged as
-`blocked_unverified`. Action read-backs (cart, order, return) are the server's own text, not the
-model's wording. If the voice says "let me check" and does not hand off within 2.5 s, the server
-sends the request on.
+There is no lexical speech validator: numbers, color words, codes, negations, persona phrases and reply length do not decide whether speech is true, blocked, corrected or delegated. Thread replies are delivered without such rewriting. App-authored action readbacks and tap outcomes remain derived from actual action data. This is instruction-based grounding, not a guarantee that the realtime model cannot say an incorrect sentence.
+
+Handoff recovery uses request sequences and thread lifecycle events, not wording. Typed input in a call is sent directly to the tool thread. Spoken requests without a handoff receive a 2.5 s grace period. Requests arriving during a silent app-note turn or a dropped reply remain pending and are scheduled when that turn finishes. A failed or empty delegated turn produces an explicit retry message instead of being treated as a successful answer. Superseded requests are settled separately from newer requests. The app does not look for acknowledgement keywords. Response language starts from the session setting and can be changed explicitly by the agent with set_response_language; it is not guessed from accents or word counts.
 
 Each realtime turn uses the operator's Codex subscription. When its usage window is exhausted,
 Codex may draw on account credits; check usage before long test sessions.
@@ -77,17 +67,17 @@ Codex may draw on account credits; check usage before long test sessions.
 
 The call footer displays a microphone amplitude history from the existing input `AnalyserNode`, sampled every 100 ms. The display maps RMS logarithmically from -60 dBFS to 0 dBFS, clamped to 0–100; it is not a calibrated sound-pressure meter. Input at or above RMS 0.004 shows “Sound detected,” held for 1.5 seconds to avoid flicker. This reports local sound, not speech recognition or receipt by the assistant. Remote playback does not drive it. Quiet input, a disabled track, push-to-talk waiting, an interrupted/ended track, unavailable analysis, and a suspended AudioContext have separate states. A suspended context offers an explicit resume button and does not block call signaling. Muting and hanging up clear the visual level; unmounting stops sampling without opening or stopping another microphone.
 
-On phones (up to 767 px wide, or a short landscape viewport with coarse input), the dock is a viewport-sized screen portaled directly to `document.body`. Opening it fixes the underlying body at its saved scroll position and prevents scroll chaining. The header and composer do not shrink; the transcript owns the remaining scroll area. The product-context list starts collapsed in a short keyboard viewport. Closing restores the previous scroll position, or the top of a newly navigated product. Desktop retains the floating dock.
+On phones (up to 767 px wide, or a short landscape viewport with coarse input), the dock is a viewport-sized screen portaled directly to `document.body`. Opening it fixes the underlying body at its saved scroll position and prevents scroll chaining. The header and composer do not shrink; the transcript owns the remaining scroll area. The mentioned-products list starts collapsed at every viewport size. Closing restores the previous scroll position, or the top of a newly navigated product. Desktop retains the floating dock.
 
 `pnpm smoke:microphone-meter` checks synthetic input levels, quiet/mute/push-to-talk, remote-audio isolation, suspended/unavailable analysis and cleanup. `pnpm smoke:chat-layout` checks a scrolled page, transformed layout ancestors, wheel/touch scrolling, keyboard dimensions, portrait/landscape and scroll restoration. Both use mocked assistant sessions through `WEB_URL`; no real Codex session or physical microphone is used.
 
 ## Speech recognition safeguards
 
-Product search and voucher resolution use shop-scoped verified data; ambiguous results return candidates
-instead of selecting one. Spoken Vietnamese and English quantities are parsed conservatively, and cards
-show the heard form and server-resolved value when these differ. These lexical confidence values are
-matching scores, not speech-recognition probabilities. The buyer can type into an active voice or text
-session using the same conversation route.
+Product search uses literal words across product names, brands and persisted English/Vietnamese category names; empty queries list the shop catalog with stable ID ordering, default limit 50, offset, total and has_more. Product details expose exact tier names, options and each model's attributes. The agent interprets natural language using these choices and asks for clarification when uncertain. Tools require integer quantities, exact catalog attribute strings and exact voucher codes. There is no edit-distance correction, spoken-number parser, hardcoded synonym table, nearest-product fallback or lexical confidence score. Stored historical JSON may contain old resolution metadata, which is no longer emitted or rendered. Exact-match validation misses are not logged as missing-product demand.
+
+get_vouchers lists public unexpired codes even when already used by this buyer, exhausted, or not yet started. It returns terms and explicit buyer redemption status/reasons. Instructions require the agent to distinguish an existing voucher from one this buyer can redeem. No response-text heuristic enforces that distinction.
+
+check_voucher evaluates a proposed exact basket or the current shop cart through the checkout voucher rules. It reports covered items, live variant prices, minimum-spend shortfall, discount and once-per-buyer use. Known redemption restrictions are returned even with an empty cart. It shares checkout line-availability rules and counts only available lines; non-minimum failures have no spend shortfall. It is read-only and does not guarantee stock reservation or final checkout. confirm_action names an exact pending action; cancel_action lets the agent withdraw or revise one. Consent interpretation stays with the agent instructions; there is no keyword or timing test pretending to prove what the buyer meant.
 
 Push to talk is off by default. When enabled, the microphone track is muted between holds of the talk
 button; releasing or cancelling a press mutes it. Voice activity detection still determines boundaries

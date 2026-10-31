@@ -58,14 +58,6 @@ export function AssistantCard({
           : 'border-line'
       }`}
     >
-      {card.kind === 'products' &&
-        card.resolution &&
-        card.resolution.resolved_from !== card.resolution.resolved_to && (
-          <p className="text-xs text-gray-500">
-            {t('heard')}: <span className="line-through">{card.resolution.resolved_from}</span> →{' '}
-            <span className="font-medium text-gray-700">{card.resolution.resolved_to}</span>
-          </p>
-        )}
       {card.kind === 'products' && card.items.length === 0 && (
         <p className="text-gray-500">{t('noProducts')}</p>
       )}

@@ -6,7 +6,7 @@ import { resolve } from 'node:path';
 import { appendFinalTranscript, applyChannelEvent, type ChannelEvent, type TranscriptEntry } from '../../apps/web/src/components/assistant/transcript.js';
 import { readFileSync } from 'node:fs';
 import { VoiceRuntime } from '../../apps/api/src/assistant/voice/voice-runtime.js';
-import { speechText } from '../../apps/api/src/assistant/voice/speech-check.js';
+import { speechText } from '../../apps/api/src/assistant/voice/speech.js';
 
 
 it('replays captured channel turns without duplicates and marks the overlapping interruption once', () => {
@@ -36,7 +36,7 @@ it('starts a text-only fake thread with tools and streams its answer', async () 
   const completion: unknown[] = [];
   runtime.onTurnCompleted = (conversationId, status) => completion.push({ conversationId, status, saved: [...saved] });
   const ctx = { conversationId: 'text-session', buyerId: 1, shopId: 2 };
-  const config = { shopName: 'Shop', tone: 'FRIENDLY', greetingVi: 'Xin chào', greetingEn: 'Hello', voice: 'spruce' };
+  const config = { language: 'en' as const, shopName: 'Shop', tone: 'FRIENDLY', greetingVi: 'Xin chào', greetingEn: 'Hello', voice: 'spruce' };
   try {
     await runtime.startText(ctx, config);
     const events: Record<string, unknown>[] = [];
@@ -89,7 +89,7 @@ describe('voice runtime with fake app-server', () => {
       },
     );
     const ctx = { conversationId: 'conversation-1', buyerId: 1, shopId: 2 };
-    const config = { shopName: 'Shop', tone: 'FRIENDLY', greetingVi: 'Xin chào', greetingEn: 'Hello', voice: 'spruce' };
+    const config = { language: 'en' as const, shopName: 'Shop', tone: 'FRIENDLY', greetingVi: 'Xin chào', greetingEn: 'Hello', voice: 'spruce' };
     try {
       expect(await runtime.start(ctx, config, 'offer')).toBe('fake-answer');
       await expect(runtime.start({ ...ctx, conversationId: 'conversation-2' }, config, 'offer')).rejects.toThrow(
@@ -134,7 +134,7 @@ describe('voice runtime with fake app-server', () => {
   it('ends only the call on a realtime error and keeps text available', async () => {
     const runtime = new VoiceRuntime({ specs: () => [], run: async () => ({ success: true, text: 'ok' }) }, async () => undefined, async () => undefined);
     const ctx = { conversationId: 'error-session', buyerId: 1, shopId: 2 };
-    const config = { shopName: 'Shop', tone: 'FRIENDLY', greetingVi: 'Xin chào', greetingEn: 'Hello', voice: 'spruce' };
+    const config = { language: 'en' as const, shopName: 'Shop', tone: 'FRIENDLY', greetingVi: 'Xin chào', greetingEn: 'Hello', voice: 'spruce' };
     try {
       await runtime.start(ctx, config, 'offer');
       const events: Record<string, unknown>[] = [];
@@ -158,7 +158,7 @@ describe('voice runtime with fake app-server', () => {
       },
     );
     const ctx = { conversationId: 'restart-1', buyerId: 1, shopId: 2 };
-    const config = { shopName: 'Shop', tone: 'FRIENDLY', greetingVi: 'Xin chào', greetingEn: 'Hello', voice: 'spruce' };
+    const config = { language: 'en' as const, shopName: 'Shop', tone: 'FRIENDLY', greetingVi: 'Xin chào', greetingEn: 'Hello', voice: 'spruce' };
     try {
       await runtime.start(ctx, config, 'offer');
       const events: Record<string, unknown>[] = [];

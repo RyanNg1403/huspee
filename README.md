@@ -61,6 +61,21 @@ disconnection remains a seller-authenticated maintenance API operation, not a pu
 
 ## Open on a phone
 
+For **one public URL**, keep the tunnel on buyer port 3001 and serve Seller Centre at
+`https://your-public-host/seller`:
+
+- Build `apps/seller-web` with `SELLER_BASE_PATH=/seller` in its environment.
+- Set buyer `SELLER_INTERNAL_URL=http://127.0.0.1:3002` (or the actual seller port).
+- Set buyer and API `SELLER_APP_URL=https://your-public-host/seller`.
+- Set both frontends and API `WEB_APP_URL=https://your-public-host`.
+- Keep `API_INTERNAL_URL` pointed at the API, `API_PUBLIC_URL` matching its
+  `PUBLIC_BASE_URL`, and API `BROWSER_PROXY_ENABLED=true`.
+
+The buyer app reverse-proxies `/seller` and its assets to Seller Centre; API/media stay
+at the origin root. The two session cookies remain independent. No second tunnel or
+Nginx is required. Changing `SELLER_BASE_PATH` requires rebuilding Seller Centre.
+Leave `SELLER_INTERNAL_URL` and `SELLER_BASE_PATH` unset to use separate public origins:
+
 Forward **port 3001** and open its **HTTPS** URL on the phone. The buyer server proxies
 API, media, session cookies and assistant events through that origin. Set its
 `API_INTERNAL_URL` to the API's listening address. Seller Centre is a separate desktop

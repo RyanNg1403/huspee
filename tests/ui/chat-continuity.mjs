@@ -92,6 +92,7 @@ try {
   const original = 'Does La Roche have a discount?';
   await say(original);
   const productContext = page.getByTestId('conversation-products');
+  await productContext.getByRole('button').click();
   await productContext.getByRole('link', { name: `Text ${laRoche.name}`, exact: true }).waitFor();
   await panel.getByRole('button', { name: 'Call assistant', exact: true }).click();
   await panel.getByRole('button', { name: 'End call', exact: true }).waitFor();

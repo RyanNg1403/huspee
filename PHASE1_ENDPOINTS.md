@@ -251,7 +251,7 @@ All of the following are covered by `tests/e2e/flows.test.ts` (plus the upstream
 
 ## Phase 2 assistant (project-defined custom routes)
 
-These `/api/v1` routes use platform sessions unless marked public, and the browser-safe `@huspee/sdk` methods named below; they are not Shopee endpoints. Voice routes are supplied by the voice module. Automated coverage is in `tests/extensions/assistant.test.ts`, `messages.test.ts`, `voice.test.ts`, `codex-connection.test.ts`, and `codex-setup.test.ts`.
+These `/api/v1` routes use platform sessions unless marked public, and the browser-safe `@huspee/sdk` methods named below; they are not Shopee endpoints. Voice routes are supplied by the voice module. Dynamic tool contracts include read-only `check_voucher`, explicit `set_response_language`, and conversation-scoped `cancel_action`; `confirm_action` requires an exact action ID, and quantities use integer arguments. These are internal agent tools, not new HTTP routes; tool coverage is in `tests/extensions/agent-tools.test.ts`. Automated coverage is in `tests/extensions/assistant.test.ts`, `messages.test.ts`, `voice.test.ts`, `codex-connection.test.ts`, and `codex-setup.test.ts`.
 
 | Method | Path | Auth | SDK | Status / coverage |
 |---|---|---|---|---|
@@ -271,8 +271,8 @@ These `/api/v1` routes use platform sessions unless marked public, and the brows
 | PATCH | `/assistant/voice/sessions/:conversationId/context` | buyer session | `assistant.voice.setContext` | custom; update/clear viewed product for own active session; verifies shop and visibility; voice tests |
 | POST | `/assistant/voice/sessions/:conversationId/text` | buyer session | `assistant.voice.text` | voice module; voice tests |
 | POST | `/assistant/voice/sessions/:conversationId/stop` | buyer session | `assistant.voice.stop` | ends the entire conversation; voice tests |
-| GET | `/assistant/actions/:actionId/options` | buyer session | `assistant.actions.options` | custom; pending cart, order or return edit options; assistant tests |
-| PATCH | `/assistant/actions/:actionId` | buyer session | `assistant.actions.edit` | custom; replaces pending cart, order or return action; assistant tests |
+| GET | `/assistant/actions/:actionId/options` | buyer session | `assistant.actions.options` | custom; pending single/batch cart, order or return edit options; assistant and batch-cart tests |
+| PATCH | `/assistant/actions/:actionId` | buyer session | `assistant.actions.edit` | custom; replaces pending single/batch cart, order or return action; assistant and batch-cart tests |
 | POST | `/assistant/actions/:actionId/confirm` | buyer session | `assistant.actions.confirm` | implemented; assistant tests |
 | POST | `/assistant/actions/:actionId/cancel` | buyer session | `assistant.actions.cancel` | implemented; assistant tests |
 | GET | `/buyer/messages`, `/buyer/messages/unread-count`, `/buyer/messages/:ticketId` | buyer session | `buyer.messages.list`, `.unreadCount`, `.get` | implemented; messages tests |

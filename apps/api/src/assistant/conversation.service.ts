@@ -14,13 +14,6 @@ export class ConversationService {
     await this.prisma.conversationMessage.create({ data: { conversationId, role, text } });
   }
 
-  /** Seller-visible record of speech the backend blocked or corrected (never shown to buyers). */
-  async logSpeechCheck(conversationId: string, log: { kind: string; text: string; unsupported: string[]; spoken: string }): Promise<void> {
-    await this.prisma.conversationToolCall.create({
-      data: { conversationId, tool: 'speech_check', args: { kind: log.kind }, result: { text: JSON.stringify(log) }, success: true, latencyMs: 0 },
-    });
-  }
-
   async end(conversationId: string): Promise<void> {
     const result = await this.prisma.conversation.updateMany({ where: { id: conversationId, status: 'ACTIVE' }, data: { status: 'ENDED', endedAt: new Date() } });
     if (result.count) this.summaries.schedule(conversationId);
