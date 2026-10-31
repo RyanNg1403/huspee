@@ -14,7 +14,8 @@ function traceValue(value: unknown, key = ''): unknown {
   return value;
 }
 type Context = { conversationId: string; buyerId: number; shopId: number; viewedItemId?: number | null };
-type ToolOutput = { text: string; success: boolean; response_language?: SpeechLanguage; card?: { kind: string; action?: unknown } };
+type AppReadback = { vi: string; en: string; tap: boolean; actionId?: string };
+type ToolOutput = { text: string; success: boolean; response_language?: SpeechLanguage; card?: { kind: string; action?: unknown }; readback?: AppReadback };
 type ToolRegistry = {
   specs(): Array<{ name: string; description: string; inputSchema: object }>;
   run(name: string, args: unknown, ctx: Context): Promise<ToolOutput>;
@@ -330,13 +331,14 @@ export class VoiceRuntime {
     id: string,
     action: {
       action_id?: string;
+      type?: string;
       status: string;
       requires_tap: boolean;
       summary: { title: string };
       result?: { order_sn?: string; return_sn?: string; message?: string };
     },
-    replacement?: string,
-    initiatedBy: 'agent' | 'buyer' = 'buyer',
+    replacement?: string | { text: string; readback: AppReadback },
+    initiatedBy: 'agent' | 'buyer' | 'edit' = 'buyer',
   ): void {
     const session = this.sessions.get(id);
     if (!session) return;
@@ -347,22 +349,26 @@ export class VoiceRuntime {
       return;
     }
     if (replacement && action.status === 'PENDING') void this.replaceAction(session, action.requires_tap, replacement).catch(() => undefined);
-    const resolved = action.requires_tap && (action.status === 'EXECUTED' || action.status === 'CANCELLED');
+    const resolved = (action.requires_tap || initiatedBy === 'edit') && (action.status === 'EXECUTED' || action.status === 'CANCELLED');
     if (resolved && session.mode === 'voice') {
       // A read-back or reply still in flight was written before the tap and would ask for it again.
       session.readbacks.clear();
       if (session.turnActive) session.dropReply = true;
     }
-    if (session.mode === 'voice' && action.requires_tap) {
+    if (session.mode === 'voice' && action.requires_tap && initiatedBy !== 'edit') {
       const lang = this.language(session);
       const line =
         action.status === 'CANCELLED'
           ? speechText.cancelled[lang]
           : action.status === 'EXECUTED' && action.result?.order_sn
             ? speechText.orderPlaced[lang]
-            : action.status === 'EXECUTED' && action.result?.return_sn
-              ? speechText.returnOpened[lang]
-              : undefined;
+            : action.status === 'EXECUTED' && action.type === 'CANCEL_RETURN'
+              ? speechText.returnCancelled[lang]
+              : action.status === 'EXECUTED' && action.type === 'ACCEPT_RETURN_OFFER'
+                ? speechText.returnOfferAccepted[lang]
+                : action.status === 'EXECUTED' && action.result?.return_sn
+                  ? speechText.returnOpened[lang]
+                  : undefined;
       if (line) void this.speak(session, line);
     }
     if (resolved)
@@ -372,24 +378,20 @@ export class VoiceRuntime {
       ).catch(() => undefined);
   }
   /** The buyer edited a confirmation card on screen: read the new summary back and point the thread at the new action. */
-  private async replaceAction(session: Session, tap: boolean, text: string): Promise<void> {
+  private async replaceAction(session: Session, tap: boolean, replacement: string | { text: string; readback: AppReadback }): Promise<void> {
+    const text = typeof replacement === 'string' ? replacement : replacement.text;
     const note = `[App] The buyer edited the confirmation card on screen. The previous action is cancelled; use only this action from now on.\n${text}`;
     if (session.mode === 'text') {
       await this.transport.request('turn/start', { threadId: session.threadId, input: [{ type: 'text', text: note, text_elements: [] }] });
       return;
     }
-    const vi = /^readback_vi: (.*)$/m.exec(text)?.[1], en = /^readback_en: (.*)$/m.exec(text)?.[1];
+    const vi = typeof replacement === 'string' ? /^readback_vi: (.*)$/m.exec(text)?.[1] : replacement.readback.vi;
+    const en = typeof replacement === 'string' ? /^readback_en: (.*)$/m.exec(text)?.[1] : replacement.readback.en;
     const lang = this.language(session);
     if (vi && en) await this.speak(session, `${lang === 'en' ? en : vi} ${tap ? speechText.confirmTap[lang] : speechText.confirm[lang]}`);
-    session.silentTurns++;
-    await this.transport
-      .request('turn/start', {
-        threadId: session.threadId,
-        input: [{ type: 'text', text: `${note}\nThe read-back was already spoken to the buyer. Reply only: OK`, text_elements: [] }],
-      })
-      .catch(() => {
-        session.silentTurns--;
-      });
+    const silentNote = `${note}\nThe read-back was already spoken to the buyer. Reply only: OK`;
+    if (session.turnActive || session.silentTurns > 0) session.pendingNotes.push(silentNote);
+    else await this.informThread(session, silentNote);
   }
   async notifyAction(id: string, text: string): Promise<void> {
     const session = this.sessions.get(id);
@@ -403,7 +405,7 @@ export class VoiceRuntime {
       });
       // The thread answers the buyer's next questions, so it must know too; this turn's reply is not spoken.
       const note = `[App] ${text}\nThe buyer already heard the outcome. Do not ask them to confirm or tap again. Reply only: OK`;
-      if (session.turnActive) session.pendingNotes.push(note);
+      if (session.turnActive || session.silentTurns > 0) session.pendingNotes.push(note);
       else await this.informThread(session, note);
     }
   }
@@ -656,7 +658,7 @@ export class VoiceRuntime {
       try {
         const output = await this.tools.run(name, params.arguments, { ...session.context });
         if (output.response_language) session.config.language = output.response_language;
-        const vi = /^readback_vi: (.*)$/m.exec(output.text)?.[1], en = /^readback_en: (.*)$/m.exec(output.text)?.[1];
+        const vi = output.readback?.vi ?? /^readback_vi: (.*)$/m.exec(output.text)?.[1], en = output.readback?.en ?? /^readback_en: (.*)$/m.exec(output.text)?.[1];
         const action = output.card?.action as { requires_tap?: boolean; action_id?: string } | undefined;
         const readback = output.success && vi && en && source === 'voice' && !session.closed && !session.dropReply && !session.silentTurns && sequence === session.requestSequence
           ? { vi, en, tap: Boolean(action?.requires_tap), sent: false } : undefined;

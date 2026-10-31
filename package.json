@@ -18,6 +18,7 @@
     "build:web": "pnpm --filter @huspee/sdk build && pnpm --filter @huspee/web build && pnpm --filter @huspee/seller-web build",
     "demo:reset": "pnpm --filter @huspee/api exec prisma migrate reset --force",
     "smoke:ui": "node tests/ui/smoke.mjs",
+    "smoke:refund-evidence": "node tests/ui/refund-evidence.mjs",
     "smoke:mobile": "node tests/ui/mobile.mjs",
     "smoke:product-context": "node tests/ui/product-context.mjs",
     "smoke:catalog": "node tests/ui/catalog.mjs",

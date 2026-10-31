@@ -311,6 +311,7 @@ export interface BuyerOrder {
 }
 
 export interface BuyerOrderListQuery {
+  shop_id?: number;
   status?: OrderStatus | OrderStatus[] | string | string[];
   page?: number;
   page_size?: number;
@@ -353,6 +354,7 @@ export interface CreateReturnInput {
   solution?: 'RETURN_REFUND' | 'REFUND_ONLY';
   items?: Array<{ item_id: number; model_id: number; quantity: number }>;
   image_urls?: string[];
+  evidence_ids?: string[];
 }
 
 export interface BuyerOrderCounts {
@@ -360,8 +362,12 @@ export interface BuyerOrderCounts {
   by_status: Partial<Record<string, number>>;
   returns: number;
 }
+/** Opaque private evidence metadata. Original filenames and content URLs are never returned. */
+export interface ReturnEvidence { evidence_id: string; size: number; create_time: number; return_sn: string | null }
+export interface ReturnEvidenceSelection { order_sn: string | null; evidence_ids: string[]; evidence: ReturnEvidence[] }
 
 export interface BuyerReturn {
+  evidence: ReturnEvidence[];
   return_sn: string;
   order_sn: string;
   shop_id: number;
@@ -460,7 +466,7 @@ export interface AssistantConfig { shop_id: number; enabled: boolean; tone: 'FRI
 export type AssistantConfigInput = Partial<Pick<AssistantConfig, 'enabled' | 'tone' | 'voice' | 'greeting_vi' | 'greeting_en'>>;
 export interface AssistantFaq { id: number; shop_id: number; question: string; answer: string; lang: 'vi' | 'en' | 'any'; enabled: boolean; created_at: number; updated_at: number }
 export type AssistantFaqInput = Pick<AssistantFaq, 'question' | 'answer' | 'lang' | 'enabled'>;
-export interface PendingActionView { action_id: string; type: 'ADD_TO_CART' | 'UPDATE_CART_ITEM' | 'PLACE_ORDER' | 'OPEN_RETURN'; status: 'PENDING' | 'EXECUTED' | 'CANCELLED' | 'EXPIRED' | 'FAILED'; requires_tap: boolean; expires_at: number; summary: { title: string; lines: Array<{label: string; value: string}>; total?: number }; result?: { order_sn?: string; return_sn?: string; message?: string } }
+export interface PendingActionView { action_id: string; type: 'ADD_TO_CART' | 'UPDATE_CART_ITEM' | 'PLACE_ORDER' | 'OPEN_RETURN' | 'CANCEL_RETURN' | 'ACCEPT_RETURN_OFFER'; status: 'PENDING' | 'EXECUTED' | 'CANCELLED' | 'EXPIRED' | 'FAILED'; requires_tap: boolean; expires_at: number; summary: { title: string; lines: Array<{label: string; value: string}>; total?: number; evidence?: { order_sn: string; evidence_ids: string[] } }; result?: { order_sn?: string; return_sn?: string; message?: string } }
 export type AssistantCard =
   | { kind: 'products'; items: Array<{ item_id: number; name: string; image: string | null; price_min: number; price_max: number; stock: number; rating: number | null }> }
   | { kind: 'product'; item_id: number; name: string; image: string | null; models: Array<{ model_id: number; name: string; price: number; stock: number }> }

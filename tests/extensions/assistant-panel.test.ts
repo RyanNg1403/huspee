@@ -124,6 +124,10 @@ describe('assistant panel layout', () => {
 
 describe('assistant action summaries', () => {
   const money = (amount: number) => `${amount}đ`;
+  it.each(['vi', 'en'] as const)('preserves buyer refund notes verbatim in %s', (lang) => {
+    const note = 'Nứt nút bấm / seller review\n349000 VND';
+    expect(summaryRows([{ label: 'Ghi chú / Notes', value: note, verbatim: true }], lang, money)[0]!.value).toBe(note);
+  });
   it('shows the buyer’s language and formats amounts without recalculating them', () => {
     expect(pickLanguage('Thêm vào giỏ hàng / Add to cart', 'en')).toBe('Add to cart');
     expect(pickLanguage('Thêm vào giỏ hàng / Add to cart', 'vi')).toBe('Thêm vào giỏ hàng');

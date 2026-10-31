@@ -1,3 +1,4 @@
+import { returnRequestBlock } from './return-eligibility';
 import { Injectable } from '@nestjs/common';
 import { LogisticsStatus, Order, OrderStatus, Prisma } from '@prisma/client';
 import { createHash, randomBytes } from 'node:crypto';
@@ -29,7 +30,7 @@ const TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   SHIPPED: ['TO_CONFIRM_RECEIVE', 'CANCELLED'],
   TO_CONFIRM_RECEIVE: ['COMPLETED', 'TO_RETURN'],
   COMPLETED: ['TO_RETURN'],
-  TO_RETURN: ['COMPLETED'],
+  TO_RETURN: ['COMPLETED', 'TO_CONFIRM_RECEIVE'],
   IN_CANCEL: ['CANCELLED', 'READY_TO_SHIP'],
   CANCELLED: [],
 };
@@ -124,12 +125,14 @@ export function assistantQuoteSnapshot(quote: Quote, address: { id: number; name
 }
 
 export const orderInclude = {
+  returns: { select: { status: true, items: true } },
   items: { orderBy: { id: 'asc' } },
   package: { include: { events: { orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] } } },
   shop: { select: { id: true, name: true } },
   buyer: { select: { id: true, name: true } },
 } satisfies Prisma.OrderInclude;
-export type OrderWithRelations = Prisma.OrderGetPayload<{ include: typeof orderInclude }>;
+type LoadedOrder = Prisma.OrderGetPayload<{ include: typeof orderInclude }>;
+export type OrderWithRelations = Omit<LoadedOrder, 'returns'> & { returns?: LoadedOrder['returns'] };
 
 @Injectable()
 export class OrderService {
@@ -597,7 +600,7 @@ export class OrderService {
   /** Project-defined buyer view (custom API). */
   /** `viaAssistant`: the assistant conversation whose confirmed quote placed this order, if any. */
   presentForBuyer(order: OrderWithRelations, returnWindowDays = 7, viaAssistant: { conversationId: string; at: Date } | null = null) {
-    const deliveredAt = order.package?.deliveredAt ?? null;
+    const deliveredAt = order.package?.deliveredAt ?? order.completedAt;
     const returnDue = deliveredAt ? addDays(deliveredAt, returnWindowDays) : null;
     const latest = order.package?.events.at(-1);
     return {
@@ -649,7 +652,7 @@ export class OrderService {
         can_cancel: canTransition(order.status, 'CANCELLED') && ['UNPAID', 'READY_TO_SHIP'].includes(order.status),
         can_confirm_receipt: order.status === 'TO_CONFIRM_RECEIVE',
         can_request_return:
-          (order.status === 'TO_CONFIRM_RECEIVE' || order.status === 'COMPLETED') && !!returnDue && returnDue > new Date(),
+          !returnRequestBlock({ status: order.status, deliveredAt: order.package?.deliveredAt ?? null, completedAt: order.completedAt, windowDays: returnWindowDays, items: order.items, returns: order.returns ?? [] }),
         return_request_due_date: returnDue ? unix(returnDue) : null,
       },
     };

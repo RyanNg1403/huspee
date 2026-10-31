@@ -1,6 +1,10 @@
 'use client';
 
 import Image from 'next/image';
+import { useCallback } from 'react';
+import { EvidenceImage } from '@huspee/web-ui/components/refunds/EvidenceImage';
+import { messages as evidenceMessages } from '@huspee/web-ui/components/refunds/messages';
+import { getApiClient } from '@huspee/web-ui/lib/api';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { EmptyState } from '@huspee/web-ui/components/ui';
@@ -60,7 +64,7 @@ function ReturnView({ shopId, returnSn }: { shopId: number; returnSn: string }) 
             </div>
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18.75rem]">
               <div className="min-w-0 space-y-4">
-                <RequestPanel ret={ret} />
+                <RequestPanel ret={ret} shopId={shopId} />
                 <ItemsPanel ret={ret} />
                 <OrderPanel data={data.data} />
               </div>
@@ -83,7 +87,7 @@ function ReturnView({ shopId, returnSn }: { shopId: number; returnSn: string }) 
   );
 }
 
-function RequestPanel({ ret }: { ret: ReturnDetail }) {
+function RequestPanel({ ret, shopId }: { ret: ReturnDetail; shopId: number }) {
   const t = useT(returnMessages);
   const { lang } = useLang();
   const reason = useReturnReason();
@@ -125,6 +129,7 @@ function RequestPanel({ ret }: { ret: ReturnDetail }) {
             : []),
         ]}
       />
+      <PrivateEvidence shopId={shopId} returnSn={ret.return_sn} />
     </Panel>
   );
 }
@@ -262,5 +267,42 @@ function HistoryPanel({ data }: { data: Loaded }) {
         ))}
       </ol>
     </Panel>
+  );
+}
+
+function PrivateEvidence({ shopId, returnSn }: { shopId: number; returnSn: string }) {
+  const t = useT(evidenceMessages);
+  const photos = useApi(
+    () => getApiClient().seller.returnEvidence.list(shopId, returnSn),
+    [shopId, returnSn],
+  );
+  const fetchContent = useCallback(
+    (id: string) => getApiClient().seller.returnEvidence.content(shopId, returnSn, id),
+    [shopId, returnSn],
+  );
+  if (!photos.loading && !photos.error && !photos.data?.length) return null;
+  return (
+    <section aria-label={t('title')} className="mt-3 space-y-2 border-t border-line-soft pt-3">
+      <p className="text-xs text-muted">{t('review')}</p>
+      {photos.loading && <p role="status">{t('loading')}</p>}
+      {photos.error != null && (
+        <p role="alert">
+          {t('error')}{' '}
+          <button type="button" onClick={photos.reload} className="text-primary underline">
+            {t('retry')}
+          </button>
+        </p>
+      )}
+      <div className="flex flex-wrap gap-3">
+        {photos.data?.map((photo, index) => (
+          <EvidenceImage
+            key={photo.evidence_id}
+            evidenceId={photo.evidence_id}
+            number={index + 1}
+            fetchContent={fetchContent}
+          />
+        ))}
+      </div>
+    </section>
   );
 }

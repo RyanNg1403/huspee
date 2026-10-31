@@ -20,6 +20,7 @@ enum UserRole {
 }
 
 model User {
+  returnEvidence ReturnEvidence[]
   id           Int        @id @default(autoincrement())
   email        String     @unique
   passwordHash String     @map("password_hash")
@@ -641,6 +642,8 @@ enum LogisticsStatus {
 }
 
 model Order {
+  returnEvidence ReturnEvidence[]
+  evidenceSelections ReturnEvidenceSelection[]
   orderSn             String      @id @map("order_sn")
   checkoutId          String      @map("checkout_id")
   shopId              Int         @map("shop_id")
@@ -766,6 +769,9 @@ enum ReturnStatus {
 
 /// Shopee return_solution: 0 = return & refund, 1 = refund only.
 model ReturnRequest {
+  version Int @default(0)
+  evidence ReturnEvidence[]
+  orderStatusBeforeReturn OrderStatus? @map("order_status_before_return")
   returnSn          String       @id @map("return_sn")
   orderSn           String       @map("order_sn")
   shopId            Int          @map("shop_id")
@@ -868,6 +874,8 @@ enum PendingActionType {
   UPDATE_CART_ITEM
   PLACE_ORDER
   OPEN_RETURN
+  CANCEL_RETURN
+  ACCEPT_RETURN_OFFER
 }
 
 enum PendingActionStatus {
@@ -919,6 +927,7 @@ model AssistantFaq {
 }
 
 model Conversation {
+  returnEvidenceSelection ReturnEvidenceSelection?
   id        String                 @id @default(uuid()) @db.Uuid
   shopId    Int                    @map("shop_id")
   buyerId   Int                    @map("buyer_id")
@@ -938,6 +947,34 @@ model Conversation {
   @@index([shopId, startedAt])
   @@index([buyerId])
   @@map("conversations")
+}
+
+/// Private, immutable buyer evidence; never catalog media or model-visible image content.
+model ReturnEvidence {
+  id String @id @default(uuid()) @db.Uuid
+  buyerId Int @map("buyer_id")
+  orderSn String @map("order_sn")
+  returnSn String? @map("return_sn")
+  data Bytes
+  sha256 String
+  byteSize Int @map("byte_size")
+  createdAt DateTime @default(now()) @map("created_at")
+  buyer User @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  order Order @relation(fields: [orderSn], references: [orderSn], onDelete: Cascade)
+  request ReturnRequest? @relation(fields: [returnSn], references: [returnSn], onDelete: Cascade)
+  @@index([buyerId, orderSn])
+  @@index([returnSn])
+  @@map("return_evidence")
+}
+
+model ReturnEvidenceSelection {
+  conversationId String @id @map("conversation_id") @db.Uuid
+  orderSn String @map("order_sn")
+  evidenceIds String[] @map("evidence_ids")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  order Order @relation(fields: [orderSn], references: [orderSn], onDelete: Cascade)
+  @@map("return_evidence_selections")
 }
 
 model ConversationMessage {

@@ -9,7 +9,7 @@ import { paging, parseInput, q, splitList } from '../common/validation';
 import { CurrentUser, RequireRole, SessionGuard } from '../auth/session.guard';
 import { modelImage, modelName, resolveModelPrice } from '../domain/catalog.service';
 import { orderInclude, OrderService, PAYMENT_METHODS } from '../domain/order.service';
-import { RETURN_REASONS, returnInclude, ReturnService } from '../domain/return.service';
+import { RETURN_REASONS, ReturnService, returnInclude } from '../domain/return.service';
 import { pageInfo } from './marketplace.controller';
 
 const MAX_LINE_QUANTITY = 999;
@@ -227,12 +227,14 @@ export class BuyerController {
     const input = parseInput(
       z.object({
         status: z.preprocess(splitList, z.array(z.nativeEnum(OrderStatus)).min(1)).optional(),
+        shop_id: q.int().positive().optional(),
         ...paging,
       }),
       query,
     );
     const where: Prisma.OrderWhereInput = {
       buyerId: user.id,
+      ...(input.shop_id ? { shopId: input.shop_id } : {}),
       ...(input.status?.length
         ? input.status.length === 1
           ? { status: input.status[0] }
@@ -359,6 +361,7 @@ export class BuyerController {
         solution: z.enum(['RETURN_REFUND', 'REFUND_ONLY']).default('RETURN_REFUND'),
         items: z.array(z.object({ item_id: z.number().int(), model_id: z.number().int(), quantity: z.number().int().min(1) })).min(1).optional(),
         image_urls: z.array(z.string().url()).max(8).optional(),
+        evidence_ids: z.array(z.string().uuid()).max(8).optional(),
       }),
       body,
     );

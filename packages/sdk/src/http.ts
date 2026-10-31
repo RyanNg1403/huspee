@@ -119,6 +119,16 @@ export class HttpTransport {
     return (json as { data: T }).data;
   }
 
+  /** Private image bytes: preserve the normal session and surface transport. */
+  async blob(path: string): Promise<Blob> {
+    const res = await this.raw(this.url(path), { headers: { Accept: 'image/webp' } });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({})) as { error?: { code?: string; message?: string } };
+      throw new HuspeeApiError(res.status, body.error?.code ?? 'EVIDENCE_UNAVAILABLE', body.error?.message ?? 'Evidence is unavailable');
+    }
+    return res.blob();
+  }
+
   private capture(res: Response): void {
     const headers = res.headers as Headers & { getSetCookie?: () => string[] };
     const list = headers.getSetCookie?.() ?? (res.headers.get('set-cookie') ? [res.headers.get('set-cookie')!] : []);

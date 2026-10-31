@@ -303,3 +303,17 @@ consent-form login creates a seller session. Callback redirects to `SELLER_APP_U
 Both configured web origins are allowed by CORS. Frontend proxies preserve cookies and headers;
 only navigation URLs are localized for tunnels. Shopee signing/token contracts are unchanged.
 Coverage: `tests/extensions/session-surfaces.test.ts`, `tests/web/proxy.test.ts`, dual-session UI smoke.
+
+### Private refund evidence extensions (custom, session-authenticated)
+
+| Method | Path | Auth | SDK | Coverage |
+|---|---|---|---|---|
+| POST | /api/v1/buyer/orders/:orderSn/return-evidence | owning buyer, CSRF | buyer.returnEvidence.upload | normalization, limits, private ownership |
+| GET | /api/v1/buyer/orders/:orderSn/return-evidence | owning buyer | buyer.returnEvidence.list | draft metadata only |
+| DELETE | /api/v1/buyer/return-evidence/:id | owning buyer, unattached only, CSRF | buyer.returnEvidence.remove | delete/attach race, stale consent |
+| GET | /api/v1/buyer/return-evidence/:id/content | owning buyer | buyer.returnEvidence.content | private WebP Blob |
+| GET / PUT | /api/v1/assistant/conversations/:id/return-evidence | owning buyer, active shop conversation, CSRF on PUT | assistant.returnEvidence.getSelection/setSelection | exact selection and pending-action invalidation |
+| GET | /api/v1/seller/shops/:shopId/returns/:returnSn/evidence | seller membership, submitted request only | seller.returnEvidence.list | draft and cross-shop rejection |
+| GET | /api/v1/seller/shops/:shopId/returns/:returnSn/evidence/:id/content | seller membership, exact submitted request | seller.returnEvidence.content | surface-bound private Blob, both cookies |
+
+Buyer return creation additionally accepts evidence_ids; action editing permits photo-only replacement for OPEN_RETURN. Refund quote/status and tap-only cancellation/offer-acceptance are internal assistant tools using these shared domain contracts. Tests: tests/extensions/refund-evidence.test.ts and tests/ui/refund-evidence.mjs. No private evidence is added to Shopee-compatible responses.
