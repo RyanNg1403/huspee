@@ -27,7 +27,8 @@
     "dev:seller-web": "pnpm --filter @huspee/seller-web dev",
     "build:seller-web": "pnpm --filter @huspee/sdk build && pnpm --filter @huspee/seller-web build",
     "smoke:dual-session": "node tests/ui/dual-session.mjs",
-    "smoke:seller-shell": "node tests/ui/seller-shell.mjs"
+    "smoke:seller-shell": "node tests/ui/seller-shell.mjs",
+    "smoke:seller-inbox": "node tests/ui/seller-inbox.mjs"
   },
   "engines": {
     "node": ">=22"
