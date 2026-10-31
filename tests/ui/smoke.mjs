@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const WEB_URL = process.env.WEB_URL || 'http://localhost:3210';
-const SELLER_URL = process.env.SELLER_URL || 'http://localhost:3002';
+const SELLER_URL = process.env.SELLER_URL || 'http://localhost:3220';
 const API_URL = process.env.API_URL || 'http://localhost:3110';
 const CHROME_BIN =
   process.env.CHROME_BIN ||

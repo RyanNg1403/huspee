@@ -48,7 +48,8 @@
     "./i18n": "./src/i18n/index.ts",
     "./i18n/client": "./src/i18n/client.tsx",
     "./i18n/server": "./src/i18n/server.ts",
-    "./lib/navigation": "./src/lib/navigation.ts"
+    "./lib/navigation": "./src/lib/navigation.ts",
+    "./server/api-proxy": "./src/server/api-proxy.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
