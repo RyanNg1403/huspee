@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>B1.4 · Bộ lọc</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#d9381a;text-decoration:none}
+button,input{font-family:inherit}
+button{cursor:pointer}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: #f5f5f5; font-family: 'Be Vietnam Pro', system-ui, sans-serif; color: #222222; font-size: 14px; line-height: 1.45; font-variant-numeric: tabular-nums;">
+
+  <div aria-hidden="true">
+    <div style="height: 56px; background: #ffffff;"></div>
+    <div style="height: 42px; background: #ffffff; border-top: 1px solid #f2f2f2;"></div>
+    <div style="margin-top: 8px; padding: 0 6px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px;">
+      <img src="/_blob/8b1ea881a6a5dfb6b26870b7665f6bf7" alt="" style="width: 100%; height: 186px; object-fit: cover; display: block;">
+      <img src="/_blob/d1dfdca9ed87c9b5e1f99644852d1263" alt="" style="width: 100%; height: 186px; object-fit: cover; display: block;">
+    </div>
+  </div>
+  <a href="m-B1-3.dc.html" aria-label="Đóng bộ lọc" style="position: absolute; inset: 0; background: rgba(0,0,0,0.45);"></a>
+
+  <section aria-labelledby="flt-h" style="position: absolute; top: 0; right: 0; bottom: 0; width: 318px; background: #f5f5f5; display: flex; flex-direction: column;">
+    <h1 id="flt-h" style="margin: 0; height: 52px; padding: 0 16px; background: #ffffff; font-size: 16px; font-weight: 600; display: flex; align-items: center; border-bottom: 1px solid #ebebeb;">Bộ lọc tìm kiếm</h1>
+
+    <div style="flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 8px; padding-top: 8px;">
+      <fieldset style="margin: 0; border: 0; background: #ffffff; padding: 12px 14px;">
+        <legend style="padding: 0; float: left; width: 100%; margin-bottom: 8px; font-size: 13px; font-weight: 600;">Nơi bán</legend>
+        <div style="clear: both; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;">
+          <button type="button" aria-pressed="true" style="height: 34px; border: 1px solid #d9381a; border-radius: 2px; background: #ffffff; color: #d9381a; font-size: 13px;">Hà Nội</button>
+          <button type="button" aria-pressed="false" style="height: 34px; border: 0; border-radius: 2px; background: #f5f5f5; color: #222222; font-size: 13px;">TP. Hồ Chí Minh</button>
+          <button type="button" aria-pressed="false" style="height: 34px; border: 0; border-radius: 2px; background: #f5f5f5; color: #222222; font-size: 13px;">Đà Nẵng</button>
+        </div>
+      </fieldset>
+
+      <fieldset style="margin: 0; border: 0; background: #ffffff; padding: 12px 14px;">
+        <legend style="padding: 0; float: left; width: 100%; margin-bottom: 8px; font-size: 13px; font-weight: 600;">Khoảng giá (₫)</legend>
+        <div style="clear: both; display: flex; align-items: center; gap: 8px;">
+          <label style="flex: 1;"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;">Giá tối thiểu</span><input type="text" inputmode="numeric" placeholder="Tối thiểu" style="width: 100%; box-sizing: border-box; height: 34px; border: 0; border-radius: 2px; background: #f5f5f5; text-align: center; font-size: 13px;"></label>
+          <span aria-hidden="true" style="color: #8c8c8c;">–</span>
+          <label style="flex: 1;"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;">Giá tối đa</span><input type="text" inputmode="numeric" value="11.000.000" style="width: 100%; box-sizing: border-box; height: 34px; border: 0; border-radius: 2px; background: #f5f5f5; text-align: center; font-size: 13px;"></label>
+        </div>
+        <div style="margin-top: 8px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;">
+          <button type="button" style="height: 30px; border: 0; border-radius: 2px; background: #f5f5f5; color: #222222; font-size: 12px;">0–5tr</button>
+          <button type="button" style="height: 30px; border: 0; border-radius: 2px; background: #f5f5f5; color: #222222; font-size: 12px;">5–10tr</button>
+          <button type="button" style="height: 30px; border: 0; border-radius: 2px; background: #f5f5f5; color: #222222; font-size: 12px;">10–20tr</button>
+        </div>
+      </fieldset>
+
+      <fieldset style="margin: 0; border: 0; background: #ffffff; padding: 12px 14px;">
+        <legend style="padding: 0; float: left; width: 100%; margin-bottom: 8px; font-size: 13px; font-weight: 600;">Đơn vị vận chuyển</legend>
+        <div style="clear: both; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;">
+          <button type="button" style="height: 34px; border: 0; border-radius: 2px; background: #f5f5f5; color: #222222; font-size: 13px;">SPX Express</button>
+          <button type="button" style="height: 34px; border: 0; border-radius: 2px; background: #f5f5f5; color: #222222; font-size: 13px;">Giao Hàng Nhanh</button>
+          <button type="button" style="height: 34px; border: 0; border-radius: 2px; background: #f5f5f5; color: #222222; font-size: 13px;">J&amp;T Express</button>
+          <button type="button" style="height: 34px; border: 0; border-radius: 2px; background: #f5f5f5; color: #222222; font-size: 13px;">Hỏa tốc</button>
+        </div>
+      </fieldset>
+
+      <fieldset style="margin: 0; border: 0; background: #ffffff; padding: 12px 14px;">
+        <legend style="padding: 0; float: left; width: 100%; margin-bottom: 8px; font-size: 13px; font-weight: 600;">Đánh giá</legend>
+        <div style="clear: both; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;">
+          <button type="button" style="height: 34px; border: 0; border-radius: 2px; background: #f5f5f5; color: #222222; font-size: 13px;"><span style="color: #f5a623;">★</span> 5 sao</button>
+          <button type="button" style="height: 34px; border: 0; border-radius: 2px; background: #f5f5f5; color: #222222; font-size: 13px;"><span style="color: #f5a623;">★</span> Từ 4 sao</button>
+        </div>
+      </fieldset>
+
+      <fieldset style="margin: 0; border: 0; background: #ffffff; padding: 12px 14px;">
+        <legend style="padding: 0; float: left; width: 100%; margin-bottom: 8px; font-size: 13px; font-weight: 600;">Dịch vụ và khuyến mãi</legend>
+        <div style="clear: both; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;">
+          <button type="button" aria-pressed="true" style="height: 34px; border: 1px solid #d9381a; border-radius: 2px; background: #ffffff; color: #d9381a; font-size: 13px;">Shop chính hãng</button>
+          <button type="button" aria-pressed="false" style="height: 34px; border: 0; border-radius: 2px; background: #f5f5f5; color: #222222; font-size: 13px;">Freeship</button>
+          <button type="button" aria-pressed="false" style="height: 34px; border: 0; border-radius: 2px; background: #f5f5f5; color: #222222; font-size: 13px;">Có mã giảm giá</button>
+        </div>
+      </fieldset>
+    </div>
+
+    <div style="height: 56px; background: #ffffff; border-top: 1px solid #ebebeb; display: flex; gap: 8px; padding: 8px 12px; box-sizing: border-box;">
+      <button type="button" style="flex: 1; border: 1px solid #d9381a; border-radius: 2px; background: #ffffff; color: #d9381a; font-size: 14px;">Thiết lập lại</button>
+      <a href="m-B1-3.dc.html" style="flex: 1; border-radius: 2px; background: #d9381a; color: #ffffff; font-size: 14px; display: flex; align-items: center; justify-content: center;">Áp dụng</a>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

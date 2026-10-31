@@ -1,0 +1,1136 @@
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "BuyerHome.dc.html": {
+      "h": 1742,
+      "page": "buyer",
+      "title": "B1 · Trang chủ",
+      "w": 1440,
+      "x": 0,
+      "y": 0,
+      "expand": "fill"
+    },
+    "w-B1-search.dc.html": {
+      "h": 1027,
+      "page": "buyer",
+      "title": "B1 · Kết quả tìm kiếm",
+      "w": 1440,
+      "x": 1520,
+      "y": 0,
+      "expand": "fill"
+    },
+    "Main.dc.html": {
+      "h": 1592,
+      "page": "buyer",
+      "title": "B3 · Sản phẩm + trợ lý ghim",
+      "w": 1440,
+      "x": 0,
+      "y": 2162,
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "w-B4.dc.html": {
+      "h": 1058,
+      "page": "buyer",
+      "title": "B2/B4 · Trang shop + trợ lý tư vấn",
+      "w": 1440,
+      "x": 1520,
+      "y": 2162,
+      "expand": "fill"
+    },
+    "w-B5.dc.html": {
+      "h": 1156,
+      "page": "buyer",
+      "title": "B5 · So sánh đầy đủ",
+      "w": 1440,
+      "x": 3040,
+      "y": 2162,
+      "expand": "fill"
+    },
+    "w-B7-cart.dc.html": {
+      "h": 900,
+      "page": "buyer",
+      "title": "B6–B7 · Giỏ hàng",
+      "w": 1440,
+      "x": 0,
+      "y": 4174,
+      "expand": "fill"
+    },
+    "w-B7-checkout.dc.html": {
+      "h": 1100,
+      "page": "buyer",
+      "title": "B7 · Thanh toán",
+      "w": 1440,
+      "x": 1520,
+      "y": 4174,
+      "expand": "fill"
+    },
+    "w-B7-done.dc.html": {
+      "h": 1066,
+      "page": "buyer",
+      "title": "B7 · Đặt hàng thành công",
+      "w": 1440,
+      "x": 3040,
+      "y": 4174,
+      "expand": "fill"
+    },
+    "w-B8-list.dc.html": {
+      "h": 1448,
+      "page": "buyer",
+      "title": "B8 · Đơn mua",
+      "w": 1440,
+      "x": 0,
+      "y": 5694,
+      "expand": "fill"
+    },
+    "w-B8-detail.dc.html": {
+      "h": 1019,
+      "page": "buyer",
+      "title": "B8 · Chi tiết đơn đang giao",
+      "w": 1440,
+      "x": 1520,
+      "y": 5694,
+      "expand": "fill"
+    },
+    "w-B9-order.dc.html": {
+      "h": 991,
+      "page": "buyer",
+      "title": "B9 · Chi tiết đơn + trợ lý hậu mãi",
+      "w": 1440,
+      "x": 0,
+      "y": 7562,
+      "expand": "fill"
+    },
+    "w-B9-return.dc.html": {
+      "h": 967,
+      "page": "buyer",
+      "title": "B9 · Yêu cầu trả hàng",
+      "w": 1440,
+      "x": 1520,
+      "y": 7562,
+      "expand": "fill"
+    },
+    "w-B9-status.dc.html": {
+      "h": 900,
+      "page": "buyer",
+      "title": "B9 · Theo dõi yêu cầu trả hàng",
+      "w": 1440,
+      "x": 3040,
+      "y": 7562,
+      "expand": "fill"
+    },
+    "w-B10.dc.html": {
+      "h": 900,
+      "page": "buyer",
+      "title": "B10 · Tin nhắn từ shop",
+      "w": 1440,
+      "x": 0,
+      "y": 8973,
+      "expand": "fill"
+    },
+    "w-B11.dc.html": {
+      "h": 1125,
+      "page": "buyer",
+      "title": "B11 · Hội thoại với trợ lý",
+      "w": 1440,
+      "x": 1520,
+      "y": 8973,
+      "expand": "fill"
+    },
+    "w-B12-login.dc.html": {
+      "h": 900,
+      "page": "buyer",
+      "title": "B12 · Đăng nhập",
+      "w": 1440,
+      "x": 0,
+      "y": 10518,
+      "expand": "fill"
+    },
+    "m-B1-1.dc.html": {
+      "h": 844,
+      "page": "buyer-mobile",
+      "title": "B1.1 · Trang chủ",
+      "w": 390,
+      "x": 0,
+      "y": 0
+    },
+    "m-B1-2.dc.html": {
+      "h": 844,
+      "page": "buyer-mobile",
+      "title": "B1.2 · Tìm kiếm",
+      "w": 390,
+      "x": 470,
+      "y": 0
+    },
+    "m-B1-3.dc.html": {
+      "h": 844,
+      "page": "buyer-mobile",
+      "title": "B1.3 · Kết quả tìm kiếm",
+      "w": 390,
+      "x": 940,
+      "y": 0
+    },
+    "m-B1-4.dc.html": {
+      "h": 844,
+      "page": "buyer-mobile",
+      "title": "B1.4 · Bộ lọc",
+      "w": 390,
+      "x": 1410,
+      "y": 0
+    },
+    "m-B2-1.dc.html": {
+      "h": 844,
+      "page": "buyer-mobile",
+      "title": "B2.1 · Trang shop",
+      "w": 390,
+      "x": 0,
+      "y": 1264
+    },
+    "m-B2-2.dc.html": {
+      "h": 844,
+      "page": "buyer-mobile",
+      "title": "B2.2 · Mở trợ lý từ trang shop",
+      "w": 390,
+      "x": 470,
+      "y": 1264
+    },
+    "MobileProduct.dc.html": {
+      "h": 844,
+      "page": "buyer-mobile",
+      "title": "B3.1 · Sản phẩm + thanh trợ lý",
+      "w": 390,
+      "x": 0,
+      "y": 2528
+    },
+    "m-B3-2.dc.html": {
+      "h": 844,
+      "page": "buyer-mobile",
+      "title": "B3.2 · Đang nghe",
+      "w": 390,
+      "x": 470,
+      "y": 2528
+    },
+    "m-B3-3.dc.html": {
+      "h": 844,
+      "page": "buyer-mobile",
+      "title": "B3.3 · Đang tra dữ liệu",
+      "w": 390,
+      "x": 940,
+      "y": 2528
+    },
+    "MobileAnswer.dc.html": {
+      "h": 844,
+      "page": "buyer-mobile",
+      "title": "B3.4 · Trả lời kèm card",
+      "w": 390,
+      "x": 1410,
+      "y": 2528
+    },
+    "m-B3-5.dc.html": {
+      "h": 844,
+      "page": "buyer-mobile",
+      "title": "B3.5 · Ngắt lời",
+      "w": 390,
+      "x": 1880,
+      "y": 2528
+    },
+    "m-B4-1.dc.html": {
+      "h": 844,
+      "page": "buyer-mobile",
+      "title": "B4.1 · Tư vấn theo nhu cầu",
+      "w": 390,
+      "x": 0,
+      "y": 3792
+    },
+    "m-B4-2.dc.html": {
+      "h": 844,
+      "page": "buyer-mobile",
+      "title": "B4.2 · Không có lựa chọn phù hợp",
+      "w": 390,
+      "x": 470,
+      "y": 3792
+    },
+    "m-B5-1.dc.html": {
+      "h": 844,
+      "page": "buyer-mobile",
+      "title": "B5.1 · So sánh trong hội thoại",
+      "w": 390,
+      "x": 0,
+      "y": 5056
+    },
+    "m-B5-2.dc.html": {
+      "h": 844,
+      "page": "buyer-mobile",
+      "title": "B5.2 · Bảng so sánh đầy đủ",
+      "w": 390,
+      "x": 470,
+      "y": 5056
+    },
+    "m-B6-1.dc.html": {
+      "h": 844,
+      "page": "buyer-mobile",
+      "title": "B6.1 · Đọc lại, chờ “đồng ý”",
+      "w": 390,
+      "x": 0,
+      "y": 6320
+    },
+    "m-B6-2.dc.html": {
+      "h": 844,
+      "page": "buyer-mobile",
+      "title": "B6.2 · Đổi số lượng",
+      "w": 390,
+      "x": 470,
+      "y": 6320
+    },
+    "m-B6-3.dc.html": {
+      "h": 844,
+      "page": "buyer-mobile",
+      "title": "B6.3 · Đã thêm vào giỏ",
+      "w": 390,
+      "x": 940,
+      "y": 6320
+    },
+    "m-B7-1.dc.html": {
+      "h": 844,
+      "page": "buyer-mobile",
+      "title": "B7.1 · Báo giá + chạm xác nhận",
+      "w": 390,
+      "x": 0,
+      "y": 7584
+    },
+    "m-B7-2.dc.html": {
+      "h": 844,
+      "page": "buyer-mobile",
+      "title": "B7.2 · Đặt hàng thành công",
+      "w": 390,
+      "x": 470,
+      "y": 7584
+    },
+    "m-B7-3.dc.html": {
+      "h": 844,
+      "page": "buyer-mobile",
+      "title": "B7.3 · Giỏ hàng",
+      "w": 390,
+      "x": 940,
+      "y": 7584
+    },
+    "m-B7-4.dc.html": {
+      "h": 844,
+      "page": "buyer-mobile",
+      "title": "B7.4 · Thanh toán",
+      "w": 390,
+      "x": 1410,
+      "y": 7584
+    },
+    "m-B7-5.dc.html": {
+      "h": 844,
+      "page": "buyer-mobile",
+      "title": "B7.5 · Đặt thành công (đơn tự đặt)",
+      "w": 390,
+      "x": 1880,
+      "y": 7584
+    },
+    "m-B8-1.dc.html": {
+      "h": 844,
+      "page": "buyer-mobile",
+      "title": "B8.1 · Đơn mua",
+      "w": 390,
+      "x": 0,
+      "y": 8848
+    },
+    "m-B8-2.dc.html": {
+      "h": 844,
+      "page": "buyer-mobile",
+      "title": "B8.2 · Chi tiết đơn đang giao",
+      "w": 390,
+      "x": 470,
+      "y": 8848
+    },
+    "m-B8-3.dc.html": {
+      "h": 844,
+      "page": "buyer-mobile",
+      "title": "B8.3 · Hỏi trợ lý về đơn",
+      "w": 390,
+      "x": 940,
+      "y": 8848
+    },
+    "m-B9-1.dc.html": {
+      "h": 844,
+      "page": "buyer-mobile",
+      "title": "B9.1 · Kiểm tra điều kiện trả hàng",
+      "w": 390,
+      "x": 0,
+      "y": 10112
+    },
+    "m-B9-2.dc.html": {
+      "h": 844,
+      "page": "buyer-mobile",
+      "title": "B9.2 · Quá hạn trả hàng",
+      "w": 390,
+      "x": 470,
+      "y": 10112
+    },
+    "m-B9-3.dc.html": {
+      "h": 844,
+      "page": "buyer-mobile",
+      "title": "B9.3 · Điền yêu cầu trả hàng",
+      "w": 390,
+      "x": 940,
+      "y": 10112
+    },
+    "m-B9-4.dc.html": {
+      "h": 844,
+      "page": "buyer-mobile",
+      "title": "B9.4 · Theo dõi yêu cầu",
+      "w": 390,
+      "x": 1410,
+      "y": 10112
+    },
+    "m-B10-1.dc.html": {
+      "h": 844,
+      "page": "buyer-mobile",
+      "title": "B10.1 · Trợ lý đề nghị chuyển cho shop",
+      "w": 390,
+      "x": 0,
+      "y": 11376
+    },
+    "m-B10-2.dc.html": {
+      "h": 844,
+      "page": "buyer-mobile",
+      "title": "B10.2 · Đã gửi câu hỏi",
+      "w": 390,
+      "x": 470,
+      "y": 11376
+    },
+    "m-B10-3.dc.html": {
+      "h": 844,
+      "page": "buyer-mobile",
+      "title": "B10.3 · Danh sách tin nhắn",
+      "w": 390,
+      "x": 940,
+      "y": 11376
+    },
+    "m-B10-4.dc.html": {
+      "h": 844,
+      "page": "buyer-mobile",
+      "title": "B10.4 · Shop trả lời",
+      "w": 390,
+      "x": 1410,
+      "y": 11376
+    },
+    "m-B11-1.dc.html": {
+      "h": 844,
+      "page": "buyer-mobile",
+      "title": "B11.1 · Phản hồi cuối phiên",
+      "w": 390,
+      "x": 0,
+      "y": 12640
+    },
+    "m-B11-2.dc.html": {
+      "h": 844,
+      "page": "buyer-mobile",
+      "title": "B11.2 · Chưa giải quyết + lý do",
+      "w": 390,
+      "x": 470,
+      "y": 12640
+    },
+    "m-B11-3.dc.html": {
+      "h": 844,
+      "page": "buyer-mobile",
+      "title": "B11.3 · Lịch sử hội thoại",
+      "w": 390,
+      "x": 940,
+      "y": 12640
+    },
+    "m-B12-1.dc.html": {
+      "h": 844,
+      "page": "buyer-mobile",
+      "title": "B12.1 · Tôi",
+      "w": 390,
+      "x": 0,
+      "y": 13904
+    },
+    "m-B12-2.dc.html": {
+      "h": 844,
+      "page": "buyer-mobile",
+      "title": "B12.2 · Đăng nhập",
+      "w": 390,
+      "x": 470,
+      "y": 13904
+    },
+    "m-B12-3.dc.html": {
+      "h": 844,
+      "page": "buyer-mobile",
+      "title": "B12.3 · Chưa cấp quyền micro",
+      "w": 390,
+      "x": 940,
+      "y": 13904
+    },
+    "m-B12-4.dc.html": {
+      "h": 844,
+      "page": "buyer-mobile",
+      "title": "B12.4 · Trợ lý đang bận",
+      "w": 390,
+      "x": 1410,
+      "y": 13904
+    },
+    "m-B12-5.dc.html": {
+      "h": 844,
+      "page": "buyer-mobile",
+      "title": "B12.5 · Hội thoại tiếng Anh",
+      "w": 390,
+      "x": 1880,
+      "y": 13904
+    },
+    "s-S1-1.dc.html": {
+      "h": 900,
+      "page": "seller",
+      "title": "S1.1 · Đăng ký người bán",
+      "w": 1440,
+      "x": 0,
+      "y": 0,
+      "expand": "fill"
+    },
+    "s-S1-2.dc.html": {
+      "h": 955,
+      "page": "seller",
+      "title": "S1.2 · Tạo shop",
+      "w": 1440,
+      "x": 1520,
+      "y": 0,
+      "expand": "fill"
+    },
+    "s-S1-3.dc.html": {
+      "h": 900,
+      "page": "seller",
+      "title": "S1.3 · Cho phép kết nối",
+      "w": 1440,
+      "x": 3040,
+      "y": 0,
+      "expand": "fill"
+    },
+    "SellerHome.dc.html": {
+      "h": 1400,
+      "page": "seller",
+      "title": "S2 · Tổng quan",
+      "w": 1440,
+      "x": 0,
+      "y": 1375,
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "s-S3-1.dc.html": {
+      "h": 900,
+      "page": "seller",
+      "title": "S3.1 · Đơn hàng",
+      "w": 1440,
+      "x": 0,
+      "y": 3195,
+      "expand": "fill"
+    },
+    "s-S3-2.dc.html": {
+      "h": 900,
+      "page": "seller",
+      "title": "S3.2 · Chi tiết đơn",
+      "w": 1440,
+      "x": 1520,
+      "y": 3195,
+      "expand": "fill"
+    },
+    "s-S3-3.dc.html": {
+      "h": 900,
+      "page": "seller",
+      "title": "S3.3 · Giao hàng",
+      "w": 1440,
+      "x": 3040,
+      "y": 3195,
+      "expand": "fill"
+    },
+    "s-S3-4.dc.html": {
+      "h": 900,
+      "page": "seller",
+      "title": "S3.4 · Huỷ đơn",
+      "w": 1440,
+      "x": 4560,
+      "y": 3195,
+      "expand": "fill"
+    },
+    "s-S4-1.dc.html": {
+      "h": 1144,
+      "page": "seller",
+      "title": "S4.1 · Sản phẩm",
+      "w": 1440,
+      "x": 0,
+      "y": 4515,
+      "expand": "fill"
+    },
+    "s-S4-2.dc.html": {
+      "h": 1008,
+      "page": "seller",
+      "title": "S4.2 · Biến thể, giá, tồn kho",
+      "w": 1440,
+      "x": 1520,
+      "y": 4515,
+      "expand": "fill"
+    },
+    "s-S4-3.dc.html": {
+      "h": 1097,
+      "page": "seller",
+      "title": "S4.3 · Thông số có cấu trúc",
+      "w": 1440,
+      "x": 3040,
+      "y": 4515,
+      "expand": "fill"
+    },
+    "s-S5-1.dc.html": {
+      "h": 900,
+      "page": "seller",
+      "title": "S5.1 · Trả hàng / Hoàn tiền",
+      "w": 1440,
+      "x": 0,
+      "y": 6079,
+      "expand": "fill"
+    },
+    "s-S5-2.dc.html": {
+      "h": 990,
+      "page": "seller",
+      "title": "S5.2 · Chi tiết yêu cầu",
+      "w": 1440,
+      "x": 1520,
+      "y": 6079,
+      "expand": "fill"
+    },
+    "s-S6-1.dc.html": {
+      "h": 900,
+      "page": "seller",
+      "title": "S6.1 · Mã giảm giá",
+      "w": 1440,
+      "x": 0,
+      "y": 7489,
+      "expand": "fill"
+    },
+    "s-S6-2.dc.html": {
+      "h": 1098,
+      "page": "seller",
+      "title": "S6.2 · Tạo mã giảm giá",
+      "w": 1440,
+      "x": 1520,
+      "y": 7489,
+      "expand": "fill"
+    },
+    "s-S6-3.dc.html": {
+      "h": 900,
+      "page": "seller",
+      "title": "S6.3 · Chiến dịch",
+      "w": 1440,
+      "x": 3040,
+      "y": 7489,
+      "expand": "fill"
+    },
+    "SellerInbox.dc.html": {
+      "h": 900,
+      "page": "seller",
+      "title": "S7.1 · Hộp thư",
+      "w": 1440,
+      "x": 0,
+      "y": 9007,
+      "expand": "fill"
+    },
+    "s-S7-2.dc.html": {
+      "h": 900,
+      "page": "seller",
+      "title": "S7.2 · Tạo FAQ từ câu trả lời",
+      "w": 1440,
+      "x": 1520,
+      "y": 9007,
+      "expand": "fill"
+    },
+    "s-S7-3.dc.html": {
+      "h": 900,
+      "page": "seller",
+      "title": "S7.3 · FAQ",
+      "w": 1440,
+      "x": 3040,
+      "y": 9007,
+      "expand": "fill"
+    },
+    "SellerConversations.dc.html": {
+      "h": 1040,
+      "page": "seller",
+      "title": "S8.1 · Hội thoại",
+      "w": 1440,
+      "x": 0,
+      "y": 10327,
+      "expand": "fill"
+    },
+    "s-S8-2.dc.html": {
+      "h": 1170,
+      "page": "seller",
+      "title": "S8.2 · Chi tiết hội thoại",
+      "w": 1440,
+      "x": 1520,
+      "y": 10327,
+      "expand": "fill"
+    },
+    "SellerInsights.dc.html": {
+      "h": 1010,
+      "page": "seller",
+      "title": "S9.1 · Insights",
+      "w": 1440,
+      "x": 0,
+      "y": 11917,
+      "expand": "fill"
+    },
+    "s-S9-2.dc.html": {
+      "h": 980,
+      "page": "seller",
+      "title": "S9.2 · Nhu cầu và hàng thiếu",
+      "w": 1440,
+      "x": 1520,
+      "y": 11917,
+      "expand": "fill"
+    },
+    "s-S9-3.dc.html": {
+      "h": 1030,
+      "page": "seller",
+      "title": "S9.3 · Câu trợ lý chưa trả lời được",
+      "w": 1440,
+      "x": 3040,
+      "y": 11917,
+      "expand": "fill"
+    },
+    "s-S10-1.dc.html": {
+      "h": 1168,
+      "page": "seller",
+      "title": "S10.1 · Cấu hình trợ lý",
+      "w": 1440,
+      "x": 0,
+      "y": 13367,
+      "expand": "fill"
+    },
+    "s-S10-2.dc.html": {
+      "h": 900,
+      "page": "seller",
+      "title": "S10.2 · Thử trợ lý",
+      "w": 1440,
+      "x": 1520,
+      "y": 13367,
+      "expand": "fill"
+    }
+  },
+  "createdOnFiles": {
+    "at": "2026-10-31T03:45:13.315Z",
+    "v": 1
+  },
+  "designSystems": [],
+  "launch": {
+    "page": "buyer-mobile",
+    "view": "canvas"
+  },
+  "noteOrder": [
+    "t-buyer-0",
+    "t-buyer-1",
+    "t-buyer-2",
+    "t-buyer-3",
+    "t-buyer-4",
+    "t-buyer-5",
+    "t-buyer-mobile-6",
+    "t-buyer-mobile-7",
+    "t-buyer-mobile-8",
+    "t-buyer-mobile-9",
+    "t-buyer-mobile-10",
+    "t-buyer-mobile-11",
+    "t-buyer-mobile-12",
+    "t-buyer-mobile-13",
+    "t-buyer-mobile-14",
+    "t-buyer-mobile-15",
+    "t-buyer-mobile-16",
+    "t-buyer-mobile-17",
+    "t-seller-18",
+    "t-seller-19",
+    "t-seller-20",
+    "t-seller-21",
+    "t-seller-22",
+    "t-seller-23",
+    "t-seller-24",
+    "t-seller-25",
+    "t-seller-26",
+    "creditsBuyer",
+    "noteMobilePanel",
+    "creditsSeller"
+  ],
+  "notes": {
+    "t-buyer-0": {
+      "kind": "title1",
+      "maxW": 2960,
+      "page": "buyer",
+      "text": "B1 · Trang chủ, tìm kiếm",
+      "w": 240,
+      "x": 0,
+      "y": -300
+    },
+    "t-buyer-1": {
+      "kind": "title1",
+      "maxW": 4480,
+      "page": "buyer",
+      "text": "B3–B5 · Hỏi, tư vấn, so sánh",
+      "w": 240,
+      "x": 0,
+      "y": 1862
+    },
+    "t-buyer-2": {
+      "kind": "title1",
+      "maxW": 4480,
+      "page": "buyer",
+      "text": "B6–B7 · Giỏ hàng, thanh toán, đặt hàng",
+      "w": 240,
+      "x": 0,
+      "y": 3874
+    },
+    "t-buyer-3": {
+      "kind": "title1",
+      "maxW": 2960,
+      "page": "buyer",
+      "text": "B8 · Đơn mua",
+      "w": 240,
+      "x": 0,
+      "y": 5394
+    },
+    "t-buyer-4": {
+      "kind": "title1",
+      "maxW": 4480,
+      "page": "buyer",
+      "text": "B9 · Trả hàng (F5)",
+      "w": 240,
+      "x": 0,
+      "y": 7262
+    },
+    "t-buyer-5": {
+      "kind": "title1",
+      "maxW": 2960,
+      "page": "buyer",
+      "text": "B10–B11 · Tin nhắn, lịch sử, phản hồi",
+      "w": 240,
+      "x": 0,
+      "y": 8673
+    },
+    "t-buyer-mobile-6": {
+      "kind": "title1",
+      "maxW": 1800,
+      "page": "buyer-mobile",
+      "text": "B1 · Trang chủ, tìm kiếm",
+      "w": 240,
+      "x": 0,
+      "y": -300
+    },
+    "t-buyer-mobile-7": {
+      "kind": "title1",
+      "maxW": 860,
+      "page": "buyer-mobile",
+      "text": "B2 · Vào shop",
+      "w": 240,
+      "x": 0,
+      "y": 964
+    },
+    "t-buyer-mobile-8": {
+      "kind": "title1",
+      "maxW": 2270,
+      "page": "buyer-mobile",
+      "text": "B3 · Hỏi về sản phẩm đang xem (F1)",
+      "w": 240,
+      "x": 0,
+      "y": 2228
+    },
+    "t-buyer-mobile-9": {
+      "kind": "title1",
+      "maxW": 860,
+      "page": "buyer-mobile",
+      "text": "B4 · Tư vấn (F3)",
+      "w": 240,
+      "x": 0,
+      "y": 3492
+    },
+    "t-buyer-mobile-10": {
+      "kind": "title1",
+      "maxW": 860,
+      "page": "buyer-mobile",
+      "text": "B5 · So sánh (F2)",
+      "w": 240,
+      "x": 0,
+      "y": 4756
+    },
+    "t-buyer-mobile-11": {
+      "kind": "title1",
+      "maxW": 1330,
+      "page": "buyer-mobile",
+      "text": "B6 · Thêm giỏ bằng giọng nói",
+      "w": 240,
+      "x": 0,
+      "y": 6020
+    },
+    "t-buyer-mobile-12": {
+      "kind": "title1",
+      "maxW": 2270,
+      "page": "buyer-mobile",
+      "text": "B7 · Báo giá và đặt hàng (F4)",
+      "w": 240,
+      "x": 0,
+      "y": 7284
+    },
+    "t-buyer-mobile-13": {
+      "kind": "title1",
+      "maxW": 1330,
+      "page": "buyer-mobile",
+      "text": "B8 · Theo dõi đơn",
+      "w": 240,
+      "x": 0,
+      "y": 8548
+    },
+    "t-buyer-mobile-14": {
+      "kind": "title1",
+      "maxW": 1800,
+      "page": "buyer-mobile",
+      "text": "B9 · Trả hàng (F5)",
+      "w": 240,
+      "x": 0,
+      "y": 9812
+    },
+    "t-buyer-mobile-15": {
+      "kind": "title1",
+      "maxW": 1800,
+      "page": "buyer-mobile",
+      "text": "B10 · Hỏi shop (handoff)",
+      "w": 240,
+      "x": 0,
+      "y": 11076
+    },
+    "t-buyer-mobile-16": {
+      "kind": "title1",
+      "maxW": 1330,
+      "page": "buyer-mobile",
+      "text": "B11 · Phản hồi và lịch sử (F6)",
+      "w": 240,
+      "x": 0,
+      "y": 12340
+    },
+    "t-buyer-mobile-17": {
+      "kind": "title1",
+      "maxW": 2270,
+      "page": "buyer-mobile",
+      "text": "B12 · Tài khoản và lỗi",
+      "w": 240,
+      "x": 0,
+      "y": 13604
+    },
+    "t-seller-18": {
+      "kind": "title1",
+      "maxW": 4480,
+      "page": "seller",
+      "text": "S1 · Bắt đầu bán",
+      "w": 240,
+      "x": 0,
+      "y": -300
+    },
+    "t-seller-19": {
+      "kind": "title1",
+      "maxW": 6000,
+      "page": "seller",
+      "text": "S3 · Xử lý đơn",
+      "w": 240,
+      "x": 0,
+      "y": 2895
+    },
+    "t-seller-20": {
+      "kind": "title1",
+      "maxW": 4480,
+      "page": "seller",
+      "text": "S4 · Sản phẩm",
+      "w": 240,
+      "x": 0,
+      "y": 4215
+    },
+    "t-seller-21": {
+      "kind": "title1",
+      "maxW": 2960,
+      "page": "seller",
+      "text": "S5 · Trả hàng",
+      "w": 240,
+      "x": 0,
+      "y": 5779
+    },
+    "t-seller-22": {
+      "kind": "title1",
+      "maxW": 4480,
+      "page": "seller",
+      "text": "S6 · Khuyến mãi",
+      "w": 240,
+      "x": 0,
+      "y": 7189
+    },
+    "t-seller-23": {
+      "kind": "title1",
+      "maxW": 4480,
+      "page": "seller",
+      "text": "S7 · Hộp thư → FAQ (F8)",
+      "w": 240,
+      "x": 0,
+      "y": 8707
+    },
+    "t-seller-24": {
+      "kind": "title1",
+      "maxW": 2960,
+      "page": "seller",
+      "text": "S8 · Hội thoại (F1, F6)",
+      "w": 240,
+      "x": 0,
+      "y": 10027
+    },
+    "t-seller-25": {
+      "kind": "title1",
+      "maxW": 4480,
+      "page": "seller",
+      "text": "S9 · Insights (F7)",
+      "w": 240,
+      "x": 0,
+      "y": 11617
+    },
+    "t-seller-26": {
+      "kind": "title1",
+      "maxW": 2960,
+      "page": "seller",
+      "text": "S10 · Cấu hình và thử trợ lý",
+      "w": 240,
+      "x": 0,
+      "y": 13067
+    },
+    "creditsBuyer": {
+      "fill": "gray",
+      "page": "buyer",
+      "size": "s",
+      "w": 360,
+      "x": 3040,
+      "y": 0,
+      "text": "Trên web, panel trợ lý bên phải hiển thị đúng các trạng thái của sheet mobile (trang Mobile web). Ảnh sản phẩm lấy từ seed của repo (Wikimedia Commons, CC BY / CC BY-SA / CC0); tác giả từng ảnh: apps/api/prisma/seed-images/credits.json. Giá, tồn kho, voucher, phí ship theo seed demo; số liệu hội thoại là dữ liệu mẫu."
+    },
+    "noteMobilePanel": {
+      "fill": "gray",
+      "page": "buyer-mobile",
+      "size": "s",
+      "w": 360,
+      "x": 1880,
+      "y": 0,
+      "text": "Bấm Play ở bất kỳ màn nào để đi theo luồng: các nút và chip đã nối sang màn kế tiếp. Trên web, cùng các trạng thái này hiển thị trong panel trợ lý bên phải."
+    },
+    "creditsSeller": {
+      "fill": "gray",
+      "page": "seller",
+      "size": "s",
+      "w": 360,
+      "x": 1520,
+      "y": 1375,
+      "text": "Kênh Người Bán chỉ làm bản web. Số liệu là dữ liệu mẫu cho shop TechZone Official; luồng S1 dùng shop mới Hải Đăng Audio."
+    }
+  },
+  "order": [
+    "BuyerHome.dc.html",
+    "w-B1-search.dc.html",
+    "Main.dc.html",
+    "w-B4.dc.html",
+    "w-B5.dc.html",
+    "w-B7-cart.dc.html",
+    "w-B7-checkout.dc.html",
+    "w-B7-done.dc.html",
+    "w-B8-list.dc.html",
+    "w-B8-detail.dc.html",
+    "w-B9-order.dc.html",
+    "w-B9-return.dc.html",
+    "w-B9-status.dc.html",
+    "w-B10.dc.html",
+    "w-B11.dc.html",
+    "w-B12-login.dc.html",
+    "m-B1-1.dc.html",
+    "m-B1-2.dc.html",
+    "m-B1-3.dc.html",
+    "m-B1-4.dc.html",
+    "m-B2-1.dc.html",
+    "m-B2-2.dc.html",
+    "MobileProduct.dc.html",
+    "m-B3-2.dc.html",
+    "m-B3-3.dc.html",
+    "MobileAnswer.dc.html",
+    "m-B3-5.dc.html",
+    "m-B4-1.dc.html",
+    "m-B4-2.dc.html",
+    "m-B5-1.dc.html",
+    "m-B5-2.dc.html",
+    "m-B6-1.dc.html",
+    "m-B6-2.dc.html",
+    "m-B6-3.dc.html",
+    "m-B7-1.dc.html",
+    "m-B7-2.dc.html",
+    "m-B7-3.dc.html",
+    "m-B7-4.dc.html",
+    "m-B7-5.dc.html",
+    "m-B8-1.dc.html",
+    "m-B8-2.dc.html",
+    "m-B8-3.dc.html",
+    "m-B9-1.dc.html",
+    "m-B9-2.dc.html",
+    "m-B9-3.dc.html",
+    "m-B9-4.dc.html",
+    "m-B10-1.dc.html",
+    "m-B10-2.dc.html",
+    "m-B10-3.dc.html",
+    "m-B10-4.dc.html",
+    "m-B11-1.dc.html",
+    "m-B11-2.dc.html",
+    "m-B11-3.dc.html",
+    "m-B12-1.dc.html",
+    "m-B12-2.dc.html",
+    "m-B12-3.dc.html",
+    "m-B12-4.dc.html",
+    "m-B12-5.dc.html",
+    "s-S1-1.dc.html",
+    "s-S1-2.dc.html",
+    "s-S1-3.dc.html",
+    "SellerHome.dc.html",
+    "s-S3-1.dc.html",
+    "s-S3-2.dc.html",
+    "s-S3-3.dc.html",
+    "s-S3-4.dc.html",
+    "s-S4-1.dc.html",
+    "s-S4-2.dc.html",
+    "s-S4-3.dc.html",
+    "s-S5-1.dc.html",
+    "s-S5-2.dc.html",
+    "s-S6-1.dc.html",
+    "s-S6-2.dc.html",
+    "s-S6-3.dc.html",
+    "SellerInbox.dc.html",
+    "s-S7-2.dc.html",
+    "s-S7-3.dc.html",
+    "SellerConversations.dc.html",
+    "s-S8-2.dc.html",
+    "SellerInsights.dc.html",
+    "s-S9-2.dc.html",
+    "s-S9-3.dc.html",
+    "s-S10-1.dc.html",
+    "s-S10-2.dc.html"
+  ],
+  "pages": [
+    {
+      "id": "buyer",
+      "name": "Người mua · Web"
+    },
+    {
+      "id": "buyer-mobile",
+      "name": "Người mua · Mobile web"
+    },
+    {
+      "id": "seller",
+      "name": "Kênh Người Bán · Web"
+    }
+  ],
+  "title": "Huspee Buyer & Seller UI"
+}
