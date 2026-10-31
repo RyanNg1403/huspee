@@ -1,15 +1,16 @@
 'use client';
-import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { useParams, useSearchParams } from 'next/navigation';
-import { useSelectedShop } from '@/components/layout';
-import { Button, Card, ErrorState, Input, QueryState, Spinner, Textarea, useToast } from '@huspee/web-ui/components/ui';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { Button, ErrorState, Input, Skeleton, Textarea, useToast } from '@huspee/web-ui/components/ui';
 import { useT } from '@huspee/web-ui/i18n/client';
-import { common as commonMessages } from '@huspee/web-ui/i18n/common';
+import { common } from '@huspee/web-ui/i18n/common';
 import { errorMessageKey } from '@huspee/web-ui/lib/api';
-import { getApiClient } from '@huspee/web-ui/lib/api';
 import { useApi } from '@huspee/web-ui/lib/use-api';
-import { call } from '../../_catalog/api';
-import { messages } from '../../_catalog/messages';
+import { useSelectedShop } from '@/components/layout';
+import { Block, PageTitle, StatusDot } from '@/components/shell';
+import { call } from '@/lib/seller-api';
+import { shopMessages } from '../messages';
+
 type Profile = { shop_name: string; description: string; shop_logo: string };
 type Policy = {
   version: number;
@@ -19,103 +20,116 @@ type Policy = {
   return_window_days: number;
   free_shipping_min_spend: number | null;
 };
-export default function ShopPage() {
+
+function Row({ label, htmlFor, children }: { label: string; htmlFor: string; children: ReactNode }) {
+  return (
+    <div className="grid gap-1.5 sm:grid-cols-[180px_minmax(0,1fr)] sm:gap-6">
+      <label htmlFor={htmlFor} className="sm:pt-2.5 sm:text-right">
+        {label}
+      </label>
+      <div className="max-w-[640px]">{children}</div>
+    </div>
+  );
+}
+
+export default function ShopProfile() {
   const id = Number(useParams().shopId);
   const query = useSearchParams();
-  const t = useT(messages);
-  const commonT = useT(commonMessages);
+  const t = useT(shopMessages);
+  const commonT = useT(common);
   const toast = useToast();
+  const router = useRouter();
+  const field = useId();
   const { shops, loading, error, refresh } = useSelectedShop();
   const shop = shops.find((s) => s.shop_id === id);
+  const connected = !!shop?.connection.connected;
   const [pending, setPending] = useState(false);
   const callbackHandled = useRef(false);
+
   useEffect(() => {
-    if (callbackHandled.current) return;
+    if (callbackHandled.current || query.get('connected') !== '1') return;
     callbackHandled.current = true;
-    if (query.get('connected') === '1') {
-      toast(t('connectionSuccess'));
-      refresh();
-    } else if (query.get('connect_error')) toast(`${t('connectionError')}: ${query.get('connect_error')}`);
-  }, [id, query, refresh, t, toast]);
+    toast(t('connectedNotice'));
+    refresh();
+  }, [query, refresh, t, toast]);
+  // A shop without an active grant is sent to the connection step, keeping a callback error.
+  useEffect(() => {
+    if (loading || !shop || connected) return;
+    const reason = query.get('connect_error');
+    router.replace(`/shops/${id}/connect${reason ? `?connect_error=${encodeURIComponent(reason)}` : ''}`);
+  }, [loading, shop, connected, id, query, router]);
+
   const info = useApi(async () => {
-    if (!shop?.connection.connected) return null;
+    if (!connected) return null;
     const [profile, holiday, policy] = await Promise.all([
       call<Profile>(id, '/shop/get_profile'),
       call<{ holiday_mode_on: boolean }>(id, '/shop/get_shop_holiday_mode'),
       call<Policy>(id, '/custom/shop/get_policies'),
     ]);
     return { profile, holiday, policy };
-  }, [id, shop?.connection.connected]);
+  }, [id, connected]);
+
   async function act(fn: () => Promise<unknown>) {
     setPending(true);
     try {
       await fn();
       toast(t('saved'));
-      info.reload();
       refresh();
     } catch (e) {
       toast(
-        e instanceof Error && e.message.includes('error_version_conflict')
-          ? t('conflict')
-          : e instanceof Error
-            ? e.message
-            : t('failedMutation'),
+        e instanceof Error && e.message.includes('error_version_conflict') ? t('conflict') : t('saveFailed'),
       );
-      info.reload();
     } finally {
+      info.reload();
       setPending(false);
     }
   }
-  async function connect() {
-    setPending(true);
-    try {
-      const r = await getApiClient().seller.shops.authorizationUrl(id);
-      window.location.assign(r.authorization_url);
-    } catch {
-      toast(t('failedMutation'));
-      setPending(false);
-    }
-  }
-  if (loading || error)
+
+  if (loading) return <Skeleton className="h-96 w-full" />;
+  if (error) return <ErrorState message={t('failed')} onRetry={refresh} retryLabel={t('retry')} />;
+  if (!shop) return <ErrorState message={t('notFound')} />;
+  if (!connected) return <Skeleton className="h-96 w-full" />;
+
+  const title = (
+    <PageTitle
+      actions={
+        <span className="flex items-center gap-3 text-[13px] text-muted">
+          {t('shopCode', { id })}
+          <StatusDot tone="success">{t('connectedTo', { app: shop.connection.partner_name })}</StatusDot>
+        </span>
+      }
+    >
+      {t('profileTitle')}
+    </PageTitle>
+  );
+  if (info.loading)
     return (
-      <QueryState
-        loading={loading}
-        error={error}
-        errorMessage={t('failed')}
-        retry={refresh}
-        retryLabel={t('retry')}
-        spinner
-      />
+      <>
+        {title}
+        <Skeleton className="h-96 w-full" />
+      </>
     );
-  if (!shop) return <ErrorState message={t('noShop')} />;
-  if (!shop.connection.connected)
-    return (
-      <Card>
-        <h1 className="text-2xl font-bold">{shop.shop_name}</h1>
-        <p>{t('disconnected')}</p>
-        <Button loading={pending} onClick={connect}>
-          {t('connect')}
-        </Button>
-      </Card>
-    );
-  if (info.loading) return <Spinner />;
   if (info.error || !info.data)
     return (
-      <ErrorState
-        message={commonT(errorMessageKey(info.error))}
-        onRetry={info.reload}
-        retryLabel={t('retry')}
-      />
+      <>
+        {title}
+        <ErrorState
+          message={commonT(errorMessageKey(info.error))}
+          onRetry={info.reload}
+          retryLabel={t('retry')}
+        />
+      </>
     );
   const { profile, holiday, policy } = info.data;
+
   function saveProfile(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
-    const logo = String(f.get('logo') || '');
+    const logo = String(f.get('logo') ?? '').trim();
     void act(() =>
       call(id, '/shop/update_profile', {
-        shop_name: String(f.get('name')),
-        description: String(f.get('description')),
+        shop_name: String(f.get('name') ?? '').trim(),
+        description: String(f.get('description') ?? ''),
         ...(logo ? { shop_logo: logo } : {}),
       }),
     );
@@ -126,75 +140,120 @@ export default function ShopPage() {
     void act(() =>
       call(id, '/custom/shop/update_policies', {
         expected_version: policy.version,
-        shipping_policy: String(f.get('shipping')),
-        return_policy: String(f.get('returns')),
-        warranty_policy: String(f.get('warranty')),
+        shipping_policy: String(f.get('shipping') ?? ''),
+        return_policy: String(f.get('returns') ?? ''),
+        warranty_policy: String(f.get('warranty') ?? ''),
         return_window_days: Number(f.get('days')),
         free_shipping_min_spend: f.get('free') ? Number(f.get('free')) : null,
       }),
     );
   }
+
   return (
-    <div className="space-y-4">
-      <Card>
-        <h1 className="text-2xl font-bold">{t('profile')}</h1>
-        <form key={JSON.stringify(profile)} onSubmit={saveProfile} className="mt-4 grid gap-3">
-          {(['name', 'description', 'logo'] as const).map((k) => (
-            <label className="grid gap-1" key={k}>
-              {t(k)}
-              {k === 'description' ? (
-                <Textarea name={k} defaultValue={profile.description} />
-              ) : (
-                <Input
-                  name={k}
-                  defaultValue={k === 'name' ? profile.shop_name : profile.shop_logo}
-                  required={k === 'name'}
-                />
-              )}
-            </label>
-          ))}
-          <Button type="submit" loading={pending}>
-            {t('save')}
-          </Button>
-        </form>
-        <label className="mt-4 flex gap-2">
-          <input
-            type="checkbox"
-            checked={holiday.holiday_mode_on}
-            disabled={pending}
-            onChange={(e) =>
-              void act(() => call(id, '/shop/set_shop_holiday_mode', { holiday_mode_on: e.target.checked }))
-            }
-          />
-          {t('holiday')}
-        </label>
-      </Card>
-      <Card>
-        <h2 className="text-xl font-bold">{t('policies')}</h2>
-        <form key={policy.version} onSubmit={savePolicy} className="mt-4 grid gap-3">
-          {(['shipping', 'returns', 'warranty'] as const).map((k, i) => (
-            <label key={k} className="grid gap-1">
-              {t(k)}
-              <Textarea
+    <>
+      {title}
+      <div className="flex flex-col gap-4">
+        <Block title={t('basics')}>
+          <form key={JSON.stringify(profile)} onSubmit={saveProfile} className="flex flex-col gap-4">
+            <Row label={t('name')} htmlFor={`${field}-name`}>
+              <Input
+                id={`${field}-name`}
+                name="name"
+                defaultValue={profile.shop_name}
                 required
-                name={k}
-                defaultValue={[policy.shipping_policy, policy.return_policy, policy.warranty_policy][i]}
+                minLength={3}
+                maxLength={80}
+                className="rounded!"
               />
-            </label>
-          ))}
-          <label>
-            {t('returnDays')}
-            <Input name="days" type="number" min="0" max="30" defaultValue={policy.return_window_days} />
-          </label>
-          <label>
-            {t('freeShipping')}
-            <Input name="free" type="number" min="0" defaultValue={policy.free_shipping_min_spend ?? ''} />
-          </label>
-          <Button loading={pending} type="submit">
-            {t('save')}
-          </Button>
-        </form>
-      </Card>
-    </div>
+            </Row>
+            <Row label={t('description')} htmlFor={`${field}-description`}>
+              <Textarea
+                id={`${field}-description`}
+                name="description"
+                rows={3}
+                defaultValue={profile.description}
+                className="rounded!"
+              />
+            </Row>
+            <Row label={t('logo')} htmlFor={`${field}-logo`}>
+              <Input
+                id={`${field}-logo`}
+                name="logo"
+                type="url"
+                defaultValue={profile.shop_logo}
+                className="rounded!"
+              />
+            </Row>
+            <Row label={t('holiday')} htmlFor={`${field}-holiday`}>
+              <input
+                id={`${field}-holiday`}
+                type="checkbox"
+                checked={holiday.holiday_mode_on}
+                disabled={pending}
+                onChange={(e) =>
+                  void act(() =>
+                    call(id, '/shop/set_shop_holiday_mode', { holiday_mode_on: e.target.checked }),
+                  )
+                }
+                className="mt-3 h-4 w-4"
+              />
+            </Row>
+            <div className="sm:pl-[204px]">
+              <Button type="submit" loading={pending} className="rounded! px-6">
+                {t('save')}
+              </Button>
+            </div>
+          </form>
+        </Block>
+        <Block title={t('policies')}>
+          <form key={policy.version} onSubmit={savePolicy} className="flex flex-col gap-4">
+            {(
+              [
+                ['shipping', policy.shipping_policy],
+                ['returns', policy.return_policy],
+                ['warranty', policy.warranty_policy],
+              ] as const
+            ).map(([key, value]) => (
+              <Row key={key} label={t(key)} htmlFor={`${field}-${key}`}>
+                <Textarea
+                  id={`${field}-${key}`}
+                  name={key}
+                  rows={2}
+                  required
+                  defaultValue={value}
+                  className="rounded!"
+                />
+              </Row>
+            ))}
+            <Row label={t('returnDays')} htmlFor={`${field}-days`}>
+              <Input
+                id={`${field}-days`}
+                name="days"
+                type="number"
+                min="0"
+                max="30"
+                defaultValue={policy.return_window_days}
+                className="max-w-40 rounded!"
+              />
+            </Row>
+            <Row label={t('freeShipping')} htmlFor={`${field}-free`}>
+              <Input
+                id={`${field}-free`}
+                name="free"
+                type="number"
+                min="0"
+                defaultValue={policy.free_shipping_min_spend ?? ''}
+                className="max-w-60 rounded!"
+              />
+            </Row>
+            <div className="sm:pl-[204px]">
+              <Button type="submit" loading={pending} className="rounded! px-6">
+                {t('save')}
+              </Button>
+            </div>
+          </form>
+        </Block>
+      </div>
+    </>
   );
 }
