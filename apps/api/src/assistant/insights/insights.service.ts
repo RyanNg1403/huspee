@@ -156,7 +156,7 @@ export class InsightsService {
           missing.push(row);
       }
       if (
-        ["add_to_cart", "update_cart_item"].includes(call.tool) &&
+        ["add_to_cart", "add_cart_items", "update_cart_item"].includes(call.tool) &&
         !validationMiss && (structuredMiss || (!call.success && body === "Product variation not found"))
       )
         missing.push(row);

@@ -271,8 +271,8 @@ These `/api/v1` routes use platform sessions unless marked public, and the brows
 | PATCH | `/assistant/voice/sessions/:conversationId/context` | buyer session | `assistant.voice.setContext` | custom; update/clear viewed product for own active session; verifies shop and visibility; voice tests |
 | POST | `/assistant/voice/sessions/:conversationId/text` | buyer session | `assistant.voice.text` | voice module; voice tests |
 | POST | `/assistant/voice/sessions/:conversationId/stop` | buyer session | `assistant.voice.stop` | ends the entire conversation; voice tests |
-| GET | `/assistant/actions/:actionId/options` | buyer session | `assistant.actions.options` | custom; pending cart, order or return edit options; assistant tests |
-| PATCH | `/assistant/actions/:actionId` | buyer session | `assistant.actions.edit` | custom; replaces pending cart, order or return action; assistant tests |
+| GET | `/assistant/actions/:actionId/options` | buyer session | `assistant.actions.options` | custom; pending single/batch cart, order or return edit options; assistant and batch-cart tests |
+| PATCH | `/assistant/actions/:actionId` | buyer session | `assistant.actions.edit` | custom; replaces pending single/batch cart, order or return action; assistant and batch-cart tests |
 | POST | `/assistant/actions/:actionId/confirm` | buyer session | `assistant.actions.confirm` | implemented; assistant tests |
 | POST | `/assistant/actions/:actionId/cancel` | buyer session | `assistant.actions.cancel` | implemented; assistant tests |
 | GET | `/buyer/messages`, `/buyer/messages/unread-count`, `/buyer/messages/:ticketId` | buyer session | `buyer.messages.list`, `.unreadCount`, `.get` | implemented; messages tests |

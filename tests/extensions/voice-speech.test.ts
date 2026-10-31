@@ -69,14 +69,15 @@ describe('voice runtime delegates meaning to the agent', () => {
     const { spoken } = await run('SPEECH_OK', text, { kind: 'action', action: { requires_tap: false } });
     expect(spoken).toEqual([`Thêm vào giỏ hàng. Sản phẩm: Tai nghe; Số lượng: 1. Tổng cộng: 790000 VND. ${speechText.confirm.vi}`]);
   });
-  it('a tap while the thread is still answering drops its stale "please tap" and tells the thread', async () => {
+  it('reads the prepared order immediately and never repeats "please tap" after execution', async () => {
       const text = 'Action ID (do not read aloud): a1\nreadback_vi: Đặt hàng. Tai nghe x 1. Tổng cộng: 790000 VND.\nreadback_en: Place order. Earbuds x 1. Total: 790000 VND.';
       const { spoken, requests } = await run('SPEECH_TAP', text, { kind: 'action', action: { requires_tap: true } }, (runtime, id) =>
         runtime.action(id, { status: 'EXECUTED', requires_tap: true, summary: { title: 'Order confirmed' }, result: { order_sn: 'SN1' } }),
         { handoffWait: 200 },
       );
       expect(spoken).toContain(speechText.orderPlaced.vi);
-      expect(spoken.join(' ')).not.toContain(speechText.confirmTap.vi);
+      expect(spoken.filter((line) => String(line).includes(speechText.confirmTap.vi))).toHaveLength(1);
+      expect(spoken.indexOf(speechText.orderPlaced.vi)).toBeGreaterThan(spoken.findIndex((line) => String(line).includes(speechText.confirmTap.vi)));
       expect(spoken.join(' ')).not.toContain('Giá 790.000đ');
       const note = requests.find((r) => r.method === 'turn/start' && JSON.stringify(r.params).includes('[App] Order confirmed: EXECUTED'));
       expect(note).toBeDefined();

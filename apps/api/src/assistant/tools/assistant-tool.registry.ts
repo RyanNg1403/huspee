@@ -163,6 +163,13 @@ const definitions = {
     properties: { item_id: { type: 'integer' }, model_id: { type: 'integer' }, quantity: quantityProperty, requested_attributes: requestedAttributesProperty },
     required: ['item_id', 'model_id', 'quantity'],
   },
+  add_cart_items: {
+    schema: z.object({ lines: z.array(z.object({ item_id: z.number().int(), model_id: z.number().int(), quantity, requested_attributes: requestedAttributes }).strict()).min(1).max(50)
+      .refine((lines) => new Set(lines.map((line) => line.model_id)).size === lines.length, 'Each variant must appear once') }).strict(),
+    properties: { lines: { type: 'array', minItems: 1, maxItems: 50, description: 'All exact variants and quantities in this request, each variant once. One pending action and confirmation covers the whole batch.',
+      items: { type: 'object', properties: { item_id: { type: 'integer' }, model_id: { type: 'integer' }, quantity: quantityProperty, requested_attributes: requestedAttributesProperty }, required: ['item_id', 'model_id', 'quantity'], additionalProperties: false } } },
+    required: ['lines'],
+  },
   update_cart_item: {
     schema: z
       .object({ model_id: z.number().int(), quantity: quantity.optional(), new_model_id: z.number().int().optional() })
@@ -228,6 +235,7 @@ const definitions = {
   get_vouchers: { schema: z.object({}).strict(), properties: {}, required: [] },
 } as const;
 const descriptions: Record<string, string> = {
+  add_cart_items: 'Prepare all requested products/variants in one shop as ONE cart action, with a combined readback, total and one spoken confirmation. Use for multi-item requests instead of separate add_to_cart calls; also accepts one line. No cart changes until confirmed; any invalid line rejects the whole batch. Vouchers are applied at checkout, not to cart additions.',
   set_response_language: 'Set Vietnamese or English for app-authored readbacks and action outcomes when the buyer changes language. Interpret their language yourself; the server does not guess it from keywords.',
   cancel_action: 'Cancel an exact pending action in this conversation. Use when the buyer withdraws or revises it; then prepare and read back a replacement before asking for fresh confirmation.',
   check_voucher: 'Read-only voucher eligibility for an exact proposed basket or the current shop cart. Returns live prices, covered items, eligible subtotal, minimum-spend shortfall, discount and reason, using checkout rules. Call before claiming that a voucher applies. This does not apply the voucher or place an order; checkout revalidates.',
@@ -361,20 +369,23 @@ export class AssistantToolRegistry {
       if (ctx.viewedItemId == null) return { success: true, text: JSON.stringify({ viewed: false, item: null, note: 'The buyer is not currently viewing a product in this shop. Ask which product they mean; do not treat an earlier viewed product as current.' }) };
       return this.execute('get_product_details', { ...input, item_id: ctx.viewedItemId }, ctx);
     }
-    if (name === 'add_to_cart') {
-      if (input.requested_attributes) {
-        const item = await this.prisma.item.findFirst({ where: { id: input.item_id as number, shopId: ctx.shopId, status: 'NORMAL', shop: { status: 'NORMAL' } }, include: itemInclude });
-        if (!item) return { success: false, text: 'Product not found.' };
-        const match = variantMatch([item], input.requested_attributes as Record<string, string>);
-        if (match.validation_miss || match.out_of_stock) return { success: false, text: JSON.stringify(match), ...match };
-        const candidates = sellableModels(item).filter((model) => { const result = variantMatch([{ ...item, models: [model] }], input.requested_attributes as Record<string, string>); return !result.validation_miss && !result.out_of_stock; });
-        if (candidates.length > 1) return { success: false, text: JSON.stringify({ error: 'Variant needs clarification', candidates: candidates.map((model) => ({ model_id: model.id, name: modelName(item, model.tierIndex) })) }) };
-        const selected = { ...item, models: item.models.filter((model) => model.id === input.model_id) };
-        const selectedMatch = variantMatch([selected], input.requested_attributes as Record<string, string>);
-        if (selectedMatch.out_of_stock) return { success: false, text: JSON.stringify(selectedMatch), ...selectedMatch };
-        if (selectedMatch.validation_miss) return { success: false, text: 'Selected variant does not match the requested attributes.' };
+    if (name === 'add_to_cart' || name === 'add_cart_items') {
+      const lines = name === 'add_cart_items' ? input.lines as Array<Record<string, unknown>> : [input];
+      for (const input of lines) {
+        if (input.requested_attributes) {
+          const item = await this.prisma.item.findFirst({ where: { id: input.item_id as number, shopId: ctx.shopId, status: 'NORMAL', shop: { status: 'NORMAL' } }, include: itemInclude });
+          if (!item) return { success: false, text: 'Product not found.' };
+          const match = variantMatch([item], input.requested_attributes as Record<string, string>);
+          if (match.validation_miss || match.out_of_stock) return { success: false, text: JSON.stringify(match), ...match };
+          const candidates = sellableModels(item).filter((model) => { const result = variantMatch([{ ...item, models: [model] }], input.requested_attributes as Record<string, string>); return !result.validation_miss && !result.out_of_stock; });
+          if (candidates.length > 1) return { success: false, text: JSON.stringify({ error: 'Variant needs clarification', candidates: candidates.map((model) => ({ model_id: model.id, name: modelName(item, model.tierIndex) })) }) };
+          const selected = { ...item, models: item.models.filter((model) => model.id === input.model_id) };
+          const selectedMatch = variantMatch([selected], input.requested_attributes as Record<string, string>);
+          if (selectedMatch.out_of_stock) return { success: false, text: JSON.stringify(selectedMatch), ...selectedMatch };
+          if (selectedMatch.validation_miss) return { success: false, text: 'Selected variant does not match the requested attributes.' };
+        }
       }
-      const action = await this.actions.prepareAdd(ctx, input as { item_id: number; model_id: number; quantity: number });
+      const action = await this.actions.prepareAdds(ctx, lines as Array<{ item_id: number; model_id: number; quantity: number }>);
       return { success: true, text: actionText(action), card: { kind: 'action', action } };
     }
     if (name === 'update_cart_item') {

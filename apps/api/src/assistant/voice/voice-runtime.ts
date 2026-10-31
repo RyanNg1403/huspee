@@ -19,6 +19,7 @@ type ToolRegistry = {
   specs(): Array<{ name: string; description: string; inputSchema: object }>;
   run(name: string, args: unknown, ctx: Context): Promise<ToolOutput>;
 };
+type Readback = { vi: string; en: string; tap: boolean; sent: boolean };
 type Session = {
   context: Context;
   threadId: string;
@@ -50,7 +51,8 @@ type Session = {
   /** The buyer's last few utterances, so a turn the server starts keeps the conversation's context. */
   recentUser: string[];
   reply?: string;
-  readback?: { vi: string; en: string; tap: boolean; actionId?: string };
+  /** Each prepared action owns its readback; a later tool cannot overwrite an earlier one. */
+  readbacks: Map<string, Readback>;
   /** The realtime model handed the current utterance to the thread, or we started a turn ourselves. */
   handoff: boolean;
   turnActive: boolean;
@@ -153,6 +155,7 @@ export class VoiceRuntime {
         settledSequence: 0,
         assignedSequence: 0,
         pendingNotes: [],
+        readbacks: new Map(),
       };
       this.sessions.set(ctx.conversationId, session);
       this.reservations--;
@@ -339,7 +342,7 @@ export class VoiceRuntime {
     if (!session) return;
     this.emit(session, { type: 'action', action });
     if (initiatedBy === 'agent' && action.status === 'CANCELLED') {
-      if (action.action_id && session.readback?.actionId === action.action_id) session.readback = undefined;
+      if (action.action_id) session.readbacks.delete(action.action_id);
       // The running agent receives the tool result; it may still prepare and read a replacement.
       return;
     }
@@ -347,7 +350,7 @@ export class VoiceRuntime {
     const resolved = action.requires_tap && (action.status === 'EXECUTED' || action.status === 'CANCELLED');
     if (resolved && session.mode === 'voice') {
       // A read-back or reply still in flight was written before the tap and would ask for it again.
-      session.readback = undefined;
+      session.readbacks.clear();
       if (session.turnActive) session.dropReply = true;
     }
     if (session.mode === 'voice' && action.requires_tap) {
@@ -447,14 +450,14 @@ export class VoiceRuntime {
   private language(session: Session): SpeechLanguage {
     return session.config.language ?? 'vi';
   }
-  private async speak(session: Session, text: string): Promise<void> {
+  private async speak(session: Session, text: string): Promise<boolean> {
     if (session.callState === 'stopping' || session.mode === 'text') {
       this.emit(session, { type: 'transcript', role: 'assistant', text, final: true, item_id: randomUUID(), source: 'text' });
       this.remember(session, 'assistant', text);
       await this.saveTranscript(session.context, 'assistant', text);
-      return;
+      return true;
     }
-    await this.transport.request('thread/realtime/appendSpeech', { threadId: session.threadId, text }).catch(() => undefined);
+    return this.transport.request('thread/realtime/appendSpeech', { threadId: session.threadId, text }).then(() => true, () => false);
   }
   private scheduleRecovery(session: Session, delay = this.stallMs): void {
     clearTimeout(session.recoveryTimer);
@@ -501,14 +504,13 @@ export class VoiceRuntime {
     }
     if (!turn || turn.silent || turn.requestSequence === session.requestSequence || session.dropReply) return;
     session.dropReply = true;
-    session.readback = undefined;
+    session.readbacks.clear();
     void this.transport.request('turn/interrupt', { threadId: session.threadId, turnId: turn.id }).catch(() => undefined);
   }
   /** Deliver the delegated agent's answer or the app-authored confirmation read-back. */
   private async speakTurn(session: Session): Promise<void> {
-    const lang = this.language(session);
-    const readback = session.readback, answer = session.reply;
-    session.readback = undefined;
+    const readbacks = [...session.readbacks.values()], answer = session.reply;
+    session.readbacks.clear();
     session.reply = undefined;
     if (session.dropReply) {
       session.dropReply = false;
@@ -519,12 +521,22 @@ export class VoiceRuntime {
       session.silentTurns--;
       return;
     }
-    if (readback) {
-      await this.speak(session, `${readback[lang]} ${readback.tap ? speechText.confirmTap[lang] : speechText.confirm[lang]}`);
+    if (readbacks.length) {
+      for (const readback of readbacks) if (!readback.sent) await this.speakReadback(session, readback);
       return;
     }
     if (!answer) return;
     await this.speak(session, answer);
+  }
+  private async speakReadback(session: Session, readback: Readback): Promise<void> {
+    readback.sent = true;
+    const lang = this.language(session);
+    try {
+      readback.sent = await this.speak(session, `${readback[lang]} ${readback.tap ? speechText.confirmTap[lang] : speechText.confirm[lang]}`);
+    } catch (error) {
+      readback.sent = false;
+      throw error;
+    }
   }
   private async handle(message: { id?: number; method?: string; params?: Record<string, unknown> }): Promise<void> {
     if (process.env.ASSISTANT_VOICE_TRACE && message.method && message.id === undefined) {
@@ -616,7 +628,8 @@ export class VoiceRuntime {
       const sequence = turn?.requestSequence ?? session.pendingUserTurn?.sequence;
       const silent = turn?.silent || session.silentTurns > 0;
       const dropped = session.dropReply;
-      const answered = !!(session.reply || session.readback);
+      const deliveredReadback = [...session.readbacks.values()].some((readback) => readback.sent);
+      const answered = !!(session.reply || session.readbacks.size);
       const status = (params.turn as { status?: string } | undefined)?.status;
       session.turnActive = false;
       session.handoff = false;
@@ -625,10 +638,10 @@ export class VoiceRuntime {
       if (sequence !== undefined && !silent) session.settledSequence = Math.max(session.settledSequence, sequence);
       if (status !== 'completed' && !dropped) {
         session.reply = undefined;
-        session.readback = undefined;
+        session.readbacks.clear();
       }
       await this.speakTurn(session);
-      if (!silent && !dropped && sequence === session.requestSequence && (status !== 'completed' || !answered)) {
+      if (!silent && !dropped && !deliveredReadback && sequence === session.requestSequence && (status !== 'completed' || !answered)) {
         this.emit(session, { type: 'error', message: 'Assistant could not finish the request. Please retry.' });
         await this.speak(session, speechText.replyUnavailable[this.language(session)]);
       }
@@ -638,19 +651,25 @@ export class VoiceRuntime {
     } else if (message.method === 'item/tool/call' && message.id !== undefined) {
       const name = String(params.tool);
       const source = session.mode;
+      const sequence = session.requestSequence;
       this.emit(session, { type: 'tool', name, status: 'started' });
       try {
         const output = await this.tools.run(name, params.arguments, { ...session.context });
         if (output.response_language) session.config.language = output.response_language;
         const vi = /^readback_vi: (.*)$/m.exec(output.text)?.[1], en = /^readback_en: (.*)$/m.exec(output.text)?.[1];
-        if (vi && en)
-          session.readback = { vi, en, tap: Boolean((output.card?.action as { requires_tap?: boolean } | undefined)?.requires_tap), actionId: (output.card?.action as { action_id?: string } | undefined)?.action_id };
+        const action = output.card?.action as { requires_tap?: boolean; action_id?: string } | undefined;
+        const readback = output.success && vi && en && source === 'voice' && !session.closed && !session.dropReply && !session.silentTurns && sequence === session.requestSequence
+          ? { vi, en, tap: Boolean(action?.requires_tap), sent: false } : undefined;
+        const readbackId = action?.action_id ?? String(message.id);
+        if (readback) session.readbacks.set(readbackId, readback);
         this.emit(session, { type: 'tool', name, status: output.success ? 'done' : 'error' });
         if (output.card) this.emit(session, { type: 'card', card: output.card, source });
         this.transport.send({
           id: message.id,
           result: { success: output.success, contentItems: [{ type: 'inputText', text: output.text }] },
         });
+        // The tool has already prepared the exact action. Do not wait for model prose/turn completion.
+        if (readback && session.readbacks.has(readbackId)) void this.speakReadback(session, readback).catch(() => undefined);
       } catch {
         this.emit(session, { type: 'tool', name, status: 'error' });
         this.transport.send({

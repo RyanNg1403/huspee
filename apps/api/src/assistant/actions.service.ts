@@ -30,6 +30,14 @@ function actionScope({ conversationId, buyerId, shopId }: { conversationId: stri
   return { conversationId, buyerId, shopId };
 }
 
+export type CartAddInput = { item_id: number; model_id: number; quantity: number };
+type CartAddSnapshot = CartAddInput & { price: number; item_name: string; model_name: string; new_model_id?: number; previous_quantity?: number };
+/** Older saved single-item actions remain confirmable and editable. */
+function cartAddLines(payload: Prisma.JsonValue): CartAddSnapshot[] {
+  const input = payload as unknown as CartAddSnapshot & { lines?: CartAddSnapshot[] };
+  return input.lines ?? [input];
+}
+
 @Injectable()
 export class ActionsService {
   constructor(
@@ -56,35 +64,49 @@ export class ActionsService {
     return view;
   }
   async prepareAdd(ctx: { conversationId: string; buyerId: number; shopId: number }, input: { item_id: number; model_id: number; quantity: number }, replaces?: string) {
-    const model = await this.prisma.model.findFirst({
+    return this.prepareAdds(ctx, [input], replaces);
+  }
+  async prepareAdds(ctx: { conversationId: string; buyerId: number; shopId: number }, inputs: CartAddInput[], replaces?: string) {
+    if (!inputs.length || inputs.length > 50 || new Set(inputs.map((line) => line.model_id)).size !== inputs.length)
+      throw invalidState('Choose 1 to 50 distinct product variants');
+    if (inputs.some((line) => !Number.isInteger(line.quantity) || line.quantity < 1 || line.quantity > 999))
+      throw invalidState('Quantity must be an integer between 1 and 999');
+    const models = await this.prisma.model.findMany({
       where: {
-        id: input.model_id,
-        itemId: input.item_id,
+        id: { in: inputs.map((line) => line.model_id) },
         status: 'MODEL_NORMAL',
         item: { shopId: ctx.shopId, status: 'NORMAL', shop: { status: 'NORMAL', holidayMode: false } },
       },
       include: { item: true, discountModels: { include: { discount: true } } },
     });
-    if (!model || model.isDefault === model.item.hasModel) throw notFound('Product variation');
-    const existing = await this.prisma.cartItem.findUnique({ where: { userId_modelId: { userId: ctx.buyerId, modelId: model.id } } });
-    if ((existing?.quantity ?? 0) + input.quantity > Math.min(model.stock, 999)) throw invalidState('Requested quantity is unavailable');
-    const price = resolveModelPrice(model).currentPrice;
+    const cart = await this.prisma.cartItem.findMany({ where: { userId: ctx.buyerId } });
+    const lines = inputs.map((input): CartAddSnapshot => {
+      const model = models.find((entry) => entry.id === input.model_id && entry.itemId === input.item_id);
+      if (!model || model.isDefault === model.item.hasModel) throw notFound('Product variation');
+      const existing = cart.find((line) => line.modelId === model.id);
+      if ((existing?.quantity ?? 0) + input.quantity > Math.min(model.stock, 999)) throw invalidState('Requested quantity is unavailable');
+      return { item_id: input.item_id, model_id: model.id, quantity: input.quantity,
+        price: resolveModelPrice(model).currentPrice, item_name: model.item.name, model_name: modelName(model.item, model.tierIndex) };
+    });
+    if (cart.length + lines.filter((line) => !cart.some((entry) => entry.modelId === line.model_id)).length > 200) throw invalidState('Cart is full');
+    const first = lines[0]!;
     const summary = {
       title: 'Sẵn sàng thêm vào giỏ hàng / Ready to add to cart',
-      lines: [
-        { label: 'Sản phẩm / Item', value: model.item.name },
-        { label: 'Phân loại / Variant', value: modelName(model.item, model.tierIndex) || 'Mặc định / Default' },
-        { label: 'Số lượng / Quantity', value: String(input.quantity) },
-        { label: 'Đơn giá / Unit price', value: String(price) },
+      lines: [ ...(lines.length === 1 ? [
+        { label: 'Sản phẩm / Item', value: first.item_name },
+        { label: 'Phân loại / Variant', value: first.model_name || 'Mặc định / Default' },
+        { label: 'Số lượng / Quantity', value: String(first.quantity) },
+        { label: 'Đơn giá / Unit price', value: String(first.price) },
+      ] : lines.map((line) => ({ label: line.item_name, value: `${line.model_name || 'Mặc định / Default'} × ${line.quantity} @ ${line.price} VND` }))),
         { label: 'Mã giảm giá / Voucher', value: 'Không có / None' },
       ],
-      total: price * input.quantity,
+      total: lines.reduce((sum, line) => sum + line.price * line.quantity, 0),
     };
     const action = await this.prisma.pendingAction.create({
       data: {
         ...actionScope(ctx),
         type: 'ADD_TO_CART',
-        payload: { ...input, price, item_name: model.item.name, model_name: modelName(model.item, model.tierIndex) },
+        payload: { lines },
         summary,
         requiresTap: false,
         expiresAt: new Date(Date.now() + 300000),
@@ -270,6 +292,17 @@ export class ActionsService {
       });
       return { ...lines[0]!, lines };
     }
+    if (action.type === 'ADD_TO_CART') {
+      const lines = await Promise.all(cartAddLines(action.payload).map(async (line, index) => {
+        const models = await this.prisma.model.findMany({
+          where: { itemId: line.item_id, status: 'MODEL_NORMAL', item: { shopId: action.shopId, status: 'NORMAL', shop: { status: 'NORMAL', holidayMode: false } } },
+          include: { item: true }, orderBy: { id: 'asc' },
+        });
+        return { line_index: index, name: models[0]?.item.name ?? '', quantity: line.quantity, model_id: line.model_id,
+          models: models.filter((model) => model.isDefault !== model.item.hasModel).map((model) => ({ model_id: model.id, name: modelName(model.item, model.tierIndex) || 'Default', stock: model.stock })) };
+      }));
+      return { ...lines[0]!, lines };
+    }
     const payload = action.payload as { item_id: number; model_id: number; new_model_id?: number; quantity: number };
     const models = await this.prisma.model.findMany({
       where: { itemId: payload.item_id, status: 'MODEL_NORMAL', item: { shopId: action.shopId, status: 'NORMAL', shop: { status: 'NORMAL', holidayMode: false } } },
@@ -318,10 +351,12 @@ export class ActionsService {
       return this.prepareOrder(ctx, { address_id: checkout.address_id, payment_method: checkout.payment_method, ...(voucher ? { voucher_code: voucher } : {}) }, id);
     }
     if (updatedReturn) return this.prepareReturn(ctx, updatedReturn, id);
+    if (action.type === 'ADD_TO_CART') {
+      const lines = cartAddLines(action.payload).map((line, index) => ({ item_id: line.item_id, model_id: index === selected.line_index ? input.model_id : line.model_id, quantity: index === selected.line_index ? input.quantity : line.quantity }));
+      return this.prepareAdds(ctx, lines, id);
+    }
     const payload = action.payload as { item_id: number; model_id: number };
-    return action.type === 'ADD_TO_CART'
-      ? this.prepareAdd(ctx, { item_id: payload.item_id, model_id: input.model_id, quantity: input.quantity }, id)
-      : this.prepareUpdate(ctx, { model_id: payload.model_id, new_model_id: input.model_id, quantity: input.quantity }, id);
+    return this.prepareUpdate(ctx, { model_id: payload.model_id, new_model_id: input.model_id, quantity: input.quantity }, id);
   }
   async cancel(id: string, buyerId: number, initiatedBy: 'agent' | 'buyer' = 'buyer') {
     const action = await this.prisma.pendingAction.findFirst({ where: { id, buyerId } });
@@ -387,16 +422,7 @@ export class ActionsService {
         return this.emit(await this.prisma.pendingAction.findUniqueOrThrow({ where: { id } }));
       }
       if (existing.type !== 'ADD_TO_CART' && existing.type !== 'UPDATE_CART_ITEM') throw invalidState('Action type is unavailable');
-      const input = existing.payload as {
-        item_id: number;
-        model_id: number;
-        new_model_id?: number;
-        quantity: number;
-        price: number;
-        item_name: string;
-        model_name: string;
-        previous_quantity?: number;
-      };
+      const inputs = existing.type === 'ADD_TO_CART' ? cartAddLines(existing.payload) : [existing.payload as unknown as CartAddSnapshot];
       const action = await this.prisma.$transaction(
         async (tx) => {
           const locked = await tx.pendingAction.updateMany({
@@ -404,40 +430,42 @@ export class ActionsService {
             data: { status: 'EXECUTED', result: { message: existing.type === 'ADD_TO_CART' ? 'Added to cart' : 'Cart updated' } },
           });
           if (!locked.count) throw invalidState('Action is no longer pending');
-          const model = await tx.model.findFirst({
-            where: {
-              id: input.new_model_id ?? input.model_id,
-              itemId: input.item_id,
-              status: 'MODEL_NORMAL',
-              item: { shopId: existing.shopId, status: 'NORMAL', shop: { status: 'NORMAL', holidayMode: false } },
-            },
-            include: { item: true, discountModels: { include: { discount: true } } },
-          });
-          if (
-            !model ||
-            model.isDefault === model.item.hasModel ||
-            resolveModelPrice(model).currentPrice !== input.price ||
-            model.item.name !== input.item_name ||
-            modelName(model.item, model.tierIndex) !== input.model_name
-          )
-            throw invalidState('Product or price changed; please confirm again');
-          const line = await tx.cartItem.findUnique({ where: { userId_modelId: { userId: buyerId, modelId: model.id } } });
-          if (existing.type === 'UPDATE_CART_ITEM') {
-            const original = await tx.cartItem.findUnique({ where: { userId_modelId: { userId: buyerId, modelId: input.model_id } } });
-            if (!original || original.quantity !== input.previous_quantity) throw invalidState('Cart item changed; please confirm again');
-            if (model.id !== input.model_id && line) throw invalidState('Target variant already exists in cart; please update it separately');
-            if (input.quantity > model.stock) throw invalidState('Requested quantity is unavailable');
-            await tx.cartItem.update({ where: { id: original.id }, data: { modelId: model.id, quantity: input.quantity } });
-            return tx.pendingAction.findUniqueOrThrow({ where: { id } });
+          for (const input of inputs) {
+            const model = await tx.model.findFirst({
+              where: {
+                id: input.new_model_id ?? input.model_id,
+                itemId: input.item_id,
+                status: 'MODEL_NORMAL',
+                item: { shopId: existing.shopId, status: 'NORMAL', shop: { status: 'NORMAL', holidayMode: false } },
+              },
+              include: { item: true, discountModels: { include: { discount: true } } },
+            });
+            if (
+              !model ||
+              model.isDefault === model.item.hasModel ||
+              resolveModelPrice(model).currentPrice !== input.price ||
+              model.item.name !== input.item_name ||
+              modelName(model.item, model.tierIndex) !== input.model_name
+            )
+              throw invalidState('Product or price changed; please confirm again');
+            const line = await tx.cartItem.findUnique({ where: { userId_modelId: { userId: buyerId, modelId: model.id } } });
+            if (existing.type === 'UPDATE_CART_ITEM') {
+              const original = await tx.cartItem.findUnique({ where: { userId_modelId: { userId: buyerId, modelId: input.model_id } } });
+              if (!original || original.quantity !== input.previous_quantity) throw invalidState('Cart item changed; please confirm again');
+              if (model.id !== input.model_id && line) throw invalidState('Target variant already exists in cart; please update it separately');
+              if (input.quantity > model.stock) throw invalidState('Requested quantity is unavailable');
+              await tx.cartItem.update({ where: { id: original.id }, data: { modelId: model.id, quantity: input.quantity } });
+              return tx.pendingAction.findUniqueOrThrow({ where: { id } });
+            }
+            const quantity = (line?.quantity ?? 0) + input.quantity;
+            if (quantity > Math.min(model.stock, 999)) throw invalidState('Requested quantity is unavailable');
+            if (!line && (await tx.cartItem.count({ where: { userId: buyerId } })) >= 200) throw invalidState('Cart is full');
+            await tx.cartItem.upsert({
+              where: { userId_modelId: { userId: buyerId, modelId: model.id } },
+              create: { userId: buyerId, modelId: model.id, quantity },
+              update: { quantity },
+            });
           }
-          const quantity = (line?.quantity ?? 0) + input.quantity;
-          if (quantity > Math.min(model.stock, 999)) throw invalidState('Requested quantity is unavailable');
-          if (!line && (await tx.cartItem.count({ where: { userId: buyerId } })) >= 200) throw invalidState('Cart is full');
-          await tx.cartItem.upsert({
-            where: { userId_modelId: { userId: buyerId, modelId: model.id } },
-            create: { userId: buyerId, modelId: model.id, quantity },
-            update: { quantity },
-          });
           return tx.pendingAction.findUniqueOrThrow({ where: { id } });
         },
         { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
