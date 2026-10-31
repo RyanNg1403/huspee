@@ -1,4 +1,4 @@
-import { closestProducts, distance, matchProducts, resolveVoucher, spokenNumber, words } from './speech-resolution';
+import { closestProducts, distance, matchProducts, rankFaqs, resolveVoucher, spokenNumber, words } from './speech-resolution';
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
@@ -246,7 +246,7 @@ const descriptions: Record<string, string> = {
   get_vouchers: 'List currently public, unexpired shop vouchers that this buyer has not used; eligibility rules still apply.',
   get_shipping_info: 'Get the shop shipping policy and, when a product is specified, its eligible channels and fees.',
   get_return_policy: 'Get the persisted shop return policy.',
-  get_shop_faqs: 'Search enabled seller-written FAQs for this shop.',
+  get_shop_faqs: 'Search enabled seller-written FAQs for this shop. Returns the FAQs sharing the most words with the query first, or every FAQ when none match.',
   get_cart: 'Get this buyer’s cart for this shop with calculated totals.',
   get_order_status: 'Get this buyer’s own order with its items and tracking for this shop, or the latest five orders. Use the item and model ids from here for open_return.',
   add_to_cart: 'Prepare a cart addition and read its exact summary aloud. Ask for spoken confirmation before calling confirm_action.',
@@ -605,21 +605,11 @@ export class AssistantToolRegistry {
     }
     if (name === 'get_shop_faqs') {
       const faqs = await this.prisma.assistantFaq.findMany({
-        where: {
-          shopId: ctx.shopId,
-          enabled: true,
-          ...(input.query
-            ? {
-                OR: [
-                  { question: { contains: input.query as string, mode: 'insensitive' } },
-                  { answer: { contains: input.query as string, mode: 'insensitive' } },
-                ],
-              }
-            : {}),
-        },
+        where: { shopId: ctx.shopId, enabled: true },
         select: { question: true, answer: true, lang: true },
+        orderBy: { id: 'asc' },
       });
-      return { success: true, text: JSON.stringify(faqs) };
+      return { success: true, text: JSON.stringify(input.query ? rankFaqs(input.query as string, faqs) : faqs) };
     }
     if (name === 'get_return_policy' || name === 'get_shipping_info') {
       const product = input.item_id

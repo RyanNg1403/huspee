@@ -54,7 +54,7 @@ fields or unpublished items):
 | `get_vouchers()` | Public, currently usable vouchers of this shop with rules |
 | `get_shipping_info(item_id?)` | Channels, fees and times from seeded/persisted data |
 | `get_return_policy()` | The shop's persisted policy |
-| `get_shop_faqs(query?)` | Enabled seller FAQs (verified data) |
+| `get_shop_faqs(query?)` | Enabled seller FAQs (verified data); with a query, those sharing the most words with it first (accent-insensitive), or all of them when none match |
 | `get_cart()` | The buyer's cart lines for this shop, with API-computed totals |
 | `get_order_status(order_sn?)` | The buyer's own orders with this shop (latest 5 if no order_sn), status and tracking |
 | `add_to_cart(item_id, model_id, quantity, requested_attributes?)` | Creates a `PendingAction` (requiresTap false) and returns its readback |

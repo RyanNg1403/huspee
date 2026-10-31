@@ -89,3 +89,17 @@ export function closestProducts<T extends { name: string }>(heard: string, produ
   if (best < 2 || best * 2 < tokens.length) return [];
   return scored.filter(({ score }) => score === best).map(({ product }) => product);
 }
+/**
+ * Seller FAQs for a question, the ones sharing the most words first ("bảo hành sạc Anker" finds
+ * "Chính sách bảo hành là gì?"). Shops keep few FAQs, so when none match all are returned for the
+ * model to choose from: an empty list would make it tell the buyer the shop has no answer.
+ */
+export function rankFaqs<T extends { question: string; answer: string }>(heard: string, faqs: T[]): T[] {
+  const tokens = [...new Set(words(heard).split(' ').filter((token) => token.length > 1))];
+  const scored = faqs.map((faq) => {
+    const target = words(`${faq.question} ${faq.answer}`).split(' ');
+    return { faq, score: tokens.filter((token) => tokenMatches(token, target)).length };
+  });
+  if (!scored.some(({ score }) => score > 0)) return faqs;
+  return scored.filter(({ score }) => score > 0).sort((a, b) => b.score - a.score).map(({ faq }) => faq);
+}

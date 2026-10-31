@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { closestProducts, matchProducts, resolveVoucher, spokenNumber } from '../../apps/api/src/assistant/tools/speech-resolution.js';
+import { closestProducts, matchProducts, rankFaqs, resolveVoucher, spokenNumber } from '../../apps/api/src/assistant/tools/speech-resolution.js';
 
 describe('speech resolution', () => {
   it('resolves spoken voucher numbers and refuses equally close codes', () => {
@@ -22,6 +22,18 @@ describe('speech resolution', () => {
     expect(closestProducts('Tai nghe Xiaomi ZP4N5', products)).toEqual([products[0]]);
     expect(closestProducts('máy giặt', products)).toEqual([]);
     expect(closestProducts('tai nghe abc xyz qqq', products)).toEqual([]);
+  });
+  it('ranks seller FAQs by shared words and never answers with an empty list', () => {
+    const faqs = [
+      { question: 'Chính sách vận chuyển là gì?', answer: 'Giao trong 24h làm việc.' },
+      { question: 'Chính sách bảo hành là gì?', answer: 'Bảo hành chính hãng 12 tháng.' },
+      { question: 'What is the return policy?', answer: 'Đổi trả trong 7 ngày.' },
+    ];
+    expect(rankFaqs('bảo hành sạc Anker', faqs)).toEqual([faqs[1]]);
+    expect(rankFaqs('Sạc Anker bảo hành bao lâu?', faqs)).toEqual([faqs[1]]);
+    expect(rankFaqs('Chính sách bảo hành của shop', faqs)).toEqual([faqs[1], faqs[0]]);
+    expect(rankFaqs('return policy', faqs)).toEqual([faqs[2]]);
+    expect(rankFaqs('màu đỏ', faqs)).toEqual(faqs);
   });
   it('accepts Vietnamese and English spoken quantities', () => {
     expect(spokenNumber('hai mươi lăm')).toBe(25);
