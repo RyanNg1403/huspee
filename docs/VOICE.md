@@ -73,6 +73,14 @@ sends the request on.
 Each realtime turn uses the operator's Codex subscription. When its usage window is exhausted,
 Codex may draw on account credits; check usage before long test sessions.
 
+## Microphone meter and mobile chat
+
+The call footer displays a microphone amplitude history from the existing input `AnalyserNode`, sampled every 100 ms. The display maps RMS logarithmically from -60 dBFS to 0 dBFS, clamped to 0–100; it is not a calibrated sound-pressure meter. Input at or above RMS 0.004 shows “Sound detected,” held for 1.5 seconds to avoid flicker. This reports local sound, not speech recognition or receipt by the assistant. Remote playback does not drive it. Quiet input, a disabled track, push-to-talk waiting, an interrupted/ended track, unavailable analysis, and a suspended AudioContext have separate states. A suspended context offers an explicit resume button and does not block call signaling. Muting and hanging up clear the visual level; unmounting stops sampling without opening or stopping another microphone.
+
+On phones (up to 767 px wide, or a short landscape viewport with coarse input), the dock is a viewport-sized screen portaled directly to `document.body`. Opening it fixes the underlying body at its saved scroll position and prevents scroll chaining. The header and composer do not shrink; the transcript owns the remaining scroll area. The product-context list starts collapsed in a short keyboard viewport. Closing restores the previous scroll position, or the top of a newly navigated product. Desktop retains the floating dock.
+
+`pnpm smoke:microphone-meter` checks synthetic input levels, quiet/mute/push-to-talk, remote-audio isolation, suspended/unavailable analysis and cleanup. `pnpm smoke:chat-layout` checks a scrolled page, transformed layout ancestors, wheel/touch scrolling, keyboard dimensions, portrait/landscape and scroll restoration. Both use mocked assistant sessions through `WEB_URL`; no real Codex session or physical microphone is used.
+
 ## Speech recognition safeguards
 
 Product search and voucher resolution use shop-scoped verified data; ambiguous results return candidates

@@ -1,22 +1,36 @@
 'use client';
-import { useId, useState } from 'react';
+import { useId, useState, useSyncExternalStore } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useT } from '@/i18n';
 import { messages } from './messages';
 import type { ConversationProduct } from './conversation-products';
 
+function subscribeViewport(notify: () => void) {
+  window.visualViewport?.addEventListener('resize', notify);
+  window.addEventListener('resize', notify);
+  return () => {
+    window.visualViewport?.removeEventListener('resize', notify);
+    window.removeEventListener('resize', notify);
+  };
+}
+const compactViewport = () => (window.visualViewport?.height ?? window.innerHeight) < 520;
+const serverViewport = () => false;
+
 /** A compact, inspectable account of the product results held by this live conversation. */
 export function ConversationProducts({ products }: { products: ConversationProduct[] }) {
   const t = useT(messages);
-  const [expanded, setExpanded] = useState(true);
+  const compact = useSyncExternalStore(subscribeViewport, compactViewport, serverViewport);
+  const [fullExpanded, setFullExpanded] = useState(true);
+  const [compactExpanded, setCompactExpanded] = useState(false);
+  const expanded = compact ? compactExpanded : fullExpanded;
   const listId = useId();
   if (!products.length) return null;
   return (
-    <section className="shrink-0 border-b border-line bg-white" aria-label={t('contextProducts')} data-testid="conversation-products">
+    <section className="assistant-context-products shrink-0 overflow-y-auto overscroll-contain border-b border-line bg-white" aria-label={t('contextProducts')} data-testid="conversation-products">
       <button
         type="button"
-        onClick={() => setExpanded(!expanded)}
+        onClick={() => compact ? setCompactExpanded(!expanded) : setFullExpanded(!expanded)}
         aria-expanded={expanded}
         aria-controls={listId}
         className="flex min-h-11 w-full items-center gap-2 px-4 py-2 text-left hover:bg-gray-50"

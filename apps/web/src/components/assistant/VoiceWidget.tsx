@@ -4,6 +4,7 @@ import { getApiClient } from '@/lib/api';
 import { useApi } from '@/lib/use-api';
 import { VoicePanel } from './VoicePanel';
 import type { ViewedProduct } from './product-context';
+import { useChatScrollLock } from './use-chat-scroll-lock';
 
 const adapter = {
   start: (input: { shop_id: number; sdp_offer: string; lang: string; resume_conversation_id?: string; item_id?: number }) =>
@@ -53,16 +54,13 @@ export function AssistantDock({ children }: { children: React.ReactNode }) {
   // Follow the page's shop while idle; adjusting state during render avoids an extra effect pass.
   if (!active && pageShop !== null && pageShop.shopId !== dockShop) setDockShop(pageShop.shopId);
   const visible = dockShop !== null && (active || pageShop !== null);
-  useEffect(() => {
-    document.body.classList.toggle('assistant-mobile-open', visible && panelOpen);
-    return () => document.body.classList.remove('assistant-mobile-open');
-  }, [visible, panelOpen]);
+  useChatScrollLock(visible && panelOpen);
   return (
     <PageShop.Provider value={setPageShop}>
       {children}
       {dockShop !== null && (
         <div hidden={!visible}>
-          <DockedPanel key={dockShop} shopId={dockShop} product={pageShop?.shopId === dockShop ? pageShop.product : undefined} onActiveChange={setActive} onOpenChange={setPanelOpen} />
+          <DockedPanel key={dockShop} visible={visible} shopId={dockShop} product={pageShop?.shopId === dockShop ? pageShop.product : undefined} onActiveChange={setActive} onOpenChange={setPanelOpen} />
         </div>
       )}
     </PageShop.Provider>
@@ -70,11 +68,13 @@ export function AssistantDock({ children }: { children: React.ReactNode }) {
 }
 
 function DockedPanel({
+  visible,
   shopId,
   product,
   onActiveChange,
   onOpenChange,
 }: {
+  visible: boolean;
   shopId: number;
   product?: ViewedProduct;
   onActiveChange: (active: boolean) => void;
@@ -84,6 +84,7 @@ function DockedPanel({
   if (profile.loading || profile.data?.enabled === false) return null;
   return (
     <VoicePanel
+      visible={visible}
       shopId={shopId}
       product={product}
       adapter={adapter}

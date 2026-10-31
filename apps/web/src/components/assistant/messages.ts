@@ -2,6 +2,16 @@ import { defineMessages } from '@/i18n';
 
 export const messages = defineMessages({
   vi: {
+    micInput: 'Micrô của bạn',
+    micLevel: 'Mức âm thanh đầu vào micrô',
+    micChecking: 'Đang kiểm tra…',
+    micQuiet: 'Hãy nói thử',
+    micSound: 'Có âm thanh',
+    micMuted: 'Micrô đang tắt',
+    micDisconnected: 'Micrô bị ngắt',
+    micPaused: 'Đo âm thanh đang tạm dừng',
+    micEnableMeter: 'Bật đo âm thanh',
+    micMeterUnavailable: 'Không đo được âm thanh',
     contextProducts: 'Trong cuộc trò chuyện',
     contextProductCount: '{n} sản phẩm',
     contextOneProduct: '1 sản phẩm',
@@ -106,6 +116,16 @@ export const messages = defineMessages({
     loadFailed: 'Không tải được. Thử lại.',
   },
   en: {
+    micInput: 'Your microphone',
+    micLevel: 'Microphone input level',
+    micChecking: 'Checking…',
+    micQuiet: 'Speak to test',
+    micSound: 'Sound detected',
+    micMuted: 'Mic muted',
+    micDisconnected: 'Mic interrupted',
+    micPaused: 'Audio meter paused',
+    micEnableMeter: 'Enable meter',
+    micMeterUnavailable: 'Meter unavailable',
     contextProducts: 'In this conversation',
     contextProductCount: '{n} products',
     contextOneProduct: '1 product',
