@@ -82,6 +82,7 @@ export function ProductView({ product }: { product: ProductDetail }) {
       <VoiceWidget
         shopId={product.shop.shop_id}
         product={{ item_id: product.item_id, name: product.name, image: product.images[0] }}
+        model={model && product.tier_variations.length ? model : undefined}
       />
       <nav
         aria-label={t('breadcrumb')}

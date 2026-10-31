@@ -2,15 +2,7 @@
 import type { ReactNode } from 'react';
 import { getApiClient } from '@huspee/web-ui/lib/api';
 import { useApi } from '@huspee/web-ui/lib/use-api';
-
-/** Cancelable window event that opens the page's shop assistant; the dock calls preventDefault() when it opens. */
-export const OPEN_ASSISTANT_EVENT = 'huspee:assistant-open';
-
-export function openAssistant() {
-  if (!window.dispatchEvent(new Event(OPEN_ASSISTANT_EVENT, { cancelable: true }))) return;
-  // Until the dock handles the event, press its launcher.
-  document.querySelector<HTMLButtonElement>('.assistant-dock > button[aria-expanded="false"]')?.click();
-}
+import { openAssistant } from '@/components/assistant/open-assistant';
 
 /** The assistant is on for every shop unless its seller turned it off. */
 export function useAssistantEnabled(shopId: number) {
@@ -39,7 +31,7 @@ export function MicIcon({ className = 'h-4 w-4' }: { className?: string }) {
 /** Entry point only: the panel itself belongs to the assistant dock. */
 export function AskAssistantButton({ className, children }: { className: string; children: ReactNode }) {
   return (
-    <button type="button" onClick={openAssistant} className={className}>
+    <button type="button" onClick={() => openAssistant()} className={className}>
       {children}
     </button>
   );

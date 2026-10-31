@@ -1,6 +1,6 @@
 'use client';
 import { useT } from '@huspee/web-ui/i18n';
-import { openAssistant } from '../shop/AskAssistant';
+import { openAssistant } from '@/components/assistant/open-assistant';
 import { messages } from './messages';
 
 const icon = 'h-5 w-5';
@@ -24,7 +24,11 @@ export function MobileBuyBar({
       className="fixed inset-x-0 bottom-0 z-40 flex h-[calc(3.5rem+env(safe-area-inset-bottom))] border-t border-line bg-white pb-[env(safe-area-inset-bottom)] sm:hidden"
     >
       {assistant && (
-        <button type="button" onClick={openAssistant} className={`${side} w-[78px] border-r border-line`}>
+        <button
+          type="button"
+          onClick={() => openAssistant()}
+          className={`${side} w-[78px] border-r border-line`}
+        >
           <svg
             aria-hidden="true"
             viewBox="0 0 24 24"

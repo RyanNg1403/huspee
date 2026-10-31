@@ -7,31 +7,47 @@ import { getApiClient } from '@huspee/web-ui/lib/api';
 import { formatCount, formatVnd } from '@huspee/web-ui/lib/format';
 import { useApi } from '@huspee/web-ui/lib/use-api';
 import { messages } from '@huspee/web-ui/components/assistant/messages';
+import { formatClock } from '@huspee/web-ui/components/assistant/time';
 
 import type { ProductInfo } from '@huspee/web-ui/components/assistant/card-types';
 export type { ProductInfo } from '@huspee/web-ui/components/assistant/card-types';
 
-function Stars({ value }: { value: number }) {
-  return (
-    <span className="text-amber-400" aria-label={`${value}/5`}>
-      {'★'.repeat(Math.round(value))}
-      <span className="text-gray-200">{'★'.repeat(5 - Math.round(value))}</span>
-    </span>
-  );
+const sectionTitle = 'mb-1 text-xs font-semibold text-muted';
+
+function priceLabel(models: ProductInfo['models']): string | null {
+  if (!models.length) return null;
+  const prices = models.map((model) => model.price);
+  const low = Math.min(...prices);
+  const high = Math.max(...prices);
+  return low === high ? formatVnd(low) : `${formatVnd(low)} – ${formatVnd(high)}`;
 }
 
-/** Everything the shop publishes about one product: gallery, variants, specs, description, reviews. */
-export function ProductDetails({ product }: { product: ProductInfo }) {
+/**
+ * Everything the shop publishes about one product. `collapsible` keeps a chat card short: specs,
+ * description and reviews open on request.
+ */
+export function ProductDetails({
+  product,
+  checkedAt,
+  collapsible = false,
+}: {
+  product: ProductInfo;
+  /** When the tool returned this data (ms). */
+  checkedAt?: number;
+  collapsible?: boolean;
+}) {
   const t = useT(messages);
   const { lang } = useLang();
-  const [selected, setSelected] = useState(0);
+  const [open, setOpen] = useState(!collapsible);
   const [expanded, setExpanded] = useState(false);
-  const image = product.images[selected] ?? product.images[0];
+  const thumb = product.images[0];
+  const price = priceLabel(product.models);
   const meta = [
     product.rating != null && product.rating_count
       ? `★ ${product.rating.toFixed(1)} (${formatCount(product.rating_count, lang)})`
       : null,
-    product.sold ? `${t('sold')} ${formatCount(product.sold, lang)}` : null,
+    product.sold ? t('sold', { n: formatCount(product.sold, lang) }) : null,
+    checkedAt !== undefined ? t('updatedAt', { time: formatClock(checkedAt, lang) }) : null,
   ].filter(Boolean);
   const facts = [
     product.brand ? { name: t('brand'), value: product.brand } : null,
@@ -40,138 +56,145 @@ export function ProductDetails({ product }: { product: ProductInfo }) {
   ].filter((fact): fact is { name: string; value: string } => !!fact);
   const description = product.description?.trim();
   const long = !!description && description.length > 220;
+  const hasMore =
+    facts.length > 0 || !!description || !!product.reviews || product.images.length > 1 || product.days_to_ship !== undefined;
+  const only = product.models.length === 1 ? product.models[0] : undefined;
   return (
-    <div className="space-y-3">
-      {image && (
-        <div className="space-y-1.5">
+    <div className="text-sm">
+      <Link href={`/products/${product.item_id}`} className="flex gap-2.5 p-2.5 hover:bg-gray-50">
+        {thumb ? (
           <Image
-            src={image}
+            src={thumb}
             alt=""
-            width={480}
-            height={480}
+            width={144}
+            height={144}
             unoptimized
-            className="aspect-square w-full rounded-xl object-cover ring-1 ring-line"
+            className="h-[72px] w-[72px] shrink-0 rounded object-cover"
           />
-          {product.images.length > 1 && (
-            <div className="flex gap-1.5 overflow-x-auto">
-              {product.images.map((src, index) => (
-                <button
-                  key={src}
-                  type="button"
-                  onClick={() => setSelected(index)}
-                  aria-label={`${index + 1}`}
-                  className={`shrink-0 rounded-lg ring-2 ${index === selected ? 'ring-primary' : 'ring-transparent'}`}
-                >
-                  <Image
-                    src={src}
-                    alt=""
-                    width={96}
-                    height={96}
-                    unoptimized
-                    className="h-12 w-12 rounded-lg object-cover"
-                  />
-                </button>
-              ))}
-            </div>
+        ) : (
+          <span className="h-[72px] w-[72px] shrink-0 rounded bg-gray-100" />
+        )}
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="line-clamp-2 text-[13px] leading-snug text-ink">{product.name}</span>
+          {price && <span className="text-base font-semibold text-primary">{price}</span>}
+          {only && (
+            <span className="text-xs text-muted">
+              {only.stock > 0 ? t('stockLeft', { n: only.stock }) : t('outOfStock')}
+            </span>
           )}
-        </div>
-      )}
-      <div>
-        <Link
-          href={`/products/${product.item_id}`}
-          className="font-semibold text-gray-900 hover:text-primary"
-        >
-          {product.name}
-        </Link>
-        {meta.length > 0 && <p className="mt-0.5 text-xs text-gray-500">{meta.join(' · ')}</p>}
-      </div>
-      {product.models.length > 0 && (
-        <section>
-          <h4 className="mb-1 text-xs font-semibold tracking-wide text-gray-500 uppercase">
-            {t('variants')}
-          </h4>
-          <ul className="divide-y divide-line rounded-xl bg-gray-50 px-3">
+          {meta.length > 0 && <span className="text-xs text-muted">{meta.join(' · ')}</span>}
+        </span>
+      </Link>
+      {product.models.length > 1 && (
+        <section className="border-t border-line-soft px-2.5 py-2">
+          <h4 className={sectionTitle}>{t('variants')}</h4>
+          <ul className="divide-y divide-line-soft">
             {product.models.map((model) => (
-              <li key={model.model_id} className="flex items-center justify-between gap-2 py-2 text-xs">
-                <span className="text-gray-700">{model.name}</span>
-                <span className="flex shrink-0 items-center gap-2">
-                  <span className={model.stock > 0 ? 'text-gray-500' : 'text-red-600'}>
-                    {t('stock')}: {model.stock}
+              <li key={model.model_id} className="flex items-center justify-between gap-3 py-1.5 text-xs">
+                <span className={model.stock > 0 ? 'text-ink' : 'text-subtle'}>{model.name}</span>
+                <span className="flex shrink-0 items-center gap-3">
+                  <span className="text-muted">
+                    {model.stock > 0 ? t('stockLeft', { n: model.stock }) : t('outOfStock')}
                   </span>
-                  <span className="font-semibold text-primary tabular-nums">{formatVnd(model.price)}</span>
+                  <span className="font-semibold text-primary">{formatVnd(model.price)}</span>
                 </span>
               </li>
             ))}
           </ul>
         </section>
       )}
-      {facts.length > 0 && (
-        <section>
-          <h4 className="mb-1 text-xs font-semibold tracking-wide text-gray-500 uppercase">{t('specs')}</h4>
-          <dl className="divide-y divide-line rounded-xl ring-1 ring-line">
-            {facts.map((fact) => (
-              <div
-                key={`${fact.name}-${fact.value}`}
-                className="grid grid-cols-[40%_1fr] gap-2 px-3 py-1.5 text-xs"
-              >
-                <dt className="text-gray-500">{fact.name}</dt>
-                <dd className="text-gray-800">{fact.value}</dd>
-              </div>
-            ))}
-          </dl>
-        </section>
-      )}
-      {product.days_to_ship !== undefined && (
-        <p className="text-xs text-gray-500">{t('shipsIn', { days: product.days_to_ship })}</p>
-      )}
-      {description && (
-        <section>
-          <h4 className="mb-1 text-xs font-semibold tracking-wide text-gray-500 uppercase">
-            {t('description')}
-          </h4>
-          <p
-            className={`text-xs leading-relaxed whitespace-pre-wrap text-gray-700 ${long && !expanded ? 'line-clamp-4' : ''}`}
-          >
-            {description}
-          </p>
-          {long && (
-            <button
-              type="button"
-              onClick={() => setExpanded(!expanded)}
-              className="mt-1 text-xs font-medium text-primary"
-            >
-              {expanded ? t('less') : t('more')}
-            </button>
-          )}
-        </section>
-      )}
-      {product.reviews && (
-        <section>
-          <h4 className="mb-1 text-xs font-semibold tracking-wide text-gray-500 uppercase">{t('reviews')}</h4>
-          {product.reviews.length === 0 ? (
-            <p className="text-xs text-gray-500">{t('noReviews')}</p>
-          ) : (
-            <ul className="space-y-2">
-              {product.reviews.map((review, index) => (
-                <li key={index} className="rounded-xl bg-gray-50 px-3 py-2 text-xs">
-                  <p className="flex flex-wrap items-center gap-x-2">
-                    <Stars value={review.rating} />
-                    <span className="font-medium text-gray-700">{review.buyer_name}</span>
-                    {review.model_name && <span className="text-gray-400">{review.model_name}</span>}
-                  </p>
-                  {review.comment && <p className="mt-1 text-gray-700">{review.comment}</p>}
-                </li>
+      {open && hasMore && (
+        <div className="space-y-3 border-t border-line-soft px-2.5 py-2.5">
+          {product.images.length > 1 && (
+            <div className="flex gap-1.5 overflow-x-auto">
+              {product.images.map((src) => (
+                <Image
+                  key={src}
+                  src={src}
+                  alt=""
+                  width={112}
+                  height={112}
+                  unoptimized
+                  className="h-14 w-14 shrink-0 rounded object-cover"
+                />
               ))}
-            </ul>
+            </div>
           )}
-        </section>
+          {facts.length > 0 && (
+            <section>
+              <h4 className={sectionTitle}>{t('specs')}</h4>
+              <dl className="divide-y divide-line-soft text-xs">
+                {facts.map((fact) => (
+                  <div key={`${fact.name}-${fact.value}`} className="grid grid-cols-[38%_1fr] gap-2 py-1.5">
+                    <dt className="text-muted">{fact.name}</dt>
+                    <dd className="text-ink">{fact.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
+          )}
+          {product.days_to_ship !== undefined && (
+            <p className="text-xs text-muted">{t('shipsIn', { days: product.days_to_ship })}</p>
+          )}
+          {description && (
+            <section>
+              <h4 className={sectionTitle}>{t('description')}</h4>
+              <p
+                className={`text-xs leading-relaxed whitespace-pre-wrap text-ink ${long && !expanded ? 'line-clamp-4' : ''}`}
+              >
+                {description}
+              </p>
+              {long && (
+                <button
+                  type="button"
+                  onClick={() => setExpanded(!expanded)}
+                  className="mt-1 text-xs font-medium text-primary"
+                >
+                  {expanded ? t('less') : t('more')}
+                </button>
+              )}
+            </section>
+          )}
+          {product.reviews && (
+            <section>
+              <h4 className={sectionTitle}>{t('reviews')}</h4>
+              {product.reviews.length === 0 ? (
+                <p className="text-xs text-muted">{t('noReviews')}</p>
+              ) : (
+                <ul className="divide-y divide-line-soft">
+                  {product.reviews.map((review, index) => (
+                    <li key={index} className="py-1.5 text-xs">
+                      <p className="flex flex-wrap items-center gap-x-2">
+                        <span className="text-primary" aria-label={`${review.rating}/5`}>
+                          {'★'.repeat(Math.round(review.rating))}
+                        </span>
+                        <span className="font-medium text-ink">{review.buyer_name}</span>
+                        {review.model_name && <span className="text-muted">{review.model_name}</span>}
+                      </p>
+                      {review.comment && <p className="mt-0.5 text-ink">{review.comment}</p>}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          )}
+        </div>
       )}
-      <Link
-        href={`/products/${product.item_id}`}
-        className="block rounded-full border border-line py-2 text-center text-xs font-semibold text-gray-700 transition hover:border-primary hover:text-primary"
-      >
-        {t('viewProduct')}
-      </Link>
+      <div className="flex items-center justify-between gap-3 border-t border-line-soft px-2.5 py-2 text-xs">
+        <Link href={`/products/${product.item_id}`} className="font-medium text-primary hover:underline">
+          {t('viewProduct')}
+        </Link>
+        {collapsible && hasMore && (
+          <button
+            type="button"
+            aria-expanded={open}
+            onClick={() => setOpen(!open)}
+            className="min-h-8 font-medium text-muted hover:text-ink"
+          >
+            {open ? t('hideDetails') : t('details')}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -215,11 +238,11 @@ export function ProductDetailsLoader({ itemId }: { itemId: number }) {
   }, [itemId]);
   if (detail.loading)
     return (
-      <span className="block h-4 w-4 animate-spin rounded-full border-2 border-primary border-r-transparent" />
+      <span className="m-2.5 block h-4 w-4 animate-spin rounded-full border-2 border-primary border-r-transparent" />
     );
   if (detail.error || !detail.data)
     return (
-      <button type="button" onClick={detail.reload} className="text-xs text-red-600">
+      <button type="button" onClick={detail.reload} className="p-2.5 text-xs text-primary">
         {t('loadFailed')}
       </button>
     );
