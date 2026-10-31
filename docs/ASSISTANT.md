@@ -47,24 +47,28 @@ fields or unpublished items):
 
 | Tool | Purpose |
 |---|---|
-| `search_products(query, min_price?, max_price?, limit?, requested_attributes?)` | Public items of this shop matched by name, brand or category (Vietnamese or English), with price range and stock per item |
+| `search_products(query, min_price?, max_price?, limit?, offset?)` | Public candidates matched by literal words across name, brand and persisted category names, with price/stock, stable ID order and total/has_more pagination (default 50) |
 | `get_viewed_product(requested_attributes?)` | Fresh details for the product currently viewed in this shop; clears when the buyer leaves the product page |
 | `get_product_details(item_id, requested_attributes?)` | Description, attributes, variants (model_id, name, price, stock), rating |
 | `compare_products(item_ids[2..4])` | Side-by-side facts |
-| `get_vouchers()` | Public, currently usable vouchers of this shop with rules |
+| `get_vouchers()` | Public unexpired vouchers, terms, and buyer redemption status/reason, including already-used, exhausted and upcoming codes; does not establish basket eligibility |
+| `check_voucher(voucher_code, lines?)` | Read-only eligibility for exact proposed item/model/quantity lines, or the current shop cart; returns coverage, subtotals, shortfall, discount and reason |
+| `set_response_language(language)` | Explicit vi/en language selection for app-authored readbacks and outcomes |
 | `get_shipping_info(item_id?)` | Channels, fees and times from seeded/persisted data |
 | `get_return_policy()` | The shop's persisted policy |
-| `get_shop_faqs(query?)` | Enabled seller FAQs (verified data); with a query, those sharing the most words with it first (accent-insensitive), or all of them when none match |
+| `get_shop_faqs(query?)` | All enabled seller FAQs (verified data); the agent selects the relevant answer, and a query never hides a FAQ |
 | `get_cart()` | The buyer's cart lines for this shop, with API-computed totals |
 | `get_order_status(order_sn?)` | The buyer's own orders with this shop (latest 5 if no order_sn), status and tracking |
 | `add_to_cart(item_id, model_id, quantity, requested_attributes?)` | Creates a `PendingAction` (requiresTap false) and returns its readback |
+| `add_cart_items(lines[1..50])` | Prepares all distinct item/model/quantity lines as one `ADD_TO_CART` action with a combined readback and one spoken confirmation; all lines succeed or none change the cart |
 | `update_cart_item(model_id, quantity?, new_model_id?)` | Same, `UPDATE_CART_ITEM` |
 | `place_order(voucher_code?, address_id?, payment_method?)` | Creates a `PendingAction` (requiresTap **true**) from a server checkout preview of this shop's cart lines; readback has items, totals, voucher, address |
 | `open_return(order_sn, items[{item_id, model_id, quantity}], reason, solution)` | `PendingAction` (requiresTap **true**) after eligibility checks |
-| `confirm_action(action_id?)` | With no ID, selects the latest unexpired pending action in this conversation ordered by creation time then ID descending (the ID breaks equal timestamps deterministically), refusing a tap-required action; otherwise executes a PENDING, unexpired action of this conversation **only if requiresTap is false** (the model calls it after a spoken yes). Tap-required actions return an error telling the model to ask the buyer to tap the card |
+| `confirm_action(action_id)` | Executes only the exact PENDING, unexpired cart action in this conversation; orders and returns require their tap route. Agent instructions require fresh approval of the complete readback |
+| `cancel_action(action_id)` | Cancels an exact pending action owned by this buyer in this conversation before a withdrawal or revision |
 | `handoff_to_seller(question, reason)` | Creates or appends to an OPEN `HandoffTicket` for this buyer+shop with the question and a transcript excerpt; returns a handoff card |
 
-Optional `requested_attributes` maps buyer-requested variant attributes to free-string values. The registry compares normalized values against variant options and logs `missing: {attribute, value}` or `out_of_stock: true`. Matching ignores case, Vietnamese accents and spacing, and recognizes a small set of Vietnamese and English color and size synonyms; it does not translate arbitrary descriptions.
+Optional `requested_attributes` uses exact tier names and option values returned by product details. Each model includes its exact attribute map. These are catalog selections, not raw speech: translation and ambiguity handling belong to the agent. The registry validates selections and reports `validation_miss: {attribute, value}` or verified `out_of_stock: true`; it does not infer synonyms or score phonetic similarity.
 
 Execution reuses Phase 1 domain services (cart, checkout with idempotency, returns). Prices,
 totals and discounts always come from those services, never from the model.
@@ -206,23 +210,25 @@ Definitions (all records belong to selected shop and have their own timestamp in
 - Handoffs: tickets created with a conversation.
 - Orders placed and returns opened: executed pending actions of the respective type, counted by update time.
 - Top products: distinct item IDs per search/details/compare tool call from arguments and structured result, counted once per call; names come from the shop catalog.
-- Missing requests: structured requested-attribute misses and matching out-of-stock variants from search/details/cart calls, plus search/details/compare results with zero stock or an empty search and cart calls reporting a missing variation; question is the latest preceding buyer message, if any.
+- Missing requests: matching out-of-stock variants, results with zero stock, and historical structured missing-variant records. Exact-selection validation misses and empty literal searches do not establish missing demand. Questions use the latest preceding buyer message; no text matching chooses a different message.
 - Unanswered questions: handoff tickets and failed or empty tool results; question is the ticket subject or latest preceding buyer message, respectively.
 - Daily: the above total counts grouped by UTC date of each record's relevant timestamp.
 - Campaigns: distinct voucher codes per get_vouchers/place_order call, extracted from structured results, counted once per call.
 - Summaries: latest stored summaries of conversations started in range, newest first; model wording is distinct from verified log counts.
 
-## 8. Speech resolution and cart action edits
+## 8. Exact catalog choices and cart action edits
 
-`search_products` compares accent-insensitive name tokens and bounded token edit distance within the
-conversation's shop. Multiple matches are returned as candidates, not selected automatically. A single
-match includes `resolution` with `resolved_from`, `resolved_to`, and a deterministic lexical confidence;
-this is not an estimate of microphone or model confidence. `place_order` resolves a supplied voucher
-against active, public, non-exhausted shop codes using spoken Vietnamese/English number normalization
-and edit distance at most two; multiple plausible fuzzy matches return candidates and no pending order. Checkout still independently
-checks eligibility. Cart and return tool quantities accept integers or unambiguous spoken Vietnamese and
-English numbers; invalid words fail validation. The action summary shows spoken quantities and voucher
-resolution alongside the exact server-derived details.
+search_products matches literal case-insensitive query words across catalog names, brands and persisted English/Vietnamese category names. These are retrieval candidates, not a semantic type or variant selection. Empty query lists the shop's catalog in stable ID order, with default limit 50 and explicit offset, total and has_more metadata. Results remain candidates for the agent to inspect. Tools do not repair speech, translate aliases, parse spoken quantities or assign lexical confidence. The agent uses exact returned model IDs and attribute strings, passes numeric quantities and voucher codes from get_vouchers, and clarifies uncertain requests.
+
+get_vouchers preserves public voucher existence separately from buyer redemption restrictions. An already-used or exhausted code remains listed with its terms, `buyer_has_used`, `fully_redeemed`, `per_buyer_limit`, and `buyer_redemption_status`/`buyer_redemption_reason`. Status is `already_used`, `fully_redeemed`, `not_started`, or `requires_basket_check`. Expired and nonpublic codes are excluded. The agent explains the restriction instead of claiming the shop has no vouchers; spending more cannot remove a once-per-buyer restriction.
+
+check_voucher uses the same VoucherService evaluator as checkout, plus once-per-buyer checks. With lines it evaluates a proposed basket without changing the cart; without lines it reads only this buyer's cart in this shop. An empty cart returns needs_basket only when redemption is otherwise possible; already-used, exhausted, upcoming or expired vouchers return not_redeemable with the known reason. Returned stock availability is separate from voucher eligibility. Availability uses the same checkout rule, including stock, holiday mode and own-shop restrictions. Only available lines count toward eligibility. Shortfall is null for non-minimum failures. Recheck when the selection changes; checkout always validates again.
+
+confirm_action requires an explicit action ID. cancel_action cancels only an action in the active buyer/shop/conversation. Agent-initiated cancellation is explicitly marked in action events: it does not trigger buyer-tap speech or discard a replacement readback. Instructions distinguish clarification from consent and require cancellation/re-preparation for a revision. They do not use keyword vetoes or claim that a fresh utterance alone proves consent.
+
+For multiple products or variants in one shop, the agent uses one add_cart_items call. Every line is validated before a pending action is created. Confirmation revalidates every product, variant, quantity, price and stock in one transaction; a failure rolls back the whole batch. Repeating an executed action does not add items twice. Single-item add_to_cart uses the same implementation, and previously saved single-item payloads remain supported. Editing a batch line preserves the other lines, cancels the old action and requires fresh confirmation of the replacement batch. Vouchers are checked separately and applied at checkout; batch cart confirmation never places an order or bypasses the final tap.
+
+During a voice call, the bridge sends each prepared action's app-authored readback as soon as its tool result returns, without waiting for the agent's final turn. Readbacks are tracked by action ID, so later actions do not overwrite earlier ones; the final model answer does not repeat a readback already sent. Superseded requests and already-executed order cards suppress late readbacks. This removes an application-side wait, but does not guarantee when the experimental realtime runtime starts or finishes playback.
 
 `GET /api/v1/assistant/actions/:id/options` and `PATCH /api/v1/assistant/actions/:id` are buyer-session
 routes for pending cart additions, updates, orders and returns. Options list only variants of the original shop product, the order's cart lines, or purchased order lines;

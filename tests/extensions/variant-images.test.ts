@@ -54,11 +54,11 @@ describe('selected variant images', () => {
     const product = await anonymous.marketplace.getProduct(SEED.items.tee.itemId);
     const blackImage = product.tier_variations[0]!.options.find((option) => option.option === 'Đen')!.image_url;
     const run = (name: string, args: unknown) => buyer.client.http.request<{ card: { image?: string | null; items?: Array<{ item_id: number; image: string | null }> } }>('POST', `/api/v1/assistant/_debug/tools/${name}`, { body: { conversation_id: conversationId, args } });
-    const detail = await run('get_product_details', { item_id: product.item_id, requested_attributes: { color: 'black' } });
+    const detail = await run('get_product_details', { item_id: product.item_id, requested_attributes: { 'Màu sắc': 'Đen' } });
     expect(detail.card.image).toBe(blackImage);
-    const search = await run('search_products', { query: 'áo thun', requested_attributes: { color: 'black' } });
-    expect(search.card.items!.find((item) => item.item_id === product.item_id)!.image).toBe(blackImage);
-    const sizeOnly = await run('get_product_details', { item_id: product.item_id, requested_attributes: { size: 'M' } });
+    const search = await run('search_products', { query: 'áo thun' });
+    expect(search.card.items!.find((item) => item.item_id === product.item_id)!.image).toBe(product.images[0]);
+    const sizeOnly = await run('get_product_details', { item_id: product.item_id, requested_attributes: { Size: 'M' } });
     expect(sizeOnly.card.image).toBe(product.images[0]);
   });
 });

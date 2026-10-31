@@ -21,7 +21,7 @@ const serverViewport = () => false;
 export function ConversationProducts({ products }: { products: ConversationProduct[] }) {
   const t = useT(messages);
   const compact = useSyncExternalStore(subscribeViewport, compactViewport, serverViewport);
-  const [fullExpanded, setFullExpanded] = useState(true);
+  const [fullExpanded, setFullExpanded] = useState(false);
   const [compactExpanded, setCompactExpanded] = useState(false);
   const expanded = compact ? compactExpanded : fullExpanded;
   const listId = useId();
