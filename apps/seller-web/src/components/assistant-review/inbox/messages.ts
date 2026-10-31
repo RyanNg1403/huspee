@@ -49,6 +49,10 @@ export const inboxMessages = defineMessages({
     closedToast: 'Đã đóng câu hỏi',
     closeFailed: 'Không đóng được câu hỏi',
     closedNote: 'Câu hỏi đã đóng',
+    search: 'Tìm câu hỏi',
+    searchPlaceholder: 'Tìm người mua, câu hỏi',
+    createFaq: 'Tạo FAQ từ câu trả lời này',
+    sentVia: 'Gửi qua trợ lý lúc {time}',
   },
   en: {
     title: 'Inbox',
@@ -98,5 +102,9 @@ export const inboxMessages = defineMessages({
     closedToast: 'Question closed',
     closeFailed: 'Could not close the question',
     closedNote: 'This question is closed',
+    search: 'Search questions',
+    searchPlaceholder: 'Search buyers, questions',
+    createFaq: 'Create FAQ from this answer',
+    sentVia: 'Sent via assistant {time}',
   },
 });

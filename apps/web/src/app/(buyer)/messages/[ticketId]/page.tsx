@@ -12,6 +12,7 @@ import { errorMessageKey, getApiClient } from '@huspee/web-ui/lib/api';
 import { formatDateTime } from '@huspee/web-ui/lib/format';
 import { useApi } from '@huspee/web-ui/lib/use-api';
 import { messages } from '../messages';
+import { parseHandoffBody } from '../handoff';
 import { StatusBadge } from '../_components/StatusBadge';
 
 function TicketDetailView() {
@@ -181,25 +182,37 @@ function TicketDetailView() {
                     );
                   }
 
-                  // Assistant Message: Distinct styling (AI avatar, subtle violet badge)
+                  // Assistant handoff: the buyer's own question; the internal reason is never shown.
+                  const handoff = parseHandoffBody(msg.body);
                   return (
-                    <div key={msg.id} className="flex flex-col items-center my-2">
-                      <div className="w-full max-w-xl rounded-xl border border-purple-200 bg-purple-50/70 p-3.5 text-sm text-purple-950 shadow-xs">
-                        <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2 border-b border-purple-200/60 pb-1.5 text-xs text-purple-800">
-                          <div className="flex items-center gap-1.5 font-semibold">
-                            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-purple-200 text-xs">
-                              <Icon name="bot" className="h-3.5 w-3.5" />
-                            </span>
-                            <span>{t('authorAssistant')}</span>
-                            <span className="rounded-lg bg-purple-200/80 px-1.5 py-0.5 text-[10px] font-normal text-purple-900">
-                              {t('assistantNotice')}
-                            </span>
-                          </div>
-                          <span>{formatDateTime(msg.created_at, lang)}</span>
-                        </div>
-                        <p className="whitespace-pre-wrap break-words text-purple-900">{msg.body}</p>
+                    <article
+                      key={msg.id}
+                      className="ml-auto w-full max-w-[86%] overflow-hidden rounded-lg border border-line bg-white sm:max-w-[480px]"
+                    >
+                      <div className="border-b border-line-soft px-3 py-2 text-xs text-muted">
+                        {t('askedViaAssistant')} · {formatDateTime(msg.created_at, lang)}
                       </div>
-                    </div>
+                      <p className="whitespace-pre-wrap break-words px-3 py-2.5 text-sm text-ink">
+                        {handoff.question}
+                      </p>
+                      {handoff.excerpt.length > 0 && (
+                        <details className="px-3 pb-2.5 text-[13px]">
+                          <summary className="cursor-pointer text-link">
+                            {t('excerptToggle', { count: handoff.excerpt.length })}
+                          </summary>
+                          <div className="mt-1.5 flex flex-col gap-1 rounded bg-gray-100 p-2 text-muted">
+                            {handoff.excerpt.map((line, i) => (
+                              <p key={i} className="whitespace-pre-wrap break-words">
+                                <strong className="font-semibold text-ink">
+                                  {line.role === 'buyer' ? t('excerptBuyer') : t('excerptAssistant')}:
+                                </strong>{' '}
+                                {line.text}
+                              </p>
+                            ))}
+                          </div>
+                        </details>
+                      )}
+                    </article>
                   );
                 })
               )}

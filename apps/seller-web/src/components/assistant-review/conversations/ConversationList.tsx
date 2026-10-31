@@ -17,6 +17,7 @@ const PAGE_SIZE = 10;
 type Period = 'today' | '7' | '30' | 'all';
 type Status = 'all' | 'ACTIVE' | 'ENDED';
 type Handoff = 'all' | 'yes' | 'no';
+type Channel = 'all' | 'VOICE' | 'TEXT';
 type Row = { conversation: AssistantConversation; overview: Overview };
 
 function periodStart(period: Period): number | undefined {
@@ -34,6 +35,7 @@ export function ConversationList({ shopId }: { shopId: number }) {
   const [period, setPeriod] = useState<{ value: Period; from?: number }>({ value: 'all' });
   const [status, setStatus] = useState<Status>('all');
   const [handoff, setHandoff] = useState<Handoff>('all');
+  const [channel, setChannel] = useState<Channel>('all');
   const [page, setPage] = useState(1);
   const [now] = useState(() => Math.floor(Date.now() / 1000));
   // The list route has no transcript fields; each row's details come from the conversation itself.
@@ -42,6 +44,7 @@ export function ConversationList({ shopId }: { shopId: number }) {
       from: period.from,
       status: status === 'all' ? undefined : status,
       has_handoff: handoff === 'all' ? undefined : handoff === 'yes',
+      channel: channel === 'all' ? undefined : channel,
       page,
       page_size: PAGE_SIZE,
     });
@@ -55,7 +58,7 @@ export function ConversationList({ shopId }: { shopId: number }) {
       overview: conversationOverview(details[index]!),
     }));
     return { rows, total: result.page.total };
-  }, [shopId, period, status, handoff, page]);
+  }, [shopId, period, status, handoff, channel, page]);
 
   const total = list.data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -113,6 +116,21 @@ export function ConversationList({ shopId }: { shopId: number }) {
               <option value="no">{t('no')}</option>
             </Select>
           </label>
+          <label className="flex items-center gap-2 text-muted">
+            {t('filterChannel')}
+            <Select
+              className={filterSelect}
+              value={channel}
+              onChange={(event) => {
+                setChannel(event.target.value as Channel);
+                setPage(1);
+              }}
+            >
+              <option value="all">{t('all')}</option>
+              <option value="VOICE">{t('channelVoice')}</option>
+              <option value="TEXT">{t('channelTextOption')}</option>
+            </Select>
+          </label>
         </div>
 
         {!list.data && list.loading ? (
@@ -137,6 +155,9 @@ export function ConversationList({ shopId }: { shopId: number }) {
                       className="border-b border-line-soft py-3 pr-3 font-medium whitespace-nowrap"
                     >
                       {t('colTime')}
+                    </th>
+                    <th scope="col" className="border-b border-line-soft p-3 font-medium whitespace-nowrap">
+                      {t('colBuyer')}
                     </th>
                     <th scope="col" className="min-w-[220px] border-b border-line-soft p-3 font-medium">
                       {t('colQuestion')}
@@ -196,6 +217,7 @@ function ConversationRow({ row, now }: { row: Row; now: number }) {
           {conversation.channel === 'VOICE' ? t('channelVoice') : t('channelText')}
         </div>
       </td>
+      <td className={`${cell} whitespace-nowrap`}>{conversation.buyer_name}</td>
       <td className={cell}>
         {overview.firstQuestion ? (
           <span className="line-clamp-2">{overview.firstQuestion}</span>

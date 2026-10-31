@@ -308,9 +308,25 @@ export class AssistantController {
     await this.member(user, shopId);
     const row = await this.prisma.conversation.findFirst({
       where: { id, shopId },
-      include: { buyer: { select: { name: true } }, messages: { orderBy: { createdAt: 'asc' } }, toolCalls: { orderBy: { createdAt: 'asc' } } },
+      include: {
+        buyer: { select: { name: true } },
+        messages: { orderBy: { createdAt: 'asc' } },
+        toolCalls: { orderBy: { createdAt: 'asc' } },
+        actions: { select: { id: true, status: true, result: true } },
+      },
     });
     if (!row) throw notFound('Conversation');
+    // A buyer's tap confirms an order or return outside the tool log; show each action card's current state.
+    const live = new Map(row.actions.map((a) => [a.id, a]));
+    const current = (result: unknown) => {
+      const card = (result as { card?: { kind?: string; action?: { action_id?: string } } } | null)?.card;
+      const action = card?.kind === 'action' && card.action?.action_id ? live.get(card.action.action_id) : undefined;
+      if (!action || !card) return result;
+      return {
+        ...(result as object),
+        card: { ...card, action: { ...card.action, status: action.status, ...(action.result ? { result: action.result } : {}) } },
+      };
+    };
     return {
       data: {
         ...this.presentConversation(row),
@@ -319,7 +335,7 @@ export class AssistantController {
           id: t.id,
           tool: t.tool,
           args: t.args,
-          result: t.result,
+          result: current(t.result),
           success: t.success,
           error: t.error,
           latency_ms: t.latencyMs,

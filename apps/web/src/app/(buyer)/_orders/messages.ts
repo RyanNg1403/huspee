@@ -217,6 +217,14 @@ export const messages = defineMessages({
     voucherNoEligibleItems: 'Không có sản phẩm nào phù hợp với voucher',
     voucherMinSpend: 'Chưa đạt giá trị đơn hàng tối thiểu {amount}',
     onlyLeft: 'Chỉ còn {count} sản phẩm',
+    placedViaAssistant: 'Đặt qua trợ lý · {time}',
+    deliveredOn: 'Giao thành công {date}',
+    returnDeadline: 'Có thể yêu cầu trả hàng đến hết {date}',
+    reasonPhysicalDamage: 'Sản phẩm bị bể vỡ, móp méo',
+    reasonFunctionalDamage: 'Sản phẩm lỗi, không hoạt động',
+    voucherCode: 'Mã {code}',
+    shippingVia: 'Vận chuyển {carrier}',
+    deliverTo: 'Giao tới',
   },
   en: {
     // Common
@@ -434,5 +442,13 @@ export const messages = defineMessages({
     voucherNoEligibleItems: 'No eligible items for this voucher',
     voucherMinSpend: 'Minimum spend of {amount} not reached',
     onlyLeft: 'Only {count} left',
+    placedViaAssistant: 'Placed via assistant · {time}',
+    deliveredOn: 'Delivered {date}',
+    returnDeadline: 'Return requests accepted until {date}',
+    reasonPhysicalDamage: 'Item physically damaged',
+    reasonFunctionalDamage: 'Item does not work',
+    voucherCode: 'Code {code}',
+    shippingVia: 'Shipping {carrier}',
+    deliverTo: 'Deliver to',
   },
 });

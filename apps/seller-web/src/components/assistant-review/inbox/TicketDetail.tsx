@@ -111,11 +111,16 @@ function TicketView({
           ‹ {t('title')}
         </Link>
         <div className="min-w-0 flex-1">
-          <h2 className="text-base font-semibold">
-            {ticket.conversation_id ? t('viaAssistant') : t('fromBuyer')}
-          </h2>
+          <h2 className="text-base font-semibold">{ticket.buyer_name}</h2>
           <p className="flex flex-wrap items-center gap-x-1.5 text-[13px] text-muted">
-            {first && <span>{t('sentAt', { time: stamp(first.created_at) })} ·</span>}
+            {first && (
+              <span>
+                {ticket.conversation_id
+                  ? t('sentVia', { time: stamp(first.created_at) })
+                  : t('sentAt', { time: stamp(first.created_at) })}{' '}
+                ·
+              </span>
+            )}
             {state.kind === 'waiting' ? (
               <StatusDot tone="action">{t('tabOpen')}</StatusDot>
             ) : state.kind === 'answered' ? (
@@ -149,6 +154,14 @@ function TicketView({
         {items.map((item) => (
           <ThreadEntry key={item.id} item={item} stamp={stamp} />
         ))}
+        {state.kind === 'answered' && replied && (
+          <Link
+            href={`/assistant/faqs?from_ticket=${ticket.ticket_id}`}
+            className="h-8 self-end rounded-[4px] border border-primary bg-white px-3 text-[13px] leading-8 text-primary hover:bg-primary-soft"
+          >
+            {t('createFaq')}
+          </Link>
+        )}
       </div>
 
       {state.kind === 'closed' ? (

@@ -198,6 +198,7 @@ export function toolEntries(calls: ToolCall[]): ToolEntry[] {
 }
 
 export type Outcome =
+  | { kind: 'order_placed'; orderSn?: string; total?: number }
   | { kind: 'order_quote'; total?: number }
   | { kind: 'return_request' }
   | { kind: 'cart' }
@@ -207,12 +208,27 @@ export type Outcome =
   | { kind: 'asked' }
   | { kind: 'none' };
 
-/** The furthest step the logs show: an order or return card, a cart change, a handoff, then lookups. */
+/** Each action once, in its latest logged state; a later pending replay never hides a final state. */
+function latestActions(entries: ToolEntry[]): Action[] {
+  const byId = new Map<string, Action>();
+  for (const entry of entries) {
+    if (entry.output.kind !== 'action') continue;
+    const action = entry.output.action;
+    const existing = byId.get(action.action_id);
+    if (!existing || existing.status === 'PENDING' || action.status !== 'PENDING') byId.set(action.action_id, action);
+  }
+  return [...byId.values()];
+}
+
+/** The furthest step the logs show: a placed order, a quote, a return, a cart change, a handoff, then lookups. */
 export function outcomeOf(calls: ToolCall[]): Outcome {
   const entries = toolEntries(calls);
-  const actions = entries.flatMap((entry) => (entry.output.kind === 'action' ? [entry.output.action] : []));
-  const order = actions.filter((action) => action.type === 'PLACE_ORDER').at(-1);
-  if (order) return { kind: 'order_quote', total: order.summary.total };
+  const actions = latestActions(entries);
+  const orders = actions.filter((action) => action.type === 'PLACE_ORDER');
+  const placed = orders.filter((action) => action.status === 'EXECUTED').at(-1);
+  if (placed) return { kind: 'order_placed', orderSn: placed.result?.order_sn, total: placed.summary.total };
+  const quote = orders.at(-1);
+  if (quote) return { kind: 'order_quote', total: quote.summary.total };
   if (actions.some((action) => action.type === 'OPEN_RETURN')) return { kind: 'return_request' };
   if (
     actions.some(

@@ -15,6 +15,7 @@ import { formatDateTime, formatVnd } from '@huspee/web-ui/lib/format';
 import { useApi } from '@huspee/web-ui/lib/use-api';
 import { CancelOrderModal } from '../../_orders/CancelOrderModal';
 import { messages } from '../../_orders/messages';
+import { formatDayMonthTime, formatFullDate } from '../../_orders/order-view';
 import { ReturnRequestModal } from '../../_orders/ReturnRequestModal';
 import { ReviewModal } from '../../_orders/ReviewModal';
 import { formatPaymentMethod, getErrorMessage, OrderStatusBadge, panel } from '../../_orders/shared';
@@ -90,6 +91,11 @@ function OrderDetailView() {
           </span>
         </div>
         <div className="flex items-center gap-3">
+          {order.placed_via_assistant && (
+            <span className="text-[13px] text-muted">
+              {t('placedViaAssistant', { time: formatDayMonthTime(order.placed_via_assistant.placed_at) })}
+            </span>
+          )}
           <OrderStatusBadge status={order.status} />
         </div>
       </div>
@@ -267,6 +273,11 @@ function OrderDetailView() {
 
       {/* Actions Bar */}
       <div className="flex flex-wrap items-center justify-end gap-3 rounded-2xl border border-line bg-white p-4 shadow-card">
+        {order.actions.can_request_return && order.actions.return_request_due_date && (
+          <span className="mr-auto text-[13px] text-muted">
+            {t('returnDeadline', { date: formatFullDate(order.actions.return_request_due_date) })}
+          </span>
+        )}
         {order.actions.can_cancel && (
           <Button variant="outline" onClick={() => setCancelModalOpen(true)}>
             {t('cancelOrder')}

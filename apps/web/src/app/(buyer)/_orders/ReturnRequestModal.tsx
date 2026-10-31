@@ -8,6 +8,7 @@ import { common } from '@huspee/web-ui/i18n/common';
 import { getApiClient } from '@huspee/web-ui/lib/api';
 import { formatVnd } from '@huspee/web-ui/lib/format';
 import { messages } from './messages';
+import { formatFullDate } from './order-view';
 import { getErrorMessage } from './shared';
 
 export function ReturnRequestModal({
@@ -85,6 +86,11 @@ export function ReturnRequestModal({
   return (
     <Modal open={open} onClose={onClose} title={t('requestReturn')}>
       <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+        {order.actions.return_request_due_date && (
+          <p className="text-sm text-muted">
+            {t('returnDeadline', { date: formatFullDate(order.actions.return_request_due_date) })}
+          </p>
+        )}
         {/* Item & Quantity Selection */}
         <div>
           <label className="mb-2 block text-sm font-semibold text-gray-800">{t('selectItemsToReturn')}</label>
@@ -155,6 +161,8 @@ export function ReturnRequestModal({
             <option value="DIFFERENT_DESCRIPTION">{t('reasonDifferentDescription')}</option>
             <option value="WRONG_ITEM">{t('reasonWrongItem')}</option>
             <option value="ITEM_DAMAGED">{t('reasonDamaged')}</option>
+            <option value="PHYSICAL_DMG">{t('reasonPhysicalDamage')}</option>
+            <option value="FUNCTIONAL_DMG">{t('reasonFunctionalDamage')}</option>
             <option value="ITEM_MISSING">{t('reasonMissing')}</option>
             <option value="EXPECTATION_FAILED">{t('reasonExpectationFailed')}</option>
             <option value="ITEM_FAKE">{t('reasonFake')}</option>
