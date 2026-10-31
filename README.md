@@ -83,9 +83,9 @@ Every account's password is `Password123!`.
 There are 4 shops and 80 products (20 per shop) with variants, photos, reviews, vouchers, shipping options,
 policies, past orders and assistant FAQs. Prices are in VND.
 
-Each product has an Image Gen hero image, every offered color has a matching image, and each shop has a generated avatar. Electronics,
+Each product has at least two Image Gen images, every offered color has a matching image, and each shop has a generated avatar. Electronics,
 skincare and makeup, clothing and bags, and kitchenware and home accessories have distinct
-catalogs. The 126 images total about 5.3 MiB in compact WebP files: product images are at most 1024×1024 and
+catalogs. The 170 images total about 4.3 MiB in compact WebP files: product images are at most 1024×1024 and
 200 KB; avatars are at most 512×512 and 75 KB. Large original renders are excluded from Git.
 Prompts and provenance: [`apps/api/prisma/generated-images/README.md`](apps/api/prisma/generated-images/README.md).
 

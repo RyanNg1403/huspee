@@ -14,7 +14,7 @@ describe('generated catalog', () => {
     const all = await client.marketplace.searchProducts({ page_size: 100 });
     const fixtures = all.data.filter((item) => item.item_id >= 2000101 && item.item_id <= 2000420);
     expect(fixtures).toHaveLength(80);
-    expect(new Set(manifest.assets.map((asset) => asset.file)).size).toBe(126);
+    expect(new Set(manifest.assets.map((asset) => asset.file)).size).toBe(170);
     for (const shopId of [880001, 880002, 880003, 880004]) {
       const products = fixtures.filter((item) => item.shop.shop_id === shopId);
       expect(products).toHaveLength(20);
@@ -32,6 +32,7 @@ describe('generated catalog', () => {
     for (const item of fixtures) {
       const product = await client.marketplace.getProduct(item.item_id);
       const expected = manifest.assets.filter((asset) => asset.kind === 'product' && asset.item_id === item.item_id);
+      expect(product.images.length).toBeGreaterThanOrEqual(2);
       expect(product.images).toHaveLength(expected.length);
       for (const tier of product.tier_variations.filter((tier) => /màu/i.test(tier.name))) {
         for (const option of tier.options) {

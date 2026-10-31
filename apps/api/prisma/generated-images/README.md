@@ -4,11 +4,13 @@ The built-in **Image Gen** tool generated the product images and shop avatars fo
 demo. These are illustrative renders, not official manufacturer photographs. The full prompt
 set, product/shop IDs, filenames and generator provenance are in [manifest.json](manifest.json).
 
-- 80 products across four shops, 20 per shop, with images for every offered color.
-- Four distinct shop avatars. Total: 126 images.
+- 80 products across four shops, 20 per shop, with at least two images per product and images
+  for every offered color.
+- Four distinct shop avatars. Total: 170 images.
 - All colors of each multi-color product are generated together in one 2 × 2 sheet and then
   cropped into individual images. The manifest records the shared prompt, group and cell order.
 - Alternate views with design or packaging drift were also regenerated together as matched sheets.
+  Products that previously had only a hero image receive a matched second camera angle.
   Cropped sheet images are 627 × 627 pixels; other hero photos are up to 1024 × 1024.
 - Products: WebP, at most 1024 × 1024 pixels and 200,000 bytes per file.
 - Avatars: WebP, at most 512 × 512 pixels and 75,000 bytes per file.
