@@ -85,7 +85,7 @@ export class AssistantController {
   @RequireRole('BUYER')
   @Patch('assistant/actions/:actionId')
   async editAction(@CurrentUser() user: User, @Param('actionId') actionId: string, @Body() body: unknown) {
-    const input = parseInput(z.object({ quantity: z.number().int().min(1).max(999), model_id: z.number().int().nonnegative(), line_index: z.number().int().nonnegative().optional() }).strict(), body);
+    const input = parseInput(z.object({ quantity: z.number().int().min(1).max(999).optional(), model_id: z.number().int().nonnegative().optional(), line_index: z.number().int().nonnegative().optional(), evidence_ids: z.array(z.string().uuid()).max(8).optional() }).strict().refine((value) => (value.quantity !== undefined && value.model_id !== undefined) || (value.quantity === undefined && value.model_id === undefined && value.evidence_ids !== undefined)), body);
     return { data: { action: await this.actions.edit(actionId, user.id, input) } };
   }
 

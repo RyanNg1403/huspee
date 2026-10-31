@@ -5,6 +5,9 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useParams } from 'next/navigation';
 import type { BuyerReturn } from '@huspee/sdk';
+import { EvidenceImage } from '@huspee/web-ui/components/refunds/EvidenceImage';
+import { buyerEvidenceContent } from '@huspee/web-ui/components/refunds/EvidencePicker';
+import { messages as evidenceMessages } from '@huspee/web-ui/components/refunds/messages';
 import { RequireRole } from '@huspee/web-ui/components/session';
 import { Button, QueryState, useToast } from '@huspee/web-ui/components/ui';
 import { useLang, useT } from '@huspee/web-ui/i18n';
@@ -17,6 +20,7 @@ import { formatReturnReason, getErrorMessage, panel, ReturnStatusBadge } from '.
 
 function ReturnDetailView() {
   const t = useT(messages);
+  const te = useT(evidenceMessages);
   const tCommon = useT(common);
   const { lang } = useLang();
   const toast = useToast();
@@ -46,7 +50,7 @@ function ReturnDetailView() {
   };
 
   const handleCancelReturn = async () => {
-    if (!window.confirm(t('confirm'))) return;
+    if (!window.confirm(t('cancelReturnConfirm'))) return;
     setActing(true);
     try {
       await getApiClient().buyer.returns.cancel(returnSn);
@@ -141,6 +145,22 @@ function ReturnDetailView() {
           </div>
         )}
       </div>
+
+      <section className={panel} aria-label={te('title')}>
+        <h3 className="mb-2 text-base font-semibold">{te('title')}</h3>
+        <p className="mb-3 text-xs text-gray-600">{te('review')}</p>
+        <div className="flex flex-wrap gap-3">
+          {(returnData.evidence ?? []).map((photo, index) => (
+            <EvidenceImage
+              key={photo.evidence_id}
+              evidenceId={photo.evidence_id}
+              number={index + 1}
+              fetchContent={buyerEvidenceContent}
+            />
+          ))}
+        </div>
+        {!returnData.evidence?.length && <p className="text-sm text-gray-500">{te('noPhotos')}</p>}
+      </section>
 
       {/* Reverse Tracking Timeline if available */}
       {(returnData.reverse_tracking_number || returnData.reverse_tracking.length > 0) && (

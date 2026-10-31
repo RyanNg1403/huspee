@@ -18,14 +18,14 @@ export type SummaryRow = { label: string; value: string; heard: boolean };
  * amounts are formatted. Nothing is recalculated.
  */
 export function summaryRows(
-  lines: Array<{ label: string; value: string }>,
+  lines: Array<{ label: string; value: string; verbatim?: boolean }>,
   lang: Lang,
   formatMoney: (amount: number) => string,
 ): SummaryRow[] {
   return lines.map((line) => {
     const english = BILINGUAL.exec(line.label)?.[2];
     const money = english !== undefined && MONEY_LABELS.has(english) && /^-?\d+$/.test(line.value);
-    const value = money
+    const value = line.verbatim ? line.value : money
       ? formatMoney(Number(line.value))
       : pickLanguage(line.value, lang).replace(/\b(\d+) VND\b/g, (_, amount: string) => formatMoney(Number(amount)));
     return { label: pickLanguage(line.label, lang), value, heard: english === 'Heard' };

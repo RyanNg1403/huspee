@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { VoiceRuntime } from '../../apps/api/src/assistant/voice/voice-runtime.js';
 import { speechText } from '../../apps/api/src/assistant/voice/speech.js';
 
@@ -12,10 +12,12 @@ async function harness(output: () => Promise<Output>) {
   const transport = (runtime as unknown as { transport: { start(): Promise<void>; request(method: string, params: Record<string, unknown>): Promise<unknown>; send(message: unknown): void; close(): void; onMessage?: (message: Message) => void } }).transport;
   const speech: string[] = [];
   const replies: unknown[] = [];
+  const turns: Record<string, unknown>[] = [];
   transport.start = async () => undefined;
   transport.close = () => undefined;
   transport.send = (message) => replies.push(message);
   transport.request = async (method, params) => {
+    if (method === 'turn/start') turns.push(params);
     if (method === 'thread/start') return { thread: { id: 'thread' } };
     if (method === 'thread/realtime/start') queueMicrotask(() => emit('thread/realtime/sdp', { sdp: 'answer' }));
     if (method === 'thread/realtime/stop') queueMicrotask(() => emit('thread/realtime/closed'));
@@ -33,10 +35,49 @@ async function harness(output: () => Promise<Output>) {
     emit('item/completed', { item: { type: 'agentMessage', text: 'Model paraphrase that must not repeat the action.' } });
     emit('turn/completed', { turn: { id: 'turn', status: 'completed' } });
   };
-  return { runtime, speech, replies, emit, tool, finish, stop: () => runtime.stop('conversation', 1).finally(() => runtime.close()) };
+  return { runtime, speech, replies, turns, emit, tool, finish, stop: () => runtime.stop('conversation', 1).finally(() => runtime.close()) };
 }
 
 describe('prepared-action speech delivery', () => {
+  it('silently retires a card during an edit and reads the replacement without a cancellation announcement', async () => {
+    const h = await harness(async () => prepared('new', 'Updated refund with two photos.', true));
+    const notify = vi.spyOn(h.runtime, 'notifyAction');
+    try {
+      h.runtime.action('conversation', { action_id: 'old', status: 'CANCELLED', requires_tap: true, summary: { title: 'Refund' } }, undefined, 'edit');
+      expect(notify).toHaveBeenCalledWith('conversation', 'Refund: CANCELLED');
+      h.runtime.action('conversation', { action_id: 'new', status: 'PENDING', requires_tap: true, summary: { title: 'Refund' } }, {
+        text: 'New refund summary',
+        readback: { vi: 'Updated refund with two photos.', en: 'Updated refund with two photos.', tap: true, actionId: 'new' },
+      });
+      await expect.poll(() => h.speech.length).toBe(1);
+      await new Promise((resolve) => setImmediate(resolve));
+      expect(h.turns).toHaveLength(0);
+      h.finish();
+      await expect.poll(() => h.turns.length).toBe(1);
+      for (const id of ['cancellation-note', 'replacement-note']) {
+        h.emit('turn/started', { turn: { id } });
+        h.emit('item/completed', { item: { type: 'agentMessage', text: 'OK' } });
+        h.emit('turn/completed', { turn: { id, status: 'completed' } });
+        await new Promise((resolve) => setImmediate(resolve));
+      }
+      expect(h.turns).toHaveLength(2);
+      expect(JSON.stringify(h.turns[1])).toContain('New refund summary');
+      expect(h.speech).toEqual(['Updated refund with two photos. ' + speechText.confirmTap.vi]);
+      expect(h.speech).not.toContain(speechText.cancelled.vi);
+    } finally { notify.mockRestore(); await h.stop(); }
+  });
+  it.each([
+    ['CANCEL_RETURN', speechText.returnCancelled.vi],
+    ['ACCEPT_RETURN_OFFER', speechText.returnOfferAccepted.vi],
+  ])('announces the actual %s outcome rather than opening another return', async (type, expected) => {
+    const h = await harness(async () => prepared('unused', 'unused'));
+    try {
+      h.runtime.action('conversation', { type, action_id: 'action', status: 'EXECUTED', requires_tap: true, summary: { title: 'Refund action' }, result: { return_sn: 'RET' } });
+      await expect.poll(() => h.speech.length).toBe(1);
+      expect(h.speech).toEqual([expected]);
+      expect(h.speech).not.toContain(speechText.returnOpened.vi);
+    } finally { await h.stop(); }
+  });
   it('sends the whole batch readback before the thread finishes and does not repeat it', async () => {
     const h = await harness(async () => prepared('batch', 'Product A, blue, quantity 1. Product B, large, quantity 2. Total 123000 VND.'));
     try {

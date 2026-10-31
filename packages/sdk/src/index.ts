@@ -16,6 +16,8 @@ import type {
   BuyerOrder,
   BuyerOrderListQuery,
   BuyerReturn,
+  ReturnEvidence,
+  ReturnEvidenceSelection,
   Cart,
   CategoryNode,
   CheckoutInput,
@@ -106,6 +108,10 @@ export class HuspeeClient {
   };
 
   readonly assistant = {
+    returnEvidence: {
+      getSelection: (id: string) => this.http.request<ReturnEvidenceSelection>('GET', `/api/v1/assistant/conversations/${encodeURIComponent(id)}/return-evidence`),
+      setSelection: (id: string, input: { order_sn: string; evidence_ids: string[] }) => this.http.request<ReturnEvidenceSelection>('PUT', `/api/v1/assistant/conversations/${encodeURIComponent(id)}/return-evidence`, { body: input }),
+    },
     connection: {
       get: () => this.http.request<AssistantSetupConnection>('GET', '/api/v1/assistant/connection'),
       login: () => this.http.request<AssistantSetupConnection>('POST', '/api/v1/assistant/connection/login'),
@@ -132,13 +138,19 @@ export class HuspeeClient {
     },
     actions: {
       options: (actionId: string) => this.http.request<{ line_index: number; name: string; quantity: number; model_id: number; models: Array<{ model_id: number; name: string; stock: number }>; lines: Array<{ line_index: number; name: string; quantity: number; model_id: number; models: Array<{ model_id: number; name: string; stock: number }> }> }>('GET', `/api/v1/assistant/actions/${encodeURIComponent(actionId)}/options`),
-      edit: (actionId: string, input: { quantity: number; model_id: number; line_index?: number }) => this.http.request<{ action: PendingActionView }>('PATCH', `/api/v1/assistant/actions/${encodeURIComponent(actionId)}`, { body: input }),
+      edit: (actionId: string, input: { quantity?: number; model_id?: number; line_index?: number; evidence_ids?: string[] }) => this.http.request<{ action: PendingActionView }>('PATCH', `/api/v1/assistant/actions/${encodeURIComponent(actionId)}`, { body: input }),
       confirm: (actionId: string, idempotencyKey: string) => this.http.request<{ action: PendingActionView }>('POST', `/api/v1/assistant/actions/${encodeURIComponent(actionId)}/confirm`, { body: { idempotency_key: idempotencyKey } }),
       cancel: (actionId: string) => this.http.request<{ action: PendingActionView }>('POST', `/api/v1/assistant/actions/${encodeURIComponent(actionId)}/cancel`),
     },
   };
 
   readonly buyer = {
+    returnEvidence: {
+      list: (orderSn: string) => this.http.request<ReturnEvidence[]>('GET', `/api/v1/buyer/orders/${encodeURIComponent(orderSn)}/return-evidence`),
+      upload: (orderSn: string, image: Blob) => { const body = new FormData(); body.set('image', image, 'evidence'); return this.http.request<ReturnEvidence>('POST', `/api/v1/buyer/orders/${encodeURIComponent(orderSn)}/return-evidence`, { body }); },
+      remove: (id: string) => this.http.request<{ deleted: boolean }>('DELETE', `/api/v1/buyer/return-evidence/${encodeURIComponent(id)}`),
+      content: (id: string) => this.http.blob(`/api/v1/buyer/return-evidence/${encodeURIComponent(id)}/content`),
+    },
     messages: {
       list: (query: { page?: number; page_size?: number } = {}) => this.http.request<Paginated<HandoffTicket>>('GET', '/api/v1/buyer/messages', { query, raw: true }),
       unreadCount: () => this.http.request<{ count: number }>('GET', '/api/v1/buyer/messages/unread-count'),
@@ -183,6 +195,10 @@ export class HuspeeClient {
   };
 
   readonly seller = {
+    returnEvidence: {
+      list: (shopId: number, returnSn: string) => this.http.request<ReturnEvidence[]>('GET', `/api/v1/seller/shops/${shopId}/returns/${encodeURIComponent(returnSn)}/evidence`),
+      content: (shopId: number, returnSn: string, id: string) => this.http.blob(`/api/v1/seller/shops/${shopId}/returns/${encodeURIComponent(returnSn)}/evidence/${encodeURIComponent(id)}/content`),
+    },
     assistant: {
       connection: {
         get: () => this.http.request<AssistantConnection>('GET', '/api/v1/seller/assistant/connection'),

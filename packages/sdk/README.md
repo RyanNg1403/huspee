@@ -96,3 +96,5 @@ await api.assistant.voice.stopCall(id, call.call_id); // preserves chat and mode
 await api.assistant.voice.text(id, 'Compare the two products we discussed.');
 await api.assistant.voice.stop(id); // ends the entire conversation
 ```
+
+Refund evidence extensions are private custom APIs: buyer draft upload/list/delete/content, conversation evidence selection, and submitted-return evidence list/content for authorized shop sellers. Use the surface-aware SDK Blob methods; do not put these bytes through public media or an image optimizer. Evidence metadata contains opaque IDs, size and timestamps, never original filenames or content URLs. Buyer return creation and pending-action edits accept buyer-selected evidence_ids. The agent cannot supply evidence IDs; it receives counts from quotes/readbacks. Cancel-return and accept-offer actions require their own exact final tap. Existing upstream Shopee image response contracts are unchanged.

@@ -59,6 +59,10 @@ fields or unpublished items):
 | `get_shop_faqs(query?)` | All enabled seller FAQs (verified data); the agent selects the relevant answer, and a query never hides a FAQ |
 | `get_cart()` | The buyer's cart lines for this shop, with API-computed totals |
 | `get_order_status(order_sn?)` | The buyer's own orders with this shop (latest 5 if no order_sn), status and tracking |
+| `get_return_quote(order_sn, items?)` | Read-only submission checks, blocked code, item-only refund estimate, seller policy and selected photo count; never approval |
+| `get_return_status(return_sn?, order_sn?)` | This buyer's submitted requests, seller offer, payment state and reverse tracking |
+| `prepare_return_cancellation(return_sn)` | Prepare cancellation of a submitted request, requiring a fresh single-use tap |
+| `prepare_offer_acceptance(return_sn)` | Prepare acceptance of the exact current unexpired seller offer, requiring a fresh single-use tap |
 | `add_to_cart(item_id, model_id, quantity, requested_attributes?)` | Creates a `PendingAction` (requiresTap false) and returns its readback |
 | `add_cart_items(lines[1..50])` | Prepares all distinct item/model/quantity lines as one `ADD_TO_CART` action with a combined readback and one spoken confirmation; all lines succeed or none change the cart |
 | `update_cart_item(model_id, quantity?, new_model_id?)` | Same, `UPDATE_CART_ITEM` |
@@ -217,6 +221,18 @@ Definitions (all records belong to selected shop and have their own timestamp in
 - Summaries: latest stored summaries of conversations started in range, newest first; model wording is distinct from verified log counts.
 
 ## 8. Exact catalog choices and cart action edits
+
+### Refund evidence and seller decisions
+
+Buyer refund photos are private evidence for seller review, not an image-analysis input. ReturnEvidence stores immutable normalized WebP bytes/digest, buyer/order ownership and an optional submitted-return binding, separately from public catalog media. Uploads decode JPEG/PNG/WebP, apply rotation, strip metadata, select one frame and bound output to 1600px. Input is capped at 5 MB and 16 million pixels; up to eight selected photos accompany a request. Drafts are capped at 16 per buyer/order and cleaned during upload after 24 hours. Original filenames are discarded. Draft deletion and attachment binding race atomically; submitted evidence cannot be deleted or reused.
+
+The buyer chooses photos in the return form, assistant's Refund photos dialog, or pending refund card's photo editor. Only the UI writes evidence_ids; open_return does not accept them from the model. A conversation owns its explicit order/photo selection. Selection changes invalidate pending submission cards. Photo-only edits create replacements requiring a new tap. Cards/readbacks show notes and photo count; thumbnails use the exact bound IDs. Structured app readbacks preserve notes, including slashes and newlines.
+
+Tool text, card/action JSON, app notes, logs and summary input contain evidence IDs/count only, never private image URLs, filenames or bytes. Buyer and seller images use surface-aware SDK blob fetches; object URLs are revoked on cleanup. Seller routes require shop membership and a submitted return, never buyer drafts. Content is WebP with private/no-store, nosniff and same-origin headers. Legacy external image_urls stay separate and are not verified private uploads. Shopee-compatible image responses are unchanged.
+
+get_return_quote shares submission rules with the buyer's can_request_return flag: ownership/shop, delivery state, window, existing requests and remaining quantities. can_request permits submitting only; policy prose and evidence still need seller review. The item-only estimate excludes shipping and accounts for vouchers. Submission rechecks the exact item/refund/evidence snapshot and binds photos atomically with the action claim, order transition and request creation. Failure leaves no partial request. Submission means awaiting seller review, never approved or refunded.
+
+Submitted-request cancellation and offer acceptance are separate tap-only actions. They bind the request version/status and exact offer terms; claim and effect are atomic. Offer expiry applies to REST and tools. Cancellation restores the original receipt/completed order state. Buyers may cancel a pending request instead of accepting; no independent reject-offer action exists. Payment/reverse logistics remain simulated after seller acceptance. JUDGING is an unresolved seller dispute, not rejection; arbitration remains unsupported and the agent offers seller handoff.
 
 search_products matches literal case-insensitive query words across catalog names, brands and persisted English/Vietnamese category names. These are retrieval candidates, not a semantic type or variant selection. Empty query lists the shop's catalog in stable ID order, with default limit 50 and explicit offset, total and has_more metadata. Results remain candidates for the agent to inspect. Tools do not repair speech, translate aliases, parse spoken quantities or assign lexical confidence. The agent uses exact returned model IDs and attribute strings, passes numeric quantities and voucher codes from get_vouchers, and clarifies uncertain requests.
 
