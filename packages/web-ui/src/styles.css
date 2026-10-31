@@ -1,28 +1,39 @@
 @theme {
-  --color-primary: #ee4d2d;
-  --color-primary-hover: #d93f20;
+  /* U0 design tokens (docs/design/frontend-redesign/README.md). White on primary reaches 4.6:1. */
+  --color-primary: #d9381a;
+  --color-primary-hover: #c02f14;
   --color-primary-soft: #fff1ec;
-  --color-ink: #1f1b18;
-  --color-muted: #78716c;
-  --color-line: #ebe7e3;
-  --color-page: #f6f4f1;
+  --color-mic-ring: #fde3db;
+  --color-ink: #222222;
+  --color-muted: #595959;
+  /* Only on white surfaces. */
+  --color-subtle: #757575;
+  --color-line: #ebebeb;
+  --color-line-strong: #e0e0e0;
+  --color-line-soft: #f2f2f2;
+  --color-page: #f5f5f5;
   --color-surface: #ffffff;
+  --color-link: #2673dd;
+  --color-success: #0f7a4a;
+  --color-success-dot: #16a34a;
+  --color-warning: #8a5300;
+  --color-warning-soft: #fff4e0;
 
-  /* Warm neutrals everywhere the app uses gray-*. */
-  --color-gray-50: #faf9f7;
-  --color-gray-100: #f3f1ee;
-  --color-gray-200: #e8e4df;
-  --color-gray-300: #d6d1cb;
-  --color-gray-400: #a8a29e;
-  --color-gray-500: #78716c;
-  --color-gray-600: #57534e;
-  --color-gray-700: #44403c;
-  --color-gray-800: #292524;
-  --color-gray-900: #1f1b18;
+  /* Neutral grays everywhere the app uses gray-*. */
+  --color-gray-50: #fafafa;
+  --color-gray-100: #f5f5f5;
+  --color-gray-200: #ebebeb;
+  --color-gray-300: #e0e0e0;
+  --color-gray-400: #a3a3a3;
+  --color-gray-500: #757575;
+  --color-gray-600: #595959;
+  --color-gray-700: #404040;
+  --color-gray-800: #2b2b2b;
+  --color-gray-900: #222222;
 
-  --shadow-card: 0 1px 2px rgb(31 27 24 / 0.04), 0 1px 1px rgb(31 27 24 / 0.02);
-  --shadow-lift: 0 12px 32px -12px rgb(31 27 24 / 0.18);
-  --shadow-panel: 0 24px 64px -16px rgb(31 27 24 / 0.28);
+  --shadow-card: 0 1px 3px rgb(0 0 0 / 0.06);
+  --shadow-lift: 0 12px 32px -12px rgb(0 0 0 / 0.18);
+  --shadow-panel: 0 24px 64px -16px rgb(0 0 0 / 0.28);
 }
 @layer base {
   *,
@@ -35,6 +46,9 @@
 body {
   background: var(--color-page);
   color: var(--color-ink);
+  font-size: 14px;
+  line-height: 1.45;
+  font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
 }
 h1,
