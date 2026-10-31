@@ -2,9 +2,9 @@
 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { RequireRole } from '@/components/session';
-import { Button, Icon } from '@/components/ui';
-import { useT } from '@/i18n';
+import { RequireRole } from '@huspee/web-ui/components/session';
+import { Button, Icon } from '@huspee/web-ui/components/ui';
+import { useT } from '@huspee/web-ui/i18n';
 import { messages } from '../../_orders/messages';
 import { panel } from '../../_orders/shared';
 

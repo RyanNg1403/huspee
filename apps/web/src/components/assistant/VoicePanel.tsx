@@ -3,11 +3,11 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from '
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useLang, useT } from '@/i18n';
-import { formatDateTime } from '@/lib/format';
-import { useSession } from '@/components/session';
-import { AssistantCard, type Action, type Card, type EditOptions } from './cards';
-import { messages } from './messages';
+import { useLang, useT } from '@huspee/web-ui/i18n';
+import { formatDateTime } from '@huspee/web-ui/lib/format';
+import { useSession } from '@huspee/web-ui/components/session';
+import { AssistantCard, type Action, type Card, type EditOptions } from '@huspee/web-ui/components/assistant/cards';
+import { messages } from '@huspee/web-ui/components/assistant/messages';
 import { ConversationProducts } from './ConversationProducts';
 import { MicrophoneMeter } from './MicrophoneMeter';
 import { collectConversationProducts, type ConversationProduct } from './conversation-products';

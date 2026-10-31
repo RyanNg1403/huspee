@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { upsertCard } from '../../apps/web/src/components/assistant/card-state.js';
-import type { Card } from '../../apps/web/src/components/assistant/card-types.js';
+import type { Card } from '../../packages/web-ui/src/components/assistant/card-types.js';
 
 const action = (id: string, status: string): Card => ({
   kind: 'action',

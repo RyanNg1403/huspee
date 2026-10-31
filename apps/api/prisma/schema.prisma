@@ -44,8 +44,14 @@ model User {
   @@map("users")
 }
 
+enum WebSessionSurface {
+  BUYER
+  SELLER
+}
+
 model WebSession {
   id        String   @id // sha256(session token); raw token only lives in the cookie
+  surface   WebSessionSurface @default(BUYER)
   userId    Int      @map("user_id")
   createdAt DateTime @default(now()) @map("created_at")
   expiresAt DateTime @map("expires_at")

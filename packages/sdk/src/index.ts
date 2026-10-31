@@ -44,7 +44,7 @@ import type {
 } from './types.js';
 
 export { HuspeeApiError } from './http.js';
-export type { HuspeeClientOptions, RequestOptions } from './http.js';
+export type { HuspeeClientOptions, HuspeeSurface, RequestOptions } from './http.js';
 export type * from './types.js';
 
 type Query = Record<string, string | number | boolean | undefined | null>;
@@ -57,8 +57,8 @@ export class HuspeeClient {
   }
 
   readonly auth = {
-    signup: (input: SignupInput) => this.http.request<UserProfile>('POST', '/api/v1/auth/signup', { body: input }),
-    login: (email: string, password: string) => this.http.request<UserProfile>('POST', '/api/v1/auth/login', { body: { email, password } }),
+    signup: (input: SignupInput) => this.http.request<UserProfile>('POST', '/api/v1/auth/signup', { body: this.http.surface === 'seller' ? { ...input, surface: 'seller' } : input }),
+    login: (email: string, password: string) => this.http.request<UserProfile>('POST', '/api/v1/auth/login', { body: { email, password, ...(this.http.surface === 'seller' ? { surface: 'seller' } : {}) } }),
     logout: () => this.http.request<{ logged_out: boolean }>('POST', '/api/v1/auth/logout'),
     me: () => this.http.request<UserProfile>('GET', '/api/v1/auth/me'),
   };

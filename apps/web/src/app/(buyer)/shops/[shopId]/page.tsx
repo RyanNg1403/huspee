@@ -4,10 +4,10 @@ import { VoiceWidget } from '@/components/assistant/VoiceWidget';
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import type { ProductSearchQuery } from '@huspee/sdk';
-import { Pagination, QueryState } from '@/components/ui';
-import { useT } from '@/i18n';
-import { getApiClient } from '@/lib/api';
-import { useApi } from '@/lib/use-api';
+import { Pagination, QueryState } from '@huspee/web-ui/components/ui';
+import { useT } from '@huspee/web-ui/i18n';
+import { getApiClient } from '@huspee/web-ui/lib/api';
+import { useApi } from '@huspee/web-ui/lib/use-api';
 import { messages } from '../../_browse/messages';
 import { ProductGrid, Vouchers } from '../../_browse/shared';
 export default function ShopPage() {

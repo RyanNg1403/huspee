@@ -4,12 +4,12 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import type { BuyerReturn, Paginated } from '@huspee/sdk';
-import { RequireRole } from '@/components/session';
-import { Button, Pagination, QueryState } from '@/components/ui';
-import { useLang, useT } from '@/i18n';
-import { getApiClient } from '@/lib/api';
-import { formatDateTime, formatVnd } from '@/lib/format';
-import { useApi } from '@/lib/use-api';
+import { RequireRole } from '@huspee/web-ui/components/session';
+import { Button, Pagination, QueryState } from '@huspee/web-ui/components/ui';
+import { useLang, useT } from '@huspee/web-ui/i18n';
+import { getApiClient } from '@huspee/web-ui/lib/api';
+import { formatDateTime, formatVnd } from '@huspee/web-ui/lib/format';
+import { useApi } from '@huspee/web-ui/lib/use-api';
 import { messages } from '../_orders/messages';
 import { panel, ReturnStatusBadge } from '../_orders/shared';
 

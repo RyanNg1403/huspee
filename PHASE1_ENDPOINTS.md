@@ -20,8 +20,8 @@
 | `partner` | Shopee partner-level signature: `sign = HMAC-SHA256(partner_key, partner_id + path + timestamp)`; no access token |
 | `shop` | Shopee shop-level signature: `partner_id + path + timestamp + access_token + shop_id`, plus opaque token → partner/shop/active-grant validation |
 | `public` | No authentication (public catalog data only) |
-| `session` | `huspee_sid` HttpOnly cookie; state-changing requests also need `X-Requested-With` |
-| `session:buyer` / `session:seller` | Session with the given role; resources are additionally ownership/membership checked |
+| `session` | `huspee_sid` by default; `huspee_seller_sid` with `X-Huspee-Surface: seller`; state-changing requests also need `X-Requested-With` |
+| `session:buyer` / `session:seller` | Session with the given role; buyer-only routes also require buyer surface. Seller-role routes retain legacy default-surface access. Resources are ownership/membership checked |
 
 **SDK columns.** Upstream methods are those of `@congminh1254/shopee-sdk@2.12.0` (`sdk.<manager>.<method>`), inherited unchanged by `HuspeeShopeeSDK` in `@huspee/sdk/server`. Huspee methods live on `HuspeeClient` (`@huspee/sdk`, browser-safe) or `HuspeeShopeeSDK.custom` (server-only).
 
@@ -287,3 +287,19 @@ These `/api/v1` routes use platform sessions unless marked public, and the brows
 | POST | `/assistant/_debug/tools/:name` | buyer session; `ASSISTANT_TOOL_DEBUG=true` | low-level test transport only | test-only; disabled by default |
 | GET | `/seller/shops/:shopId/assistant/insights` | seller membership | `seller.assistant.insights` | custom; insights tests |
 | POST | `/seller/shops/:shopId/assistant/conversations/:id/summary` | seller membership | `seller.assistant.summarize` | custom; insights tests |
+
+## Browser session surfaces (U1)
+
+No new API routes. Existing custom login/signup accept optional `surface: 'buyer' | 'seller'`,
+which must match the `X-Huspee-Surface` header (both default to buyer). The browser SDK adds
+both when constructed with `{ surface: 'seller' }`; default SDK calls retain their original behavior.
+The backend creates `huspee_seller_sid` only for SELLER accounts on seller surface, stores the
+surface on each session, and rejects token substitution across cookies. `RequireRole('BUYER')`
+routes reject seller sessions even when the account also holds BUYER role. Logout affects only
+the selected surface. Cookie attributes and ownership checks remain unchanged.
+
+Consent HTML and callback prefer a valid seller session, with legacy buyer-session fallback;
+consent-form login creates a seller session. Callback redirects to `SELLER_APP_URL/shops/:id`.
+Both configured web origins are allowed by CORS. Frontend proxies preserve cookies and headers;
+only navigation URLs are localized for tunnels. Shopee signing/token contracts are unchanged.
+Coverage: `tests/extensions/session-surfaces.test.ts`, `tests/web/proxy.test.ts`, dual-session UI smoke.

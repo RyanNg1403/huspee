@@ -3,10 +3,10 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import type { ProductSummary } from '@huspee/sdk';
-import { Button, EmptyState, QueryState } from '@/components/ui';
-import { useT } from '@/i18n';
-import { getApiClient } from '@/lib/api';
-import { useApi } from '@/lib/use-api';
+import { Button, EmptyState, QueryState } from '@huspee/web-ui/components/ui';
+import { useT } from '@huspee/web-ui/i18n';
+import { getApiClient } from '@huspee/web-ui/lib/api';
+import { useApi } from '@huspee/web-ui/lib/use-api';
 import { messages } from './_browse/messages';
 import { ProductGrid } from './_browse/shared';
 export default function Home() {

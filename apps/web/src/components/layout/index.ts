@@ -1,3 +1,2 @@
 export { BuyerHeader } from './BuyerHeader';
-export { SellerShell } from './SellerShell';
-export { useSelectedShop } from './SelectedShop';
+export { LanguageSwitch } from '@huspee/web-ui/components/layout/LanguageSwitch';

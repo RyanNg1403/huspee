@@ -1,15 +1,15 @@
 'use client';
 
 import type { OrderStatus, BuyerReturn } from '@huspee/sdk';
-import { Badge } from '@/components/ui';
-import { useT } from '@/i18n';
-import { common } from '@/i18n/common';
-import { errorMessageKey, isApiError } from '@/lib/api';
+import { Badge } from '@huspee/web-ui/components/ui';
+import { useT } from '@huspee/web-ui/i18n';
+import { common } from '@huspee/web-ui/i18n/common';
+import { errorMessageKey, isApiError } from '@huspee/web-ui/lib/api';
 import { messages } from './messages';
 
 export const panel = 'rounded-2xl border border-line bg-white p-4 shadow-card sm:p-6';
 
-export { QueryState as State, QueryState, ApiState } from '@/components/ui';
+export { QueryState as State, QueryState, ApiState } from '@huspee/web-ui/components/ui';
 
 type MessageKey = keyof typeof messages.vi;
 type CommonKey = keyof typeof common.vi;

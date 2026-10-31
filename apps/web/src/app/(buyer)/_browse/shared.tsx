@@ -2,12 +2,12 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import type { ProductSummary, PublicVoucher } from '@huspee/sdk';
-import { EmptyState } from '@/components/ui';
-import { useLang, useT } from '@/i18n';
-import { formatCount, formatVnd } from '@/lib/format';
+import { EmptyState } from '@huspee/web-ui/components/ui';
+import { useLang, useT } from '@huspee/web-ui/i18n';
+import { formatCount, formatVnd } from '@huspee/web-ui/lib/format';
 import { messages } from './messages';
 
-export { QueryState as State, QueryState, ApiState } from '@/components/ui';
+export { QueryState as State, QueryState, ApiState } from '@huspee/web-ui/components/ui';
 export function ProductGrid({ products }: { products: ProductSummary[] }) {
   const t = useT(messages);
   const { lang } = useLang();

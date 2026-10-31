@@ -51,7 +51,7 @@ Giá, tồn kho, voucher và phí ship lấy theo seed; số liệu hội thoạ
 | Bước | Nội dung | Trạng thái |
 | --- | --- | --- |
 | U0 | Bản thiết kế bấm được, không sửa code app | Đã giao bản đầu, chờ người dùng xem |
-| U1 | Tách 2 app, `packages/web-ui`, session theo surface; giao diện gần như giữ nguyên, regression xanh | Chưa bắt đầu |
+| U1 | Tách 2 app, `packages/web-ui`, session theo surface; giao diện gần như giữ nguyên, regression xanh | Đã giao PR, CHỜ NGƯỜI DÙNG TEST |
 | U2 | Seller Centre: shell, Tổng quan, Hộp thư, Hội thoại trên dữ liệu hiện có | Chưa bắt đầu |
 | U3 | Buyer: panel ghim/bottom sheet, trạng thái tool, nhãn dữ liệu, lối vào theo ngữ cảnh với tool hiện có | Chưa bắt đầu |
 | Sau đó | S1–S4 rồi F1–F8 theo kế hoạch đã duyệt, mỗi bước F làm luôn UI theo U0, rồi D1 | Chưa bắt đầu |
@@ -88,3 +88,4 @@ Luồng người bán: S1 bắt đầu bán · S2 tổng quan · S3 xử lý đ�
 | 2026-10-31 | U0 đợt 1 | — | "Ok chốt" | Sang đợt 2 |
 | 2026-10-31 | U0 đợt 2 | Mỗi luồng một hàng trên canvas, nối link bấm Play; trên web panel trợ lý dùng chung trạng thái với sheet mobile; bỏ các câu giải thích người dùng đã tự xoá ở bản cũ; dời phiên hỏi gói quà sang 14:12 cho khỏi chồng giờ | Chờ phản hồi | Chưa sang đợt 3 |
 | 2026-10-31 | U0 đợt 3 | 48 màn mới (15 mobile, 6 buyer web, 17 seller web, 10 sửa/nối link); giữ các sửa tay của người dùng trên 12 màn đợt 2 | Trang chủ quảng bá trợ lý là sai vì shop nào cũng có | Bỏ banner, mục, bộ lọc, nhãn, mic tìm kiếm toàn sàn; đăng lại; chờ phản hồi |
+| 2026-10-31 | U1 | Tách `apps/seller-web` (3002) và `packages/web-ui`; session gắn surface ở backend (`X-Huspee-Surface`, `huspee_seller_sid`, migration `session_surface`), CORS 2 origin, `SELLER_APP_URL`; 267 test, smoke dual-session 18/18, build 2 app xanh | Ban đầu yêu cầu không sửa backend, sau đó cho sửa backend để tách 2 site; demo hackathon nên bỏ security review | Chờ người dùng test; U2/U3 làm song song trên nền U1 |

@@ -1,7 +1,7 @@
 'use client';
 import { useEffect } from 'react';
 import Link from 'next/link';
-import { useLang } from '@/i18n';
+import { useLang } from '@huspee/web-ui/i18n';
 import credits from './credits.json';
 
 /** Provenance for the generated demo catalog assets. */

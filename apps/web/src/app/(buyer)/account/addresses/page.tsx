@@ -2,12 +2,12 @@
 
 import { useState } from 'react';
 import type { Address } from '@huspee/sdk';
-import { RequireRole } from '@/components/session';
-import { Badge, Button, Icon, QueryState, useToast } from '@/components/ui';
-import { useT } from '@/i18n';
-import { common } from '@/i18n/common';
-import { getApiClient } from '@/lib/api';
-import { useApi } from '@/lib/use-api';
+import { RequireRole } from '@huspee/web-ui/components/session';
+import { Badge, Button, Icon, QueryState, useToast } from '@huspee/web-ui/components/ui';
+import { useT } from '@huspee/web-ui/i18n';
+import { common } from '@huspee/web-ui/i18n/common';
+import { getApiClient } from '@huspee/web-ui/lib/api';
+import { useApi } from '@huspee/web-ui/lib/use-api';
 import { AddressModal } from '../../_orders/AddressModal';
 import { messages } from '../../_orders/messages';
 import { getErrorMessage, panel } from '../../_orders/shared';

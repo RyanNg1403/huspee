@@ -2,11 +2,11 @@
 
 import { useState } from 'react';
 import type { BuyerOrder, ReturnReason } from '@huspee/sdk';
-import { Button, Input, Modal, Select, Textarea, useToast } from '@/components/ui';
-import { useT } from '@/i18n';
-import { common } from '@/i18n/common';
-import { getApiClient } from '@/lib/api';
-import { formatVnd } from '@/lib/format';
+import { Button, Input, Modal, Select, Textarea, useToast } from '@huspee/web-ui/components/ui';
+import { useT } from '@huspee/web-ui/i18n';
+import { common } from '@huspee/web-ui/i18n/common';
+import { getApiClient } from '@huspee/web-ui/lib/api';
+import { formatVnd } from '@huspee/web-ui/lib/format';
 import { messages } from './messages';
 import { getErrorMessage } from './shared';
 

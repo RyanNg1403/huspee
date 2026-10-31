@@ -8,7 +8,7 @@ import { DomainError, notFound } from '../common/errors';
 import { PrismaService } from '../common/prisma.service';
 import { nowUnix, unix } from '../common/time';
 import { parseInput, q } from '../common/validation';
-import { CurrentUser, Public, RequireRole, SessionGuard } from '../auth/session.guard';
+import { CurrentUser, PreferSellerSession, Public, RequireRole, SessionGuard } from '../auth/session.guard';
 import { mediaUrl } from '../domain/catalog.service';
 import { DEFAULT_POLICY, ShopService } from '../domain/shop.service';
 import { PushService } from '../domain/push.service';
@@ -123,6 +123,7 @@ export class SellerController {
    */
   @Get('integrations/shopee/callback')
   @Public()
+  @PreferSellerSession()
   async callback(@Req() req: Request & { user?: User }, @Query() query: Record<string, string>, @Res() res: Response) {
     const cfg = loadConfig();
     const wantsJson = (req.get('accept') ?? '').includes('application/json');
@@ -132,7 +133,7 @@ export class SellerController {
         res.status(status).json(payload.connected ? { data: payload } : { error: { code: 'AUTHORIZATION_FAILED', message: payload.error } });
         return;
       }
-      const target = new URL(`${cfg.WEB_APP_URL}/seller/shops/${payload.shop_id ?? ''}`);
+      const target = new URL(`${cfg.SELLER_APP_URL}/shops/${payload.shop_id ?? ''}`);
       target.searchParams.set(payload.connected ? 'connected' : 'connect_error', payload.connected ? '1' : (payload.error ?? 'failed'));
       res.redirect(302, target.toString());
     };

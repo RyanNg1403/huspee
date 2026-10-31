@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { useT } from '@/i18n';
-import { messages } from './messages';
+import { useT } from '@huspee/web-ui/i18n';
+import { messages } from '@huspee/web-ui/components/assistant/messages';
 import { microphoneLevel } from './microphone-level';
 
 type Status = 'checking' | 'quiet' | 'sound' | 'muted' | 'hold' | 'disconnected' | 'paused' | 'unavailable';

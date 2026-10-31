@@ -2,10 +2,10 @@
 import { Suspense, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { ProductSearchQuery } from '@huspee/sdk';
-import { Button, Pagination, QueryState, Skeleton } from '@/components/ui';
-import { useT } from '@/i18n';
-import { getApiClient } from '@/lib/api';
-import { useApi } from '@/lib/use-api';
+import { Button, Pagination, QueryState, Skeleton } from '@huspee/web-ui/components/ui';
+import { useT } from '@huspee/web-ui/i18n';
+import { getApiClient } from '@huspee/web-ui/lib/api';
+import { useApi } from '@huspee/web-ui/lib/use-api';
 import { messages } from '../_browse/messages';
 import { panel, ProductGrid } from '../_browse/shared';
 function Search() {

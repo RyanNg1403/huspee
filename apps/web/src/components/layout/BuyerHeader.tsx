@@ -2,13 +2,13 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, type FormEvent } from 'react';
-import { Logo } from '@/components/brand/Logo';
-import { CartIcon, ChevronIcon, SearchIcon, UserIcon } from '@/components/icons';
-import { useSession } from '@/components/session';
-import { useLang, useT } from '@/i18n';
-import { common } from '@/i18n/common';
-import { getApiClient } from '@/lib/api';
-import { LanguageSwitch } from './LanguageSwitch';
+import { Logo } from '@huspee/web-ui/components/brand/Logo';
+import { CartIcon, ChevronIcon, SearchIcon, UserIcon } from '@huspee/web-ui/components/icons';
+import { useSession } from '@huspee/web-ui/components/session';
+import { useLang, useT } from '@huspee/web-ui/i18n';
+import { common } from '@huspee/web-ui/i18n/common';
+import { getApiClient } from '@huspee/web-ui/lib/api';
+import { LanguageSwitch } from '@huspee/web-ui/components/layout/LanguageSwitch';
 
 function MessageIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -27,7 +27,7 @@ function MessageIcon(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
-export function BuyerHeader() {
+export function BuyerHeader({ sellerUrl }: { sellerUrl: string }) {
   const t = useT(common);
   const { lang } = useLang();
   const messagesLabel = lang === 'vi' ? 'Tin nhắn' : 'Messages';
@@ -128,7 +128,7 @@ export function BuyerHeader() {
               )}
             </Link>
             {user?.roles.includes('seller') && (
-              <Link className={menuItem} href="/seller">
+              <Link className={menuItem} href={sellerUrl}>
                 {t('seller')}
               </Link>
             )}
@@ -182,6 +182,7 @@ export function BuyerHeader() {
           </button>
         </form>
         <nav className="flex items-center gap-1 sm:ml-auto">
+          <a href={sellerUrl} className="hidden text-sm text-gray-600 lg:block">{t('seller')}</a>
           <div className="hidden text-sm sm:block">
             <LanguageSwitch />
           </div>
