@@ -75,6 +75,61 @@ async function run() {
       path: path.join(OUT_DIR, '01-buyer-logged-in.png'),
     });
 
+    // 1.2a Header search -> filter -> sort -> product, checked against the API
+    log('1.2a Searching "iphone" from the header...');
+    await buyerPage.goto(`${WEB_URL}/`, { waitUntil: 'networkidle' });
+    const searchBox = buyerPage.getByRole('combobox', { name: 'Tìm sản phẩm' });
+    await searchBox.fill('iphone');
+    await buyerPage.getByRole('listbox').getByRole('option').first().waitFor();
+    await searchBox.press('Enter');
+    await buyerPage.waitForURL((url) => url.pathname === '/search' && url.searchParams.get('q') === 'iphone');
+    const results = buyerPage.getByRole('region', { name: 'Kết quả tìm kiếm' });
+    await results.locator('a[href^="/products/"]').first().waitFor({ timeout: 10000 });
+    const apiCount = async (qs) =>
+      buyerPage.evaluate(
+        async (query) => (await (await fetch(`/api/v1/marketplace/products?${query}`)).json()).page.total,
+        qs,
+      );
+    const cardCount = () => results.locator('a[href^="/products/"]').count();
+    if ((await cardCount()) !== (await apiCount('q=iphone&page_size=30'))) {
+      throw new Error('Search results differ from the API');
+    }
+    await buyerPage.getByRole('checkbox', { name: 'Đang giảm giá' }).check();
+    await buyerPage.waitForURL((url) => url.searchParams.get('has_promotion') === 'true');
+    await results.locator('a[href^="/products/"]').first().waitFor({ timeout: 10000 });
+    if ((await cardCount()) !== (await apiCount('q=iphone&has_promotion=true&page_size=30'))) {
+      throw new Error('Filtered results differ from the API');
+    }
+    await buyerPage.getByRole('button', { name: 'Bán chạy', exact: true }).first().click();
+    await buyerPage.waitForURL(
+      (url) => url.searchParams.get('sort') === 'top_sales' && url.searchParams.get('has_promotion') === 'true',
+    );
+    const firstCard = results.locator('a[href^="/products/"]').first();
+    await firstCard.waitFor({ timeout: 10000 });
+    const productHref = await firstCard.getAttribute('href');
+    await buyerPage.screenshot({ path: path.join(OUT_DIR, '02a-search-iphone-filtered.png') });
+    await firstCard.click();
+    await buyerPage.waitForURL((url) => url.pathname === productHref, { timeout: 15000 });
+    await buyerPage.waitForSelector('h1', { timeout: 10000 });
+    log(`1.2a Search, filter and sort followed the API; opened ${productHref}.`);
+
+    // 1.2b The header cart badge follows huspee:cart-changed
+    log('1.2b Checking the header cart badge...');
+    await buyerPage.goto(`${WEB_URL}/`, { waitUntil: 'networkidle' });
+    const itemCount = await buyerPage.evaluate(async () => {
+      const headers = { 'content-type': 'application/json', 'x-requested-with': 'huspee-sdk' };
+      const body = JSON.stringify({ model_id: 3000121, quantity: 1 });
+      const res = await fetch('/api/v1/cart/items', { method: 'POST', headers, body });
+      const cart = (await res.json()).data;
+      window.dispatchEvent(new Event('huspee:cart-changed'));
+      return cart.item_count;
+    });
+    await buyerPage
+      .locator(`header a[href="/cart"][aria-label="Giỏ hàng, ${itemCount} sản phẩm"]`)
+      .first()
+      .waitFor({ timeout: 10000 });
+    log(`1.2b Cart badge shows ${itemCount}.`);
+
     // 1.2 Search for product
     log('1.2 Searching for "Redmi Buds 5"...');
     await buyerPage.goto(`${WEB_URL}/search?q=Redmi+Buds+5`, {
