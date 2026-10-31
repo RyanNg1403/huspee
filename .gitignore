@@ -9,3 +9,4 @@ coverage/
 
 evals/runs/
 apps/api/evals/
+.wrangler/

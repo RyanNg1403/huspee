@@ -391,8 +391,11 @@ export function VoicePanel({
     if (event.type === 'error') setError('error');
   }
   function connectEvents(id: string) {
-    // Cloudflare Quick Tunnels buffer SSE; use finite, cursor-based JSON requests there.
-    if (window.location.hostname.endsWith('.trycloudflare.com')) {
+    // Quick Tunnels buffer SSE, including when reached through a stable Worker proxy.
+    if (
+      process.env.NEXT_PUBLIC_ASSISTANT_EVENT_TRANSPORT === 'poll' ||
+      window.location.hostname.endsWith('.trycloudflare.com')
+    ) {
       const token = generation.current;
       let cursor = 0;
       let failures = 0;
