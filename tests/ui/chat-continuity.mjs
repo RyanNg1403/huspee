@@ -44,9 +44,12 @@ try {
   const errors = [], requests = [], events = [];
   let starts = 0, ends = 0, callNumber = 0, failCall = false, delayCall = false;
   const id = '00000000-0000-4000-8000-000000000003';
+  const laRoche = { item_id: 2000201, name: 'Sữa rửa mặt La Roche-Posay Effaclar Gel 400ml', image: '/media/seed-photo-2000201-0', price_min: 400000, price_max: 400000, stock: 1, rating: null };
+  const cocoon = { item_id: 2000202, name: 'Nước bí đao Cocoon cân bằng da 310ml', image: '/media/seed-photo-2000202-0', price_min: 245000, price_max: 245000, stock: 1, rating: null };
   page.on('pageerror', (e) => errors.push(e.message));
   await page.route('**/api/v1/assistant/text/sessions', (route) => {
     starts++;
+    events.length = 0;
     return route.fulfill({ json: { data: { conversation_id: id } } });
   });
   await page.route(`**/api/v1/assistant/voice/sessions/${id}/**`, async (route) => {
@@ -54,10 +57,12 @@ try {
     const path = target.pathname;
     requests.push(path);
     if (path.endsWith('/poll')) return route.fulfill({ json: { data: { events: events.slice(Number(target.searchParams.get('after') || 0)), cursor: events.length, closed: false } } });
+    if (path.endsWith('/context')) return route.fulfill({ json: { data: route.request().postDataJSON() } });
     if (path.endsWith('/call')) {
       if (failCall) return route.fulfill({ status: 503, json: { error: { code: 'assistant_unavailable', message: 'Fake failed call' } } });
       const callId = `00000000-0000-4000-8000-${String(++callNumber).padStart(12, '0')}`;
       if (delayCall) await new Promise((r) => setTimeout(r, 900));
+      events.push({ type: 'card', source: 'voice', card: { kind: 'products', items: [cocoon] } });
       return route.fulfill({ json: { data: { conversation_id: id, call_id: callId, sdp_answer: 'mock-answer' } } });
     }
     if (path.endsWith('/call/stop')) return route.fulfill({ json: { data: { ok: true } } });
@@ -65,6 +70,7 @@ try {
     if (path.endsWith('/text')) {
       const { text } = route.request().postDataJSON();
       events.push({ type: 'transcript', role: 'user', text, final: true, source: 'text', item_id: `text-${events.length}` });
+      if (text === 'Does La Roche have a discount?') events.push({ type: 'card', source: 'text', card: { kind: 'products', items: [laRoche] } });
       if (text === 'Remember both?') events.push({ type: 'transcript', role: 'assistant', text: 'We discussed La Roche and Cocoon.', final: true, source: 'text', item_id: 'recall' });
     }
     return route.fulfill({ json: { data: { ok: true } } });
@@ -85,9 +91,13 @@ try {
   }
   const original = 'Does La Roche have a discount?';
   await say(original);
+  const productContext = page.getByTestId('conversation-products');
+  await productContext.getByRole('link', { name: `Text ${laRoche.name}`, exact: true }).waitFor();
   await panel.getByRole('button', { name: 'Call assistant', exact: true }).click();
   await panel.getByRole('button', { name: 'End call', exact: true }).waitFor();
   await panel.getByText('Tell me about Cocoon.', { exact: true }).waitFor();
+  await productContext.getByRole('link', { name: `Voice ${cocoon.name}`, exact: true }).waitFor();
+  await productContext.getByText('2 products', { exact: true }).waitFor();
   assert.equal(await panel.getByText(original, { exact: true }).count(), 1, 'Opening the channel must retain text');
   await page.screenshot({ path: `${out}/${engine}-mobile-call.png` });
   await panel.getByRole('button', { name: 'End call', exact: true }).click();
@@ -96,6 +106,15 @@ try {
   await panel.getByText('We discussed La Roche and Cocoon.', { exact: true }).waitFor();
   assert.equal(ends, 0, 'Hanging up must not end chat');
   assert.equal(await page.evaluate(() => window.mockVoice.stopped), 1, 'Microphone must stop');
+  assert.equal(await productContext.getByRole('link').count(), 2, 'Hanging up must retain both product contexts');
+  await page.screenshot({ path: `${out}/${engine}-mobile-text.png` });
+  await productContext.getByRole('link', { name: `Voice ${cocoon.name}`, exact: true }).click();
+  await page.waitForURL((target) => target.pathname === '/products/2000202');
+  await page.getByTestId('product-context-notice').getByText('Viewing now', { exact: true }).waitFor();
+  assert.equal(await productContext.getByRole('link').count(), 2, 'Viewing Cocoon must keep La Roche in the conversation context');
+  await productContext.getByRole('button').click();
+  assert.equal(await productContext.getByRole('button').getAttribute('aria-expanded'), 'false');
+  await productContext.getByRole('button').click();
   await panel.getByRole('button', { name: 'Call assistant', exact: true }).click();
   await panel.getByText('Compare both products again.', { exact: true }).waitFor();
   assert.equal(await panel.getByText('Tell me about Cocoon.', { exact: true }).count(), 1, 'Repeated channel IDs must retain earlier calls');
@@ -128,8 +147,12 @@ try {
   await panel.getByRole('button', { name: 'End chat', exact: true }).click();
   await page.waitForTimeout(100);
   assert.equal(ends, 1);
+  assert.equal(await productContext.count(), 0, 'Ended chat must not advertise live context');
+  await panel.getByRole('button', { name: 'Type', exact: true }).click();
+  await panel.getByRole('button', { name: 'Call assistant', exact: true }).waitFor();
+  assert.equal(await productContext.count(), 0, 'A new conversation must not inherit the old product indicator');
   assert.deepEqual(errors, []);
-  console.log(`${engine}: text → call → text, repeated calls, disconnect, denial, failure and cancellation passed (mock WebRTC/assistant)`);
+  console.log(`${engine}: shared text/voice, product context, navigation, reset and call failure cases passed (mock WebRTC/assistant)`);
 } finally {
   await browser.close();
 }

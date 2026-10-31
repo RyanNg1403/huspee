@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import { VoiceRuntime } from '../../apps/api/src/assistant/voice/voice-runtime.js';
 import { applyChannelEvent, scopeCallEvent, type TranscriptEntry } from '../../apps/web/src/components/assistant/transcript.js';
 import { fakeCodexLoginHome } from '../helpers/codex-login.js';
+import { collectConversationProducts } from '../../apps/web/src/components/assistant/conversation-products.js';
 
 let home: string;
 const original = { HOME: process.env.HOME, ASSISTANT_CODEX_HOME: process.env.ASSISTANT_CODEX_HOME, ASSISTANT_CODEX_BIN: process.env.ASSISTANT_CODEX_BIN };
@@ -19,6 +20,20 @@ afterAll(async () => {
 });
 const config = { shopName: 'GlowUp', tone: 'FRIENDLY', greetingVi: 'Xin chào', greetingEn: 'Hello', voice: 'spruce' };
 const ctx = { conversationId: 'shared-chat', buyerId: 1, shopId: 880002 };
+
+it('lists only tool-returned products, merging text and voice provenance by catalog identity', () => {
+  const laRoche = { kind: 'product' as const, item_id: 2000201, name: 'La Roche', image: '/la-roche.jpg', models: [] };
+  const cocoon = { kind: 'product' as const, item_id: 2000202, name: 'Cocoon', image: '/cocoon.jpg', models: [] };
+  let products = collectConversationProducts([], laRoche, 'text');
+  products = collectConversationProducts(products, cocoon, 'voice');
+  products = collectConversationProducts(products, laRoche, 'voice');
+  products = collectConversationProducts(products, { kind: 'cart', total: 1, lines: [{ item_id: 2000201, model_id: 1, name: 'La Roche', quantity: 1, price: 1 }] }, 'text');
+  expect(products).toEqual([
+    { item_id: 2000201, name: 'La Roche', image: '/la-roche.jpg', sources: ['text', 'voice'] },
+    { item_id: 2000202, name: 'Cocoon', image: '/cocoon.jpg', sources: ['voice'] },
+  ]);
+  expect(collectConversationProducts(products, { kind: 'handoff', ticket_id: 1 }, 'text')).toBe(products);
+});
 async function until(predicate: () => boolean) {
   const end = Date.now() + 3000;
   while (!predicate()) {

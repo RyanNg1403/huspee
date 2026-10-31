@@ -2,7 +2,15 @@ import { defineMessages } from '@/i18n';
 
 export const messages = defineMessages({
   vi: {
+    contextProducts: 'Trong cuộc trò chuyện',
+    contextProductCount: '{n} sản phẩm',
+    contextOneProduct: '1 sản phẩm',
+    contextProductsHint: 'Trợ lý có thể nhắc lại các sản phẩm này khi bạn nhắn tin hoặc gọi.',
+    contextFromText: 'Tin nhắn',
+    contextFromVoice: 'Cuộc gọi',
+    contextFromChat: 'Trò chuyện',
     contextReady: 'Trò chuyện sẽ dùng thông tin sản phẩm này',
+    contextViewing: 'Đang xem',
     contextUsing: 'Đang trò chuyện về sản phẩm này',
     contextUpdating: 'Đang cập nhật sản phẩm…',
     contextError: 'Không thể cập nhật sản phẩm. Hãy bắt đầu cuộc trò chuyện mới để thử lại.',
@@ -98,7 +106,15 @@ export const messages = defineMessages({
     loadFailed: 'Không tải được. Thử lại.',
   },
   en: {
+    contextProducts: 'In this conversation',
+    contextProductCount: '{n} products',
+    contextOneProduct: '1 product',
+    contextProductsHint: 'You can refer back to these products in text or calls.',
+    contextFromText: 'Text',
+    contextFromVoice: 'Voice',
+    contextFromChat: 'Chat',
     contextReady: 'Chat will use this product',
+    contextViewing: 'Viewing now',
     contextUsing: 'Chat is using this product',
     contextUpdating: 'Updating product context…',
     contextError: 'Product context could not be updated. Start a new conversation to try again.',

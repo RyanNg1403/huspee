@@ -613,6 +613,7 @@ export class VoiceRuntime {
       }
     } else if (message.method === 'item/tool/call' && message.id !== undefined) {
       const name = String(params.tool);
+      const source = session.mode;
       this.emit(session, { type: 'tool', name, status: 'started' });
       try {
         const output = await this.tools.run(name, params.arguments, { ...session.context });
@@ -621,7 +622,7 @@ export class VoiceRuntime {
         if (vi && en)
           session.readback = { vi, en, tap: Boolean((output.card?.action as { requires_tap?: boolean } | undefined)?.requires_tap) };
         this.emit(session, { type: 'tool', name, status: output.success ? 'done' : 'error' });
-        if (output.card) this.emit(session, { type: 'card', card: output.card });
+        if (output.card) this.emit(session, { type: 'card', card: output.card, source });
         this.transport.send({
           id: message.id,
           result: { success: output.success, contentItems: [{ type: 'inputText', text: output.text }] },

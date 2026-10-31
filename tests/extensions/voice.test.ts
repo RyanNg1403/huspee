@@ -104,7 +104,7 @@ describe('voice runtime with fake app-server', () => {
       expect(saved).toEqual([{ ctx, role: 'user', text: 'Find a product' }]);
       expect(events).toEqual(
         expect.arrayContaining([
-          { type: 'card', card: { kind: 'products', items: [] } },
+          { type: 'card', card: { kind: 'products', items: [] }, source: 'voice' },
           { type: 'tool', name: 'search_products', status: 'done' },
         ]),
       );

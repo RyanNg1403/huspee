@@ -264,7 +264,7 @@ These `/api/v1` routes use platform sessions unless marked public, and the brows
 | GET | `/assistant/shops/:shopId/conversations` | buyer session | `assistant.conversations.list` | buyer's own past sessions with the shop; assistant tests |
 | GET | `/assistant/conversations/:conversationId` | buyer session | `assistant.conversations.get` | own transcript plus cards from stored tool results; assistant tests |
 | POST | `/assistant/voice/sessions` | buyer session | `assistant.voice.start` | voice module; optional `item_id` (public product in this shop) and `resume_conversation_id`; voice tests |
-| GET | `/assistant/voice/sessions/:conversationId/events` | buyer session | `assistant.voice.eventsUrl` | voice module; SSE (transcripts, tools, cards, actions); voice tests |
+| GET | `/assistant/voice/sessions/:conversationId/events` | buyer session | `assistant.voice.eventsUrl` | voice module; SSE (transcripts, tools, cards with text/voice source, actions); voice tests |
 | GET | `/assistant/voice/sessions/:conversationId/poll` | buyer session | `assistant.voice.poll` | custom; cursor-based JSON fallback for tunnels without SSE; voice tests |
 | POST | `/assistant/voice/sessions/:conversationId/call` | buyer session | `assistant.voice.startCall` | custom; attach WebRTC to the existing conversation/thread, returns `call_id`; voice and continuity tests |
 | POST | `/assistant/voice/sessions/:conversationId/call/stop` | buyer session | `assistant.voice.stopCall` | custom; optional `call_id` targets a call; detach audio and retain chat/history; voice and continuity tests |

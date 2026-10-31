@@ -7,6 +7,8 @@ import { formatDateTime } from '@/lib/format';
 import { useSession } from '@/components/session';
 import { AssistantCard, type Action, type Card, type EditOptions } from './cards';
 import { messages } from './messages';
+import { ConversationProducts } from './ConversationProducts';
+import { collectConversationProducts, type ConversationProduct } from './conversation-products';
 import type { ViewedProduct } from './product-context';
 import { upsertCard } from './card-state';
 import { BargeInGate, InterruptionDetector } from './interruption';
@@ -23,7 +25,7 @@ import {
 type LiveEvent =
   | { type: 'transcript'; role: 'user' | 'assistant'; text: string; final: boolean; item_id?: string; source?: 'text' | 'voice' }
   | { type: 'tool'; name: string; status: 'started' | 'done' | 'error' }
-  | { type: 'card'; card: Card }
+  | { type: 'card'; card: Card; source?: 'text' | 'voice' }
   | { type: 'action'; action: Action }
   | { type: 'closed'; reason: string | null }
   | { type: 'error'; message: string }
@@ -205,6 +207,7 @@ export function VoicePanel({
   const [checking, setChecking] = useState(false);
   const [entries, setEntries] = useState<TranscriptEntry[]>([]);
   const [cards, setCards] = useState<TimedCard[]>([]);
+  const [contextProducts, setContextProducts] = useState<ConversationProduct[]>([]);
   const [speaking, setSpeaking] = useState(false);
   const [view, setView] = useState<'chat' | 'history'>('chat');
   const [historyList, setHistoryList] = useState<HistoryItem[] | null>(null);
@@ -395,7 +398,10 @@ export function VoicePanel({
       );
     }
     if (event.type === 'tool') setChecking(event.status === 'started');
-    if (event.type === 'card') setCards((previous) => upsertTimed(previous, event.card));
+    if (event.type === 'card') {
+      setCards((previous) => upsertTimed(previous, event.card));
+      setContextProducts((previous) => collectConversationProducts(previous, event.card, event.source));
+    }
     if (event.type === 'action')
       setCards((previous) => upsertTimed(previous, { kind: 'action', action: event.action }));
     if (event.type === 'closed') cleanup(false);
@@ -456,6 +462,7 @@ export function VoicePanel({
     setState('connecting');
     setEntries([]);
     setCards([]);
+    setContextProducts([]);
     channelOpened.current = false;
     const token = ++generation.current;
     const itemId = desiredItemId.current;
@@ -733,6 +740,7 @@ export function VoicePanel({
     for (; c < cards.length; c++) timeline.push({ kind: 'card', card: cards[c]!.card, index: c });
   }
   const suggestions = [t('suggest1'), t('suggest2'), t('suggest3'), t('suggest4')];
+  const compactPageContext = state === 'active' && contextProducts.length > 0;
   const canChat = session.status === 'authenticated';
   const roundButton =
     'flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-line bg-white text-gray-700 transition hover:bg-gray-50 disabled:opacity-40';
@@ -808,18 +816,19 @@ export function VoicePanel({
             </button>
           </header>
           {view === 'chat' && product && (
-            <div role="status" aria-live="polite" className="flex shrink-0 items-center gap-3 border-b border-line bg-primary-soft px-4 py-3" data-testid="product-context-notice">
-              {product.image && (
+            <div role="status" aria-live="polite" className={`flex shrink-0 items-center gap-3 border-b border-line bg-primary-soft px-4 ${compactPageContext ? 'py-2' : 'py-3'}`} data-testid="product-context-notice">
+              {product.image && !compactPageContext && (
                 // Product media shares the storefront's image handling.
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={product.image} alt="" className="h-10 w-10 shrink-0 rounded-lg border border-line bg-surface object-cover" />
               )}
-              <div className="min-w-0">
-                <p className="text-xs font-medium text-primary">{state === 'idle' ? t('contextReady') : appliedItemId === product.item_id ? t('contextUsing') : t('contextUpdating')}</p>
-                <Link href={`/products/${product.item_id}`} className="mt-0.5 block truncate text-sm font-semibold text-ink hover:text-primary" title={product.name}>{product.name}</Link>
+              <div className={`min-w-0 ${compactPageContext ? 'flex flex-1 items-center gap-2' : ''}`}>
+                <p className="shrink-0 text-xs font-medium text-primary">{state === 'idle' ? t('contextReady') : appliedItemId === product.item_id ? t(compactPageContext ? 'contextViewing' : 'contextUsing') : t('contextUpdating')}</p>
+                <Link href={`/products/${product.item_id}`} className={`block truncate font-semibold text-ink hover:text-primary ${compactPageContext ? 'min-w-0 text-xs' : 'mt-0.5 text-sm'}`} title={product.name}>{product.name}</Link>
               </div>
             </div>
           )}
+          {view === 'chat' && state === 'active' && <ConversationProducts products={contextProducts} />}
           {session.status === 'anonymous' ? (
             <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
               <span className="flex h-16 w-16 items-center justify-center rounded-full bg-primary-soft text-primary">
