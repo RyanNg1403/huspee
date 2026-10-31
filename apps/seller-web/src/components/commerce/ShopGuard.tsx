@@ -4,50 +4,42 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import type { SellerShop } from '@huspee/sdk';
 import { useSelectedShop } from '@/components/layout';
-import { Button, EmptyState, ErrorState, Spinner } from '@huspee/web-ui/components/ui';
+import { EmptyState, ErrorState, Spinner } from '@huspee/web-ui/components/ui';
 import { useT } from '@huspee/web-ui/i18n/client';
-import { opsMessages } from './messages';
+import { commerceMessages } from './messages';
+import { btn } from './ui';
 
+/** Renders commerce pages only for a selected, connected shop. */
 export function ShopGuard({ children }: { children: (shop: SellerShop) => ReactNode }) {
-  const t = useT(opsMessages);
+  const t = useT(commerceMessages);
   const { shops, selectedShopId, loading, error, refresh } = useSelectedShop();
   const shop = shops.find((s) => s.shop_id === selectedShopId);
 
   if (loading) {
     return (
-      <div className="flex h-64 items-center justify-center">
+      <div className="flex h-64 items-center justify-center text-primary">
         <Spinner />
       </div>
     );
   }
-
-  if (error) {
-    return <ErrorState message={t('failed')} onRetry={refresh} retryLabel={t('retry')} />;
-  }
-
+  if (error) return <ErrorState message={t('loadFailed')} onRetry={refresh} retryLabel={t('retry')} />;
   if (!shop) {
     return (
       <EmptyState title={t('noShop')}>
-        <div className="mt-3">
-          <Link href="/shops">
-            <Button variant="primary">{t('goToShops')}</Button>
-          </Link>
-        </div>
+        <Link href="/shops" className={btn.primary}>
+          {t('goToShops')}
+        </Link>
       </EmptyState>
     );
   }
-
   if (!shop.connection?.connected) {
     return (
       <EmptyState title={t('notConnected')}>
-        <div className="mt-3">
-          <Link href={`/shops/${shop.shop_id}`}>
-            <Button variant="primary">{t('connect')}</Button>
-          </Link>
-        </div>
+        <Link href={`/shops/${shop.shop_id}`} className={btn.primary}>
+          {t('connect')}
+        </Link>
       </EmptyState>
     );
   }
-
   return <>{children(shop)}</>;
 }

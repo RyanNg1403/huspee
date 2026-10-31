@@ -26,7 +26,8 @@
     "eval:assistant": "pnpm --filter @huspee/api run eval:assistant",
     "dev:seller-web": "pnpm --filter @huspee/seller-web dev",
     "build:seller-web": "pnpm --filter @huspee/sdk build && pnpm --filter @huspee/seller-web build",
-    "smoke:dual-session": "node tests/ui/dual-session.mjs"
+    "smoke:dual-session": "node tests/ui/dual-session.mjs",
+    "smoke:seller-commerce": "node tests/ui/seller-commerce.mjs"
   },
   "engines": {
     "node": ">=22"

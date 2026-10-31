@@ -312,9 +312,9 @@ async function run() {
     await shipBtn.first().click({ force: true });
 
     // In modal, click confirm ship
-    const confirmShipBtn = sellerPage.locator(
-      'button:has-text("Xác nhận giao hàng"), button:has-text("Confirm shipment")',
-    );
+    const confirmShipBtn = sellerPage
+      .getByRole('dialog')
+      .getByRole('button', { name: /^(Xác nhận|Confirm)$/ });
     await confirmShipBtn.waitFor({ state: 'visible', timeout: 15000 });
     await sellerPage.screenshot({
       path: path.join(OUT_DIR, '13-seller-ship-modal.png'),
@@ -334,7 +334,7 @@ async function run() {
     // 2.6 Advance shipment via SimulationPanel
     log('2.6 Advancing shipment using simulation panel...');
     const advanceBtn = sellerPage.locator(
-      'button:has-text("Mô phỏng lấy hàng thành công"), button:has-text("Simulate Picked Up")',
+      'button:has-text("Lấy hàng thành công"), button:has-text("Picked up")',
     );
     await advanceBtn.waitFor({ state: 'visible', timeout: 15000 });
     await advanceBtn.click({ force: true });
