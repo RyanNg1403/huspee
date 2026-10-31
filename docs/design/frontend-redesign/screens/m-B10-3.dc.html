@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>B10.3 · Danh sách tin nhắn</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#d9381a;text-decoration:none}
+button{font-family:inherit;cursor:pointer}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: #f5f5f5; font-family: 'Be Vietnam Pro', system-ui, sans-serif; color: #222222; font-size: 14px; line-height: 1.45; font-variant-numeric: tabular-nums;">
+
+  <header style="height: 48px; background: #ffffff; display: flex; align-items: center; padding: 0 8px 0 16px;">
+    <h1 style="margin: 0; flex: 1; font-size: 17px; font-weight: 600;">Tin nhắn</h1>
+    <button type="button" aria-label="Tìm trong tin nhắn" style="width: 44px; height: 44px; border: 0; background: none; color: #222222; display: flex; align-items: center; justify-content: center;"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg></button>
+  </header>
+  <div role="tablist" aria-label="Lọc tin nhắn" style="display: flex; background: #ffffff; border-bottom: 1px solid #ebebeb;">
+    <button type="button" role="tab" aria-selected="true" style="flex: 1; height: 42px; border: 0; border-bottom: 2px solid #d9381a; background: #ffffff; color: #d9381a; font-size: 14px;">Tất cả</button>
+    <button type="button" role="tab" aria-selected="false" style="flex: 1; height: 42px; border: 0; border-bottom: 2px solid transparent; background: #ffffff; color: #222222; font-size: 14px;">Chưa đọc (1)</button>
+    <button type="button" role="tab" aria-selected="false" style="flex: 1; height: 42px; border: 0; border-bottom: 2px solid transparent; background: #ffffff; color: #222222; font-size: 14px;">Chờ shop</button>
+  </div>
+
+  <ul style="margin: 0; padding: 0; list-style: none; background: #ffffff;">
+    <li>
+      <a href="m-B10-4.dc.html" style="display: flex; gap: 12px; padding: 12px 16px; border-bottom: 1px solid #f2f2f2; color: #222222;">
+        <span style="width: 44px; height: 44px; flex-shrink: 0; border-radius: 50%; background: #1e88e5; color: #ffffff; font-size: 14px; font-weight: 700; display: flex; align-items: center; justify-content: center;">TZ</span>
+        <span style="flex: 1; min-width: 0;">
+          <span style="display: flex; justify-content: space-between; gap: 8px;"><strong style="font-weight: 600;">TechZone Official</strong><span style="font-size: 12px; color: #595959;">15:10</span></span>
+          <span style="display: flex; justify-content: space-between; gap: 8px; align-items: center;"><span style="font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Shop đã trả lời: Chào bạn, shop có gói quà…</span><span style="min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box; border-radius: 9px; background: #d9381a; color: #ffffff; font-size: 11px; font-weight: 600; line-height: 18px; text-align: center;">1</span></span>
+          <span style="display: block; font-size: 12px; color: #595959;">Câu hỏi về gói quà · gửi qua trợ lý</span>
+        </span>
+      </a>
+    </li>
+    <li>
+      <a href="#" style="display: flex; gap: 12px; padding: 12px 16px; border-bottom: 1px solid #f2f2f2; color: #222222;">
+        <span style="width: 44px; height: 44px; flex-shrink: 0; border-radius: 50%; background: #c2185b; color: #ffffff; font-size: 14px; font-weight: 700; display: flex; align-items: center; justify-content: center;">GU</span>
+        <span style="flex: 1; min-width: 0;">
+          <span style="display: flex; justify-content: space-between; gap: 8px;"><span>GlowUp Beauty</span><span style="font-size: 12px; color: #595959;">28/10</span></span>
+          <span style="display: block; font-size: 13px; color: #595959; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Serum trà xanh dùng cho da dầu mụn được không?</span>
+          <span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #595959;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #d9381a;"></span>Đang chờ shop trả lời</span>
+        </span>
+      </a>
+    </li>
+    <li>
+      <a href="#" style="display: flex; gap: 12px; padding: 12px 16px; color: #222222;">
+        <span style="width: 44px; height: 44px; flex-shrink: 0; border-radius: 50%; background: #2e7d32; color: #ffffff; font-size: 14px; font-weight: 700; display: flex; align-items: center; justify-content: center;">SS</span>
+        <span style="flex: 1; min-width: 0;">
+          <span style="display: flex; justify-content: space-between; gap: 8px;"><span>Saigon Style</span><span style="font-size: 12px; color: #595959;">20/10</span></span>
+          <span style="display: block; font-size: 13px; color: #595959; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Áo thun có đổi size sau khi giặt không?</span>
+          <span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #595959;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #8c8c8c;"></span>Đã đóng</span>
+        </span>
+      </a>
+    </li>
+  </ul>
+
+
+  <nav aria-label="Điều hướng chính" style="position: absolute; left: 0; right: 0; bottom: 0; height: 60px; background: #ffffff; border-top: 1px solid #ebebeb; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));">
+    <a href="#" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: #595959; font-size: 11px;"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 4l9 6.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"></path></svg>Trang chủ</a>
+    <a href="m-B10-3.dc.html" aria-current="page" style="position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: #d9381a; font-size: 11px;"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>Tin nhắn<span style="position: absolute; top: 6px; left: calc(50% + 6px); min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box; border-radius: 8px; background: #d9381a; color: #ffffff; font-size: 10px; font-weight: 600; line-height: 16px; text-align: center;">1</span></a>
+    <a href="m-B7-3.dc.html" style="position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: #595959; font-size: 11px;"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.4"></circle><circle cx="18" cy="20" r="1.4"></circle><path d="M3 4h2l2.4 11.2a1 1 0 0 0 1 .8h9.2a1 1 0 0 0 1-.8L21 8H6.2"></path></svg>Giỏ hàng<span style="position: absolute; top: 6px; left: calc(50% + 6px); min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box; border-radius: 8px; background: #d9381a; color: #ffffff; font-size: 10px; font-weight: 600; line-height: 16px; text-align: center;">3</span></a>
+    <a href="#" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: #595959; font-size: 11px;"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg>Tôi</a>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

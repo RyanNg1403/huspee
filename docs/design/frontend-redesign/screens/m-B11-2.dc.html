@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>B11.2 · Chưa giải quyết, chọn lý do</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#d9381a;text-decoration:none}
+button,input,textarea{font-family:inherit}
+button{cursor:pointer}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: #000000; font-family: 'Be Vietnam Pro', system-ui, sans-serif; color: #222222; font-size: 14px; line-height: 1.45; font-variant-numeric: tabular-nums;">
+  <img src="/_blob/8b1ea881a6a5dfb6b26870b7665f6bf7" alt="" style="width: 390px; height: 330px; object-fit: cover; display: block; opacity: 0.5;">
+
+  <section aria-label="Trợ lý TechZone" style="position: absolute; left: 0; right: 0; top: 112px; bottom: 0; background: #ffffff; border-radius: 16px 16px 0 0; display: flex; flex-direction: column;">
+    <div aria-hidden="true" style="align-self: center; width: 36px; height: 4px; border-radius: 2px; background: #d9d9d9; margin-top: 8px;"></div>
+
+    <div style="padding: 6px 8px 8px 16px; display: flex; align-items: center; gap: 10px;">
+      <span style="width: 32px; height: 32px; border-radius: 50%; background: #1e88e5; color: #ffffff; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center;">TZ</span>
+      <div style="flex: 1; min-width: 0;">
+        <div style="font-size: 15px; font-weight: 600;">Trợ lý TechZone</div>
+        <div style="font-size: 12px; color: #595959; display: flex; align-items: center; gap: 6px;"><span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 50%; background: #bdbdbd;"></span>Đã kết thúc · 4 phút</div>
+      </div>
+      <a href="m-B11-3.dc.html" aria-label="Lịch sử hội thoại" style="width: 40px; height: 40px; color: #595959; display: flex; align-items: center; justify-content: center;"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg></a>
+      <button type="button" aria-label="Đóng trợ lý" style="width: 40px; height: 40px; border: 0; background: none; color: #595959; display: flex; align-items: center; justify-content: center;"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"></path></svg></button>
+    </div>
+
+    <div style="flex: 1; min-height: 0; overflow: hidden; padding: 6px 16px 14px; display: flex; flex-direction: column; gap: 12px;">
+      <article aria-label="Phản hồi về trợ lý" style="border: 1px solid #ebebeb; border-radius: 8px; padding: 14px 12px; display: flex; flex-direction: column; gap: 14px;">
+        <strong style="font-size: 15px; font-weight: 600;">Trợ lý có giải quyết được việc của bạn?</strong>
+        <div style="display: flex; gap: 8px;">
+          <a href="m-B11-1.dc.html" style="flex: 1; height: 40px; box-sizing: border-box; border: 1px solid #e0e0e0; border-radius: 20px; color: #222222; font-size: 14px; display: flex; align-items: center; justify-content: center;">Đã giải quyết</a>
+          <button type="button" aria-pressed="true" style="flex: 1; height: 40px; border: 1px solid #d9381a; border-radius: 20px; background: #fff1ec; color: #d9381a; font-size: 14px; font-weight: 600;">Chưa giải quyết</button>
+        </div>
+
+        <fieldset style="margin: 0; padding: 0; border: 0; display: flex; flex-direction: column; gap: 8px;">
+          <legend style="font-size: 13px; color: #595959; margin-bottom: 8px; padding: 0;">Vì sao chưa giải quyết?</legend>
+          <label style="min-height: 44px; padding: 0 12px; border: 1px solid #d9381a; border-radius: 4px; background: #fff1ec; display: flex; align-items: center; gap: 10px; font-size: 14px;"><input type="radio" name="reason" checked="" style="width: 18px; height: 18px; margin: 0; accent-color: #d9381a;">Thiếu thông tin sản phẩm</label>
+          <label style="min-height: 44px; padding: 0 12px; border: 1px solid #e0e0e0; border-radius: 4px; display: flex; align-items: center; gap: 10px; font-size: 14px;"><input type="radio" name="reason" style="width: 18px; height: 18px; margin: 0; accent-color: #d9381a;">Câu trả lời chưa đúng</label>
+          
+          
+          <label style="min-height: 44px; padding: 0 12px; border: 1px solid #e0e0e0; border-radius: 4px; display: flex; align-items: center; gap: 10px; font-size: 14px;"><input type="radio" name="reason" style="width: 18px; height: 18px; margin: 0; accent-color: #d9381a;">Khác</label>
+        </fieldset>
+
+        <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #595959;">Ghi chú (không bắt buộc)
+          <textarea rows="2" placeholder="Ví dụ: muốn biết pin iPhone 15 dùng được bao lâu" style="padding: 10px 12px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 14px; color: #222222; resize: none;"></textarea>
+        </label>
+      </article>
+
+      <a href="m-B10-1.dc.html" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; border-radius: 8px; background: #f5f5f5; color: #222222; font-size: 13px;"><span>Muốn shop trả lời trực tiếp? <span style="color: #d9381a;">Gửi câu hỏi cho shop</span></span><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8c8c8c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"></path></svg></a>
+    </div>
+
+    <div style="padding: 12px 16px 18px; border-top: 1px solid #f2f2f2;">
+      <button type="button" style="width: 100%; height: 46px; border: 0; border-radius: 2px; background: #d9381a; color: #ffffff; font-size: 15px; font-weight: 600;">Gửi phản hồi</button>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

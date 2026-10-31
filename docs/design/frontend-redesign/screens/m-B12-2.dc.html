@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>B12.2 · Đăng nhập</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#2673dd;text-decoration:none}
+button,input{font-family:inherit}
+button{cursor:pointer}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: #ffffff; font-family: 'Be Vietnam Pro', system-ui, sans-serif; color: #222222; font-size: 14px; line-height: 1.45;">
+
+  <header style="height: 48px; display: flex; align-items: center; padding: 0 12px 0 4px; border-bottom: 1px solid #f2f2f2;">
+    <a href="m-B12-1.dc.html" aria-label="Quay lại" style="width: 44px; height: 44px; color: #d9381a; display: flex; align-items: center; justify-content: center;"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 6-6 6 6 6"></path></svg></a>
+    <h1 style="margin: 0; flex: 1; font-size: 17px; font-weight: 600;">Đăng nhập</h1>
+    <a href="#" style="font-size: 14px; color: #d9381a;">Trợ giúp</a>
+  </header>
+
+  <div style="padding: 48px 24px 0; display: flex; flex-direction: column; align-items: center; gap: 10px;">
+    <span style="width: 72px; height: 72px; border-radius: 18px; background: #d9381a; color: #ffffff; display: flex; align-items: center; justify-content: center;"><svg aria-hidden="true" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 8h15l-1.2 12.2a1 1 0 0 1-1 .8H6.7a1 1 0 0 1-1-.8z"></path><path d="M9 8V6.5a3 3 0 0 1 6 0V8"></path><path d="M9.5 12v5M14.5 12v5M9.5 14.5h5"></path></svg></span>
+    <span style="font-size: 22px; font-weight: 700; color: #d9381a; letter-spacing: -0.02em;">Huspee</span>
+  </div>
+
+  <form style="padding: 32px 24px 0; display: flex; flex-direction: column; gap: 6px;">
+    <label style="display: flex; align-items: center; gap: 10px; height: 52px; border-bottom: 1px solid #e0e0e0;">
+      <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#757575" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg>
+      <span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;">Email hoặc số điện thoại</span>
+      <input type="text" value="an.nguyen@example.com" placeholder="Email/Số điện thoại" style="flex: 1; min-width: 0; height: 44px; border: 0; outline: none; font-size: 15px; color: #222222; background: transparent;">
+    </label>
+    <label style="display: flex; align-items: center; gap: 10px; height: 52px; border-bottom: 1px solid #e0e0e0;">
+      <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#757575" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>
+      <span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;">Mật khẩu</span>
+      <input type="password" value="Password123!" placeholder="Mật khẩu" style="flex: 1; min-width: 0; height: 44px; border: 0; outline: none; font-size: 15px; color: #222222; background: transparent;">
+      <button type="button" aria-label="Hiện mật khẩu" style="width: 36px; height: 36px; border: 0; background: none; color: #757575; display: flex; align-items: center; justify-content: center;"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"></path><circle cx="12" cy="12" r="3"></circle></svg></button>
+    </label>
+    <a href="m-B1-1.dc.html" style="margin-top: 28px; height: 46px; border-radius: 2px; background: #d9381a; color: #ffffff; font-size: 15px; font-weight: 600; display: flex; align-items: center; justify-content: center;">Đăng nhập</a>
+    <div style="display: flex; justify-content: space-between; margin-top: 12px; font-size: 14px;">
+      <a href="#">Quên mật khẩu</a>
+      <a href="#">Đăng nhập bằng SMS</a>
+    </div>
+  </form>
+
+  <div style="position: absolute; left: 0; right: 0; bottom: 32px; text-align: center; font-size: 14px; color: #595959;">Bạn chưa có tài khoản? <a href="#" style="color: #d9381a; font-weight: 600;">Đăng ký</a></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>
