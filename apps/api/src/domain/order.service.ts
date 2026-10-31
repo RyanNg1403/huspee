@@ -598,9 +598,11 @@ export class OrderService {
   // ---------------------------------------------------------------------------
 
   /** Project-defined buyer view (custom API). */
-  presentForBuyer(order: OrderWithRelations, returnWindowDays = 7) {
+  /** `viaAssistant`: the assistant conversation whose confirmed quote placed this order, if any. */
+  presentForBuyer(order: OrderWithRelations, returnWindowDays = 7, viaAssistant: { conversationId: string; at: Date } | null = null) {
     const deliveredAt = order.package?.deliveredAt ?? order.completedAt;
     const returnDue = deliveredAt ? addDays(deliveredAt, returnWindowDays) : null;
+    const latest = order.package?.events.at(-1);
     return {
       order_sn: order.orderSn,
       checkout_id: order.checkoutId,
@@ -636,12 +638,15 @@ export class OrderService {
         tracking_number: order.package?.trackingNumber ?? null,
         logistics_status: order.package?.logisticsStatus ?? null,
       },
+      latest_tracking: latest ? { description: latest.description, logistics_status: latest.logisticsStatus, time: unix(latest.createdAt) } : null,
+      placed_via_assistant: viaAssistant ? { conversation_id: viaAssistant.conversationId, placed_at: unix(viaAssistant.at) } : null,
       cancel_by: order.cancelBy,
       cancel_reason: order.cancelReason,
       create_time: unix(order.createdAt),
       update_time: unix(order.updatedAt),
       pay_time: order.payTime ? unix(order.payTime) : null,
       ship_by_date: unix(order.shipByDate),
+      shipped_time: order.package?.shippedAt ? unix(order.package.shippedAt) : null,
       delivered_time: deliveredAt ? unix(deliveredAt) : null,
       actions: {
         can_cancel: canTransition(order.status, 'CANCELLED') && ['UNPAID', 'READY_TO_SHIP'].includes(order.status),

@@ -28,7 +28,7 @@ export type AssistantCard =
       models: Array<{ model_id: number; name: string; price: number; stock: number }>;
       images?: string[];
       description?: string;
-      attributes?: Array<{ name: string; value: string }>;
+      attributes?: Array<{ name: string; value: string | null }>;
       brand?: string | null;
       category?: string;
       rating?: number | null;
@@ -37,8 +37,30 @@ export type AssistantCard =
       days_to_ship?: number;
       reviews?: Array<{ rating: number; comment: string; buyer_name: string; model_name: string | null }>;
     }
-  | { kind: 'compare'; items: Array<{ item_id: number; name: string; image: string | null; price_min: number; rows: Record<string, string> }> }
+  | {
+      kind: 'compare';
+      items: Array<{
+        item_id: number;
+        name: string;
+        image: string | null;
+        price_min: number;
+        price_max?: number;
+        rows: Record<string, string>;
+        specs?: Array<{ name: string; value: string | null }>;
+        models?: Array<{ model_id: number; name: string; price: number; stock: number }>;
+      }>;
+    }
   | { kind: 'cart'; lines: Array<{ item_id: number; model_id: number; name: string; quantity: number; price: number }>; total: number }
-  | { kind: 'order'; order_sn: string; status: string; tracking: Array<{ time: number; description: string }> }
+  | {
+      kind: 'order';
+      order_sn: string;
+      status: string;
+      items?: Array<{ item_id: number; model_id: number; name: string; variant?: string; quantity: number; price: number }>;
+      shipping_carrier?: string | null;
+      tracking_number?: string | null;
+      delivered_time?: number | null;
+      return?: { window_days: number; due_time: number | null; eligible: boolean; request: { return_sn: string; status: string } | null };
+      tracking: Array<{ time: number; description: string }>;
+    }
   | { kind: 'handoff'; ticket_id: number }
   | { kind: 'action'; action: PendingActionView };

@@ -9,7 +9,7 @@ import { useApi } from '@huspee/web-ui/lib/use-api';
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useLang, useT } from '@huspee/web-ui/i18n';
-import { formatDateTime, formatVnd } from '@huspee/web-ui/lib/format';
+import { formatDate, formatDateTime, formatVnd } from '@huspee/web-ui/lib/format';
 import {
   messages,
   orderStatusKey,
@@ -199,12 +199,37 @@ export function AssistantCard({
             ))}
           </ul>
         )}
-        {latest && (
+        {(latest || card.shipping_carrier || card.return?.due_time) && (
           <dl className="grid grid-cols-[30%_1fr] gap-x-3 gap-y-1 border-t border-line-soft px-3 py-2 text-xs">
-            <dt className="text-muted">{t('latest')}</dt>
-            <dd className="text-ink">
-              {latest.description} · {formatDateTime(latest.time, lang)}
-            </dd>
+            {card.shipping_carrier && (
+              <>
+                <dt className="text-muted">{t('carrier')}</dt>
+                <dd className="text-ink">
+                  {card.shipping_carrier}
+                  {card.tracking_number ? ` · ${card.tracking_number}` : ''}
+                </dd>
+              </>
+            )}
+            {latest && (
+              <>
+                <dt className="text-muted">{t('latest')}</dt>
+                <dd className="text-ink">
+                  {latest.description} · {formatDateTime(latest.time, lang)}
+                </dd>
+              </>
+            )}
+            {card.return?.due_time && (
+              <>
+                <dt className="text-muted">{t('returnRow')}</dt>
+                <dd className="text-ink">
+                  {card.return.request
+                    ? t('returnRequested', { sn: card.return.request.return_sn })
+                    : card.return.eligible
+                      ? t('returnUntil', { date: formatDate(card.return.due_time, lang) })
+                      : t('returnExpired', { date: formatDate(card.return.due_time, lang) })}
+                </dd>
+              </>
+            )}
           </dl>
         )}
         <Link href={`/orders/${encodeURIComponent(card.order_sn)}`} className={footerLink}>
@@ -294,6 +319,8 @@ function CompareCard({
   const keys = [...new Set(card.items.flatMap((item) => Object.keys(item.rows)))].sort((a, b) =>
     a === 'stock' ? -1 : b === 'stock' ? 1 : a === 'description' ? 1 : b === 'description' ? -1 : 0,
   );
+  // Spec rows across every compared product; a product without the value shows "not provided".
+  const specs = [...new Set(card.items.flatMap((item) => (item.specs ?? []).map((spec) => spec.name)))];
   const label = (key: string) =>
     key === 'stock' ? t('compareStock') : key === 'description' ? t('compareDescription') : key;
   const cell = 'px-2.5 py-2 align-top';
@@ -333,7 +360,9 @@ function CompareCard({
                 </th>
                 {card.items.map((item) => (
                   <td key={item.item_id} className={`${cell} font-semibold text-primary`}>
-                    {formatVnd(item.price_min)}
+                    {item.price_max && item.price_max !== item.price_min
+                      ? `${formatVnd(item.price_min)} – ${formatVnd(item.price_max)}`
+                      : formatVnd(item.price_min)}
                   </td>
                 ))}
               </tr>
@@ -349,6 +378,21 @@ function CompareCard({
                       </span>
                     </td>
                   ))}
+                </tr>
+              ))}
+              {specs.map((name) => (
+                <tr key={`spec-${name}`} className="border-t border-line-soft">
+                  <th scope="row" className={`${cell} text-left font-medium text-muted`}>
+                    {name}
+                  </th>
+                  {card.items.map((item) => {
+                    const value = item.specs?.find((spec) => spec.name === name)?.value;
+                    return (
+                      <td key={item.item_id} className={`${cell} ${value ? '' : 'text-muted'}`}>
+                        {value ?? t('noInfo')}
+                      </td>
+                    );
+                  })}
                 </tr>
               ))}
             </tbody>

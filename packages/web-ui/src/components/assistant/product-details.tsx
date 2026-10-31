@@ -52,7 +52,7 @@ export function ProductDetails({
   const facts = [
     product.brand ? { name: t('brand'), value: product.brand } : null,
     product.category ? { name: t('category'), value: product.category } : null,
-    ...(product.attributes ?? []),
+    ...(product.attributes ?? []).map((a) => ({ name: a.name, value: a.value ?? t('noInfo') })),
   ].filter((fact): fact is { name: string; value: string } => !!fact);
   const description = product.description?.trim();
   const long = !!description && description.length > 220;

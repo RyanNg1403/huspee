@@ -11,6 +11,7 @@ import { getApiClient } from '@huspee/web-ui/lib/api';
 import { formatDateTime } from '@huspee/web-ui/lib/format';
 import { useApi } from '@huspee/web-ui/lib/use-api';
 import { messages } from './messages';
+import { parseHandoffBody } from './handoff';
 import { StatusBadge } from './_components/StatusBadge';
 
 type StatusFilter = 'ALL' | 'OPEN' | 'ANSWERED' | 'CLOSED';
@@ -58,7 +59,7 @@ function MessagesListView() {
   const getAuthorPrefix = (author?: 'BUYER' | 'SELLER' | 'ASSISTANT') => {
     if (author === 'BUYER') return `${t('authorBuyer')}: `;
     if (author === 'SELLER') return `${t('authorSeller')}: `;
-    if (author === 'ASSISTANT') return `${t('authorAssistant')}: `;
+    if (author === 'ASSISTANT') return `${t('authorBuyer')}: `;
     return '';
   };
 
@@ -136,15 +137,20 @@ function MessagesListView() {
                       </span>
                       <span className="text-gray-300">•</span>
                       <span className="text-xs text-gray-500">{formatDateTime(ticket.updated_at, lang)}</span>
+                      {ticket.conversation_id && (
+                        <span className="text-xs text-gray-500">· {t('viaAssistant')}</span>
+                      )}
                     </div>
 
                     <Link href={`/messages/${ticket.ticket_id}`} className="mt-2 block group">
                       <div className="flex items-center gap-2">
                         {hasUnread && (
                           <span
-                            className="h-2.5 w-2.5 shrink-0 rounded-full bg-red-500 ring-2 ring-red-100"
-                            title={t('unread')}
-                          />
+                            className="min-w-[18px] shrink-0 rounded-full bg-primary px-1.5 text-center text-[11px] font-semibold leading-[18px] text-white"
+                            aria-label={t('unreadCount', { count: ticket.buyer_unread })}
+                          >
+                            {ticket.buyer_unread}
+                          </span>
                         )}
                         <h2
                           className={`truncate text-base transition-colors group-hover:text-primary ${
@@ -162,7 +168,11 @@ function MessagesListView() {
                             <span className="font-medium text-gray-700">
                               {getAuthorPrefix(ticket.last_message.author)}
                             </span>
-                            <span>{ticket.last_message.body}</span>
+                            <span>
+                              {ticket.last_message.author === 'ASSISTANT'
+                                ? parseHandoffBody(ticket.last_message.body).question
+                                : ticket.last_message.body}
+                            </span>
                           </>
                         ) : (
                           <span className="italic text-gray-400">{t('noMessagesYet')}</span>

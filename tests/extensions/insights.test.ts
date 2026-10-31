@@ -248,6 +248,7 @@ it("counts executed actions, voice channels, voucher codes and zero stock determ
       ],
     },
     item: { findMany: async () => [{ id: 7, name: "Product" }] },
+    order: { findMany: async () => [] },
   };
   const service = new InsightsService(
     prisma as unknown as ConstructorParameters<typeof InsightsService>[0],

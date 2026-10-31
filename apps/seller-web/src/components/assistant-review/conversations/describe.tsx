@@ -169,6 +169,20 @@ export function ToolOutputText({ entry }: { entry: ToolEntry }) {
 export function OutcomeText({ outcome }: { outcome: Outcome }) {
   const t = useT(conversationMessages);
   switch (outcome.kind) {
+    case 'order_placed':
+      return (
+        <>
+          {outcome.total !== undefined
+            ? t('outcomeOrderPlaced', { total: formatVnd(outcome.total) })
+            : t('outcomeOrderPlacedPlain')}
+          {outcome.orderSn && (
+            <>
+              {' · '}
+              <OrderLink orderSn={outcome.orderSn} />
+            </>
+          )}
+        </>
+      );
     case 'order_quote':
       return (
         <>

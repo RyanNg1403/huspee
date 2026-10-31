@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import type { BuyerOrder, OrderStatus, Paginated } from '@huspee/sdk';
+import type { BuyerOrder, BuyerOrderCounts, OrderStatus, Paginated } from '@huspee/sdk';
 import { RequireRole } from '@huspee/web-ui/components/session';
 import { Button, Icon, Pagination, QueryState, Tabs, useToast } from '@huspee/web-ui/components/ui';
 import { useT } from '@huspee/web-ui/i18n';
@@ -14,6 +14,7 @@ import { formatVnd } from '@huspee/web-ui/lib/format';
 import { useApi } from '@huspee/web-ui/lib/use-api';
 import { CancelOrderModal } from '../_orders/CancelOrderModal';
 import { messages } from '../_orders/messages';
+import { countFor, formatDayMonth, formatDayMonthTime, inTransitTracking, withCount } from '../_orders/order-view';
 import { ReturnRequestModal } from '../_orders/ReturnRequestModal';
 import { ReviewModal } from '../_orders/ReviewModal';
 import { formatPaymentMethod, getErrorMessage, OrderStatusBadge, panel } from '../_orders/shared';
@@ -48,15 +49,28 @@ function OrdersView() {
   } | null>(null);
   const [confirmingSn, setConfirmingSn] = useState<string | null>(null);
 
+  const { data: counts, reload: reloadCounts } = useApi<BuyerOrderCounts>(
+    () => getApiClient().buyer.orders.counts(),
+    [],
+  );
+
+  // Counts only on tabs that still need something to happen, as in the design.
   const tabItems: Array<{ value: TabKey; label: string }> = [
     { value: 'ALL', label: t('tabAll') },
-    { value: 'UNPAID', label: t('tabUnpaid') },
-    { value: 'READY_TO_SHIP', label: t('tabReadyToShip') },
-    { value: 'SHIPPED', label: t('tabShipped') },
-    { value: 'TO_CONFIRM_RECEIVE', label: t('tabConfirmReceive') },
+    { value: 'UNPAID', label: withCount(t('tabUnpaid'), countFor(counts, ['UNPAID'])) },
+    {
+      value: 'READY_TO_SHIP',
+      label: withCount(t('tabReadyToShip'), countFor(counts, ['READY_TO_SHIP', 'PROCESSED'])),
+    },
+    { value: 'SHIPPED', label: withCount(t('tabShipped'), countFor(counts, ['SHIPPED'])) },
+    {
+      value: 'TO_CONFIRM_RECEIVE',
+      label: withCount(t('tabConfirmReceive'), countFor(counts, ['TO_CONFIRM_RECEIVE'])),
+    },
     { value: 'COMPLETED', label: t('tabCompleted') },
     { value: 'CANCELLED', label: t('tabCancelled') },
-    { value: 'RETURNS', label: t('tabReturns') },
+    // TO_RETURN orders are the ones with an open return request.
+    { value: 'RETURNS', label: withCount(t('tabReturns'), countFor(counts, ['TO_RETURN'])) },
   ];
 
   const handleTabChange = (key: TabKey) => {
@@ -94,6 +108,7 @@ function OrdersView() {
       await getApiClient().buyer.orders.confirmReceipt(orderSn);
       toast(t('receiptConfirmed'));
       reload();
+      reloadCounts();
     } catch (err) {
       toast(getErrorMessage(err, tCommon, t));
     } finally {
@@ -145,7 +160,23 @@ function OrdersView() {
                   <span className="text-gray-400">|</span>
                   <span className="text-xs text-gray-500 font-mono">{order.order_sn}</span>
                 </div>
-                <div>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px]">
+                  {order.placed_via_assistant && (
+                    <span className="text-muted">
+                      {t('placedViaAssistant', {
+                        time: formatDayMonthTime(order.placed_via_assistant.placed_at),
+                      })}
+                    </span>
+                  )}
+                  {inTransitTracking(order) ? (
+                    <Link href={`/orders/${order.order_sn}`} className="text-success hover:underline">
+                      {inTransitTracking(order)!.description} · {formatDayMonthTime(inTransitTracking(order)!.time)}
+                    </Link>
+                  ) : order.delivered_time ? (
+                    <span className="text-muted">
+                      {t('deliveredOn', { date: formatDayMonth(order.delivered_time) })}
+                    </span>
+                  ) : null}
                   <OrderStatusBadge status={order.status} />
                 </div>
               </div>

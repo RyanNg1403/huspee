@@ -10,12 +10,11 @@ import { AssistantShopGuard } from '../_components/AssistantShopGuard';
 import { assistantMessages } from '../messages';
 import { CampaignsCard } from './_components/CampaignsCard';
 import { AlertTriangleIcon, RefreshIcon } from './_components/icons';
-import { KpiTiles } from './_components/KpiTiles';
 import { MissingRequestsCard } from './_components/MissingRequestsCard';
+import { InsightsOverview } from './_components/Overview';
 import { SummariesSection } from './_components/SummariesSection';
 import { TopProductsCard } from './_components/TopProductsCard';
 import { TrendChart } from './_components/TrendChart';
-import { UnansweredQuestionsCard } from './_components/UnansweredQuestionsCard';
 
 type DateRangeDays = 7 | 30 | 90;
 
@@ -54,7 +53,6 @@ function InsightsContent({ shopId }: { shopId: number }) {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{t('insightsTitle')}</h1>
-          <p className="mt-1 text-sm text-gray-500">{t('insightsDesc')}</p>
         </div>
 
         {/* Date Range Selector & Refresh */}
@@ -124,8 +122,7 @@ function InsightsContent({ shopId }: { shopId: number }) {
         <ErrorState message={t('loadFailed')} onRetry={insightsApi.reload} retryLabel={t('retry')} />
       ) : (
         <div className="space-y-6">
-          {/* 1. KPI Tiles (Totals) */}
-          <KpiTiles totals={insights.totals} />
+          <InsightsOverview insights={insights} />
 
           {/* 2. Daily Trend Chart */}
           <TrendChart daily={insights.daily} />
@@ -137,10 +134,7 @@ function InsightsContent({ shopId }: { shopId: number }) {
           </div>
 
           {/* 4. Missing Requests and Unanswered Questions */}
-          <div className="grid gap-6 md:grid-cols-2">
-            <MissingRequestsCard requests={insights.missing_requests} />
-            <UnansweredQuestionsCard questions={insights.unanswered_questions} />
-          </div>
+          <MissingRequestsCard requests={insights.missing_requests} />
 
           {/* 5. Latest AI Summaries */}
           <SummariesSection shopId={shopId} summaries={insights.summaries} onReload={insightsApi.reload} />

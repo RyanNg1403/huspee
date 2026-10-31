@@ -41,7 +41,7 @@ export function TodoBlock({ week }: { week: Query<AssistantInsights> }) {
       { key: 'todoReturns', value: summary.open_return_count, href: '/returns' },
       { key: 'todoLowStock', value: summary.low_stock_models.length, href: '/products' },
       { key: 'todoQuestions', value: openTickets, href: '/inbox' },
-      { key: 'todoUnanswered', value: insights.unanswered_questions.length, href: '/assistant/insights' },
+      { key: 'todoUnanswered', value: (insights.unanswered_groups ?? []).reduce((sum, group) => sum + group.count, 0), href: '/assistant/insights' },
     ];
     body = (
       <ul className="grid grid-cols-2 gap-y-2 text-center sm:grid-cols-4">

@@ -120,7 +120,7 @@ function ConversationView({
   const { lang } = useLang();
   const overview = conversationOverview(conversation);
   const started = formatClock(conversation.started_at, lang);
-  const title = `${started} · ${formatDate(conversation.started_at, lang)}`;
+  const title = `${conversation.buyer_name} · ${started} ${formatDate(conversation.started_at, lang)}`;
   const language =
     conversation.language === 'vi' ? t('langVi') : conversation.language === 'en' ? t('langEn') : null;
   const channel = conversation.channel === 'VOICE' ? t('channelVoice') : t('channelText');

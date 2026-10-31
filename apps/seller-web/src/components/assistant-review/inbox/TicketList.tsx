@@ -9,6 +9,7 @@ import { getApiClient } from '@huspee/web-ui/lib/api';
 import { useApi } from '@huspee/web-ui/lib/use-api';
 import { ticketState } from '../handoff';
 import { StatusDot } from '@/components/shell';
+import { SearchInput } from '@/components/commerce/SearchInput';
 import { elapsed, formatStamp, type Elapsed } from '../time';
 import { inboxMessages } from './messages';
 
@@ -30,14 +31,24 @@ export function TicketList({ shopId, selectedId }: { shopId: number; selectedId:
   const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
   const [tab, setTab] = useState<Tab>('all');
   const [page, setPage] = useState(1);
+  const [search, setSearch] = useState('');
+  const [q, setQ] = useState('');
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setQ(search.trim());
+      setPage(1);
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [search]);
   const list = useApi(
     () =>
       getApiClient().seller.inbox.list(shopId, {
         status: tab === 'all' ? undefined : tab,
+        q: q || undefined,
         page,
         page_size: PAGE_SIZE,
       }),
-    [shopId, tab, page],
+    [shopId, tab, q, page],
   );
   const counts = useApi(async () => {
     const [all, open] = await Promise.all([
@@ -96,6 +107,14 @@ export function TicketList({ shopId, selectedId }: { shopId: number; selectedId:
           </button>
         ))}
       </div>
+      <div className="border-b border-line-soft px-4 py-3">
+        <SearchInput
+          label={t('search')}
+          placeholder={t('searchPlaceholder')}
+          value={search}
+          onChange={setSearch}
+        />
+      </div>
       {!list.data && list.loading ? (
         <div className="flex h-40 items-center justify-center">
           <Spinner />
@@ -148,14 +167,15 @@ function TicketRow({ ticket, selected, now }: { ticket: HandoffTicket; selected:
       }`}
     >
       <span className="flex items-start justify-between gap-2">
-        <span className={`line-clamp-2 ${unread ? 'font-semibold' : ''}`}>
+        <span className={`truncate ${unread ? 'font-semibold' : 'font-medium'}`}>
           {unread && <span className="sr-only">{t('unread')}: </span>}
-          {ticket.subject}
+          {ticket.buyer_name}
         </span>
         <span className="shrink-0 text-[13px] text-muted">
           {formatStamp(last?.created_at ?? ticket.updated_at, lang, now)}
         </span>
       </span>
+      <span className="mt-0.5 line-clamp-2">{ticket.subject}</span>
       {preview && <span className="mt-0.5 line-clamp-1 text-[13px] text-muted">{preview}</span>}
       <span className={`mt-1.5 block text-[13px] ${state.kind === 'waiting' ? 'text-ink' : 'text-muted'}`}>
         {state.kind === 'waiting' ? (

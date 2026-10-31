@@ -251,15 +251,32 @@ export class BuyerController {
       }),
       this.prisma.order.count({ where }),
     ]);
-    const windows = await this.returnWindows(rows.map((o) => o.shopId));
-    return { data: rows.map((o) => this.orders.presentForBuyer(o, windows.get(o.shopId))), page: pageInfo(input.page, input.page_size, total) };
+    const [windows, viaAssistant] = await Promise.all([
+      this.returnWindows(rows.map((o) => o.shopId)),
+      this.assistantOrders(user.id, rows.map((o) => o.orderSn)),
+    ]);
+    return {
+      data: rows.map((o) => this.orders.presentForBuyer(o, windows.get(o.shopId), viaAssistant.get(o.orderSn) ?? null)),
+      page: pageInfo(input.page, input.page_size, total),
+    };
+  }
+
+  /** Order counts per status for the order tabs, plus the buyer's return requests. */
+  @Get('buyer/orders/counts')
+  async orderCounts(@CurrentUser() user: User) {
+    const [groups, returns] = await Promise.all([
+      this.prisma.order.groupBy({ by: ['status'], where: { buyerId: user.id }, _count: { _all: true } }),
+      this.prisma.returnRequest.count({ where: { buyerId: user.id } }),
+    ]);
+    const by_status = Object.fromEntries(groups.map((g) => [g.status, g._count._all]));
+    return { data: { total: groups.reduce((sum, g) => sum + g._count._all, 0), by_status, returns } };
   }
 
   @Get('buyer/orders/:orderSn')
   async getOrder(@CurrentUser() user: User, @Param('orderSn') orderSn: string) {
     const order = await this.orders.getForBuyer(user.id, orderSn);
-    const windows = await this.returnWindows([order.shopId]);
-    return { data: this.orders.presentForBuyer(order, windows.get(order.shopId)) };
+    const [windows, viaAssistant] = await Promise.all([this.returnWindows([order.shopId]), this.assistantOrders(user.id, [order.orderSn])]);
+    return { data: this.orders.presentForBuyer(order, windows.get(order.shopId), viaAssistant.get(order.orderSn) ?? null) };
   }
 
   @Post('buyer/orders/:orderSn/cancel')
@@ -414,6 +431,22 @@ export class BuyerController {
   private async returnWindows(shopIds: number[]) {
     const policies = await this.prisma.shopPolicy.findMany({ where: { shopId: { in: [...new Set(shopIds)] } } });
     return new Map(policies.map((p) => [p.shopId, p.returnWindowDays]));
+  }
+
+  /** Orders placed by tapping an assistant quote, keyed by order_sn: the executed PLACE_ORDER action records it. */
+  private async assistantOrders(buyerId: number, orderSns: string[]) {
+    if (!orderSns.length) return new Map<string, { conversationId: string; at: Date }>();
+    const placed = await this.prisma.pendingAction.findMany({
+      where: { buyerId, type: 'PLACE_ORDER', status: 'EXECUTED' },
+      select: { conversationId: true, result: true, updatedAt: true },
+    });
+    const wanted = new Set(orderSns);
+    const map = new Map<string, { conversationId: string; at: Date }>();
+    for (const action of placed) {
+      const sn = (action.result as { order_sn?: unknown } | null)?.order_sn;
+      if (typeof sn === 'string' && wanted.has(sn)) map.set(sn, { conversationId: action.conversationId, at: action.updatedAt });
+    }
+    return map;
   }
 
   private async cart(userId: number) {

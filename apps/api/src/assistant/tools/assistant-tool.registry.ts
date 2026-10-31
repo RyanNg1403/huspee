@@ -10,7 +10,7 @@ import { purchaseIssue } from '../../domain/purchase-availability';
 import { VoucherService, VOUCHER_PRODUCT, voucherRedemption } from '../../domain/voucher.service';
 import { toNumber } from '../../common/money';
 import { PrismaService } from '../../common/prisma.service';
-import { CatalogService, itemInclude, mediaUrl, modelImage, modelName, resolveModelPrice, sellableModels, tierVariations, type ItemWithRelations } from '../../domain/catalog.service';
+import { CatalogService, describeAttributes, itemInclude, mediaUrl, modelImage, modelName, resolveModelPrice, sellableModels, tierVariations, type ItemWithRelations } from '../../domain/catalog.service';
 import type { AssistantCard, PendingActionView } from '../types';
 import { maskName } from '../../compat/ops/product.ops';
 
@@ -496,13 +496,26 @@ export class AssistantToolRegistry {
         include: itemInclude,
       });
       if (products.length !== new Set(ids).size) return { success: false, text: 'One or more products were not found.' };
-      const items = products.map((item) => ({
-        item_id: item.id,
-        name: item.name,
-        image: modelImage(item),
-        price_min: this.catalog.priceRange(item).min,
-        rows: { description: item.description, stock: String(this.catalog.totalStock(item)) },
-      }));
+      const definitions = await this.prisma.categoryAttribute.findMany({ where: { categoryId: { in: [...new Set(products.map((item) => item.categoryId))] } } });
+      // Columns follow the order the buyer named the products in; specs left empty stay as null.
+      const items = [...new Set(ids)].map((id) => products.find((item) => item.id === id)!).map((item) => {
+        const range = this.catalog.priceRange(item);
+        return {
+          item_id: item.id,
+          name: item.name,
+          image: modelImage(item),
+          price_min: range.min,
+          price_max: range.max,
+          rows: { stock: String(this.catalog.totalStock(item)) },
+          specs: describeAttributes(item, definitions.filter((def) => def.categoryId === item.categoryId)),
+          models: sellableModels(item).map((m) => ({
+            model_id: m.id,
+            name: modelName(item, m.tierIndex),
+            price: resolveModelPrice(m).currentPrice,
+            stock: m.status === 'MODEL_NORMAL' ? m.stock : 0,
+          })),
+        };
+      });
       return { success: true, text: JSON.stringify(items), card: { kind: 'compare', items } };
     }
     if (name === 'handoff_to_seller') {
@@ -547,9 +560,32 @@ export class AssistantToolRegistry {
         take: 5,
         include: { items: { orderBy: { id: 'asc' } }, package: { include: { events: { orderBy: { createdAt: 'asc' } } } } },
       });
-      const rows = orders.map((order) => ({
+      const [policy, requests] = await Promise.all([
+        this.prisma.shopPolicy.findUnique({ where: { shopId: ctx.shopId }, select: { returnWindowDays: true } }),
+        this.prisma.returnRequest.findMany({
+          where: { buyerId: ctx.buyerId, orderSn: { in: orders.map((order) => order.orderSn) } },
+          select: { orderSn: true, returnSn: true, status: true },
+        }),
+      ]);
+      const windowDays = policy?.returnWindowDays ?? 7;
+      const sec = (date: Date) => Math.floor(date.getTime() / 1000);
+      const rows = orders.map((order) => {
+        const delivered = order.package?.deliveredAt ?? null;
+        const due = delivered ? new Date(delivered.getTime() + windowDays * 86_400_000) : null;
+        const request = requests.find((r) => r.orderSn === order.orderSn);
+        return {
         order_sn: order.orderSn,
         status: order.status,
+        shipping_carrier: order.shippingCarrier,
+        tracking_number: order.package?.trackingNumber ?? null,
+        delivered_time: delivered ? sec(delivered) : null,
+        // Return eligibility as the buyer's order page computes it, so the assistant can answer it without guessing.
+        return: {
+          window_days: windowDays,
+          due_time: due ? sec(due) : null,
+          eligible: !request && ['TO_CONFIRM_RECEIVE', 'COMPLETED'].includes(order.status) && !!due && due > new Date(),
+          request: request ? { return_sn: request.returnSn, status: request.status } : null,
+        },
         items: order.items.map((line) => ({
           item_id: line.itemId,
           model_id: line.modelId,
@@ -562,7 +598,8 @@ export class AssistantToolRegistry {
           time: Math.floor(event.createdAt.getTime() / 1000),
           description: event.description,
         })),
-      }));
+        };
+      });
       return { success: true, text: JSON.stringify(rows), ...(rows.length === 1 ? { card: { kind: 'order' as const, ...rows[0]! } } : {}) };
     }
     if (name === 'search_products' || name === 'get_product_details') {
@@ -596,25 +633,8 @@ export class AssistantToolRegistry {
           attributes: Object.fromEntries(tierVariations(item).map((tier, index) => [tier.name, tier.option_list[m.tierIndex[index] ?? -1]?.option ?? ''])),
         }));
         const definitions = await this.prisma.categoryAttribute.findMany({ where: { categoryId: item.categoryId } });
-        const attributes = (Array.isArray(item.attributes) ? item.attributes : [])
-          .map((raw) => {
-            const attr = raw as {
-              attribute_id?: number;
-              attribute_value_list?: Array<{ value_id?: number; original_value_name?: string; value_unit?: string }>;
-            };
-            const def = definitions.find((value) => value.id === attr.attribute_id);
-            if (!def) return null;
-            const known = (Array.isArray(def.values) ? def.values : []) as Array<{ value_id: number; name: string; display_name?: string }>;
-            const value = (attr.attribute_value_list ?? [])
-              .map((part) => {
-                const match = known.find((entry) => entry.value_id === part.value_id);
-                return (match?.display_name ?? match?.name ?? part.original_value_name ?? '') + (part.value_unit ? ` ${part.value_unit}` : '');
-              })
-              .filter(Boolean)
-              .join(', ');
-            return value ? { name: def.displayName, value } : null;
-          })
-          .filter(Boolean);
+        // Unfilled specs stay in the result as null so the assistant says the shop has not provided them.
+        const attributes = describeAttributes(item, definitions);
         const reviews = await this.prisma.review.findMany({
           where: { itemId: item.id, hidden: false },
           include: { buyer: { select: { name: true } } },
@@ -630,7 +650,7 @@ export class AssistantToolRegistry {
           models,
           images: item.images.slice(0, 6).map((image) => mediaUrl(image.url)),
           description: item.description,
-          attributes: attributes as Array<{ name: string; value: string }>,
+          attributes,
           brand: item.brand?.name ?? null,
           category: item.category.displayName,
           rating: rating?.avg ?? null,

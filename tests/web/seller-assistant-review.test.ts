@@ -98,6 +98,11 @@ describe('seller conversation review', () => {
     const failed = call('get_cart', 3, { text: 'Requested data is unavailable.' }, {}, false);
     const quote = call('place_order', 6, { card: action('a1', 'PLACE_ORDER', 'PENDING', 10190000) }, { voucher_code: 'TECH10' });
     expect(outcomeOf([handoff, quote])).toEqual({ kind: 'order_quote', total: 10190000 });
+    const placed = call('confirm_action', 7, {
+      card: { kind: 'action', action: { ...action('a1', 'PLACE_ORDER', 'EXECUTED', 10190000).action, result: { order_sn: '2610313W03F1' } } },
+    });
+    const replay = call('place_order', 8, { card: action('a1', 'PLACE_ORDER', 'PENDING', 10190000) });
+    expect(outcomeOf([quote, placed, replay])).toEqual({ kind: 'order_placed', orderSn: '2610313W03F1', total: 10190000 });
     expect(outcomeOf([missing, handoff])).toEqual({ kind: 'handoff', ticketId: 7 });
     expect(outcomeOf([failed, missing])).toEqual({ kind: 'missing' });
     expect(outcomeOf([failed])).toEqual({ kind: 'unanswered' });

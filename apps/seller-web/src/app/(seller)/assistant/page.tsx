@@ -7,6 +7,7 @@ import { useLang, useT } from '@huspee/web-ui/i18n';
 import { common } from '@huspee/web-ui/i18n/common';
 import { errorMessageKey, getApiClient } from '@huspee/web-ui/lib/api';
 import { useApi } from '@huspee/web-ui/lib/use-api';
+import { Block, StatusDot } from '@/components/shell';
 import { AssistantShopGuard } from './_components/AssistantShopGuard';
 import { assistantMessages } from './messages';
 
@@ -17,7 +18,6 @@ export default function AssistantSettingsPage() {
       {/* Page Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">{t('assistantTitle')}</h1>
-        <p className="mt-1 text-sm text-gray-500">{t('assistantDesc')}</p>
       </div>
 
       {/* Sub Nav */}
@@ -137,10 +137,7 @@ function AssistantSettingsForm({
         <Card className="space-y-6">
           {/* Enable Switch */}
           <div className="flex items-start justify-between gap-4 border-b border-gray-100 pb-5">
-            <div>
-              <h2 className="text-base font-semibold text-gray-900">{t('enableAssistant')}</h2>
-              <p className="mt-1 text-xs text-gray-500">{t('enableAssistantDesc')}</p>
-            </div>
+            <h2 className="text-base font-semibold text-gray-900">{t('enableAssistant')}</h2>
             <label className="relative inline-flex cursor-pointer items-center">
               <input
                 type="checkbox"
@@ -252,6 +249,7 @@ function AssistantSettingsForm({
 
       {/* Preview Card */}
       <div className="space-y-4">
+        <VoiceConnection shopId={shopId} />
         <Card className="space-y-4">
           <div className="flex items-center justify-between border-b border-gray-100 pb-3">
             <h3 className="font-semibold text-gray-900 text-sm">{t('previewTitle')}</h3>
@@ -277,8 +275,6 @@ function AssistantSettingsForm({
             </div>
           </div>
 
-          <p className="text-xs text-gray-500">{t('previewDesc')}</p>
-
           {/* Simulated Assistant Bubble */}
           <div className="rounded-xl border border-orange-100 bg-orange-50/40 p-4">
             <div className="flex items-center gap-2 mb-2">
@@ -292,9 +288,7 @@ function AssistantSettingsForm({
             </div>
 
             <div className="rounded-lg bg-white p-3 text-sm text-gray-800 shadow-xs">
-              {previewLang === 'vi'
-                ? greetingVi || t('defaultGreetingVi')
-                : greetingEn || t('defaultGreetingEn')}
+              {previewLang === 'vi' ? greetingVi : greetingEn}
             </div>
 
             <div className="mt-3 flex items-center justify-between text-[11px] text-gray-500">
@@ -310,5 +304,26 @@ function AssistantSettingsForm({
         </Card>
       </div>
     </div>
+  );
+}
+
+/** Whether buyers can talk to the assistant: the platform's voice runtime is signed in. */
+function VoiceConnection({ shopId }: { shopId: number }) {
+  const t = useT(assistantMessages);
+  const profile = useApi(() => getApiClient().assistant.profile(shopId), [shopId]);
+  return (
+    <Block size="sm" title={t('voiceConnection')}>
+      {profile.data ? (
+        <span className="text-sm">
+          <StatusDot tone={profile.data.connected ? 'success' : 'neutral'}>
+            {t(profile.data.connected ? 'connected' : 'notConnected')}
+          </StatusDot>
+        </span>
+      ) : profile.error ? (
+        <span className="text-sm text-muted">{t('loadFailed')}</span>
+      ) : (
+        <Spinner />
+      )}
+    </Block>
   );
 }

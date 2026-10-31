@@ -17,12 +17,14 @@ import { ListState } from '@/components/commerce/ListState';
 import { Facts, Panel } from '@/components/commerce/Panel';
 import { ReturnActions } from '@/components/commerce/returns/ReturnActions';
 import { loadReturn } from '@/components/commerce/returns/return-api';
+import { returnDeadline } from '@/components/commerce/returns/return-window';
 import { needsSellerAction } from '@/components/commerce/returns/return-filters';
 import { ReturnStatusLabel, useReturnReason } from '@/components/commerce/returns/ReturnStatusLabel';
 import { SOLUTION_REFUND_ONLY, type ReturnDetail } from '@/components/commerce/returns/types';
 import { ShopGuard } from '@/components/commerce/ShopGuard';
 import { Thumb } from '@/components/commerce/Thumb';
 import { sub, table } from '@/components/commerce/ui';
+import { StatusDot } from '@/components/shell';
 import { returnMessages } from '../messages';
 
 type Loaded = NonNullable<Awaited<ReturnType<typeof loadReturn>>>;
@@ -190,6 +192,8 @@ function OrderPanel({ data }: { data: Loaded }) {
   const t = useT(returnMessages);
   const { lang } = useLang();
   const { detail, deliveredAt, policy } = data;
+  const days = policy.return_window_days;
+  const deadline = returnDeadline(deliveredAt, days, detail.create_time);
   return (
     <Panel
       title={t('originalOrder')}
@@ -203,7 +207,19 @@ function OrderPanel({ data }: { data: Loaded }) {
         rows={[
           { label: t('orderSn'), value: detail.order_sn },
           ...(deliveredAt ? [{ label: t('deliveredAt'), value: formatDay(deliveredAt, lang) }] : []),
-          { label: t('returnWindow'), value: t('days', { count: policy.return_window_days }) },
+          {
+            label: t('returnWindow'),
+            value: deadline ? (
+              <StatusDot tone={deadline.withinWindow ? 'success' : 'action'}>
+                {t(deadline.withinWindow ? 'withinWindow' : 'pastWindow', {
+                  count: days,
+                  date: formatDay(deadline.due, lang),
+                })}
+              </StatusDot>
+            ) : (
+              t('days', { count: days })
+            ),
+          },
           { label: t('shopPolicy'), value: policy.return_policy },
         ]}
       />
