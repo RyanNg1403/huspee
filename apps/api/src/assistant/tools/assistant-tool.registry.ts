@@ -240,7 +240,7 @@ const definitions = {
 } as const;
 const descriptions: Record<string, string> = {
   get_viewed_product: 'Read the product the buyer is currently viewing in this shop, with fresh details and a product card. Check every time the buyer refers to this product, this item or the product on screen; the buyer may navigate between turns. Returns no product when they leave its page.',
-  search_products: 'Find public products in this shop by query and optional price range; an empty query lists everything the shop sells.',
+  search_products: 'Find public products in this shop by name, brand or category (Vietnamese or English) and optional price range; an empty query lists everything the shop sells.',
   get_product_details: 'Get verified public product details and available variants for this shop.',
   compare_products: 'Compare two to four public products from this shop.',
   get_vouchers: 'List currently public, unexpired shop vouchers that this buyer has not used; eligibility rules still apply.',
@@ -484,8 +484,10 @@ export class AssistantToolRegistry {
         include: itemInclude,
       });
       if (name === 'search_products') {
-        const matches = (input.query as string).trim() ? matchProducts(input.query as string, items) : items.slice();
-        const nearest = matches.length ? [] : closestProducts(input.query as string, items);
+        // Buyers also name a product by its brand or category, in Vietnamese or English ("Anker charger").
+        const searchable = items.map((item) => ({ item, name: item.name, brand: item.brand?.name, category: item.category.name, categoryVi: item.category.displayName }));
+        const matches = (input.query as string).trim() ? matchProducts(input.query as string, searchable).map(({ item }) => item) : items.slice();
+        const nearest = matches.length ? [] : closestProducts(input.query as string, searchable).map(({ item }) => item);
         closest = nearest.length > 0;
         items.splice(0, items.length, ...(matches.length ? matches : nearest));
       }

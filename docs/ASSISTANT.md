@@ -47,7 +47,7 @@ fields or unpublished items):
 
 | Tool | Purpose |
 |---|---|
-| `search_products(query, min_price?, max_price?, limit?, requested_attributes?)` | Public items of this shop, with price range and stock per item |
+| `search_products(query, min_price?, max_price?, limit?, requested_attributes?)` | Public items of this shop matched by name, brand or category (Vietnamese or English), with price range and stock per item |
 | `get_viewed_product(requested_attributes?)` | Fresh details for the product currently viewed in this shop; clears when the buyer leaves the product page |
 | `get_product_details(item_id, requested_attributes?)` | Description, attributes, variants (model_id, name, price, stock), rating |
 | `compare_products(item_ids[2..4])` | Side-by-side facts |
