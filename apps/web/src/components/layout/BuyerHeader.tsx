@@ -128,9 +128,9 @@ export function BuyerHeader({ sellerUrl }: { sellerUrl: string }) {
               )}
             </Link>
             {user?.roles.includes('seller') && (
-              <Link className={menuItem} href={sellerUrl}>
+              <a className={menuItem} href={sellerUrl}>
                 {t('seller')}
-              </Link>
+              </a>
             )}
             <div className="my-1 border-t border-line" />
             <button

@@ -236,9 +236,9 @@ export function SellerShell({ children }: { children: ReactNode }) {
             })}
           </nav>
           <div className="space-y-3 border-t border-line px-5 py-4 text-sm">
-            <Link href="/storefront" className="block font-medium text-gray-600 hover:text-primary">
+            <a href={`${process.env.NEXT_PUBLIC_HUSPEE_BASE_PATH || ''}/storefront`} className="block font-medium text-gray-600 hover:text-primary">
               {lang === 'vi' ? 'Xem trang mua sắm' : 'View storefront'} →
-            </Link>
+            </a>
             <LanguageSwitch />
             <p className="truncate">{user?.name}</p>
             <Button variant="ghost" onClick={() => void logout()}>

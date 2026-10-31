@@ -25,6 +25,8 @@ export const serverEnv = {
   PORT: String(TEST_PORT),
   PUBLIC_BASE_URL: API,
   WEB_APP_URL: 'http://localhost:3001',
+  // Match the surface tests; do not inherit the deployed seller URL from apps/api/.env.
+  SELLER_APP_URL: process.env.SELLER_APP_URL || 'http://localhost:3002',
   COOKIE_SECURE: 'false',
   // Direct API/SDK tests keep absolute URLs, regardless of the local phone-demo .env.
   BROWSER_PROXY_ENABLED: 'false',
