@@ -189,6 +189,33 @@ export class VoiceController {
       return res.status(503).json({ error: { code: busy ? 'assistant_busy' : 'assistant_unavailable', message: busy ? 'Assistant is busy' : 'Assistant is unavailable' } });
     }
   }
+  @Post('voice/sessions/:conversationId/call')
+  async startCall(@CurrentUser() user: User, @Param('conversationId') id: string, @Body() body: unknown, @Res() res: Response) {
+    if (!this.enabled()) return res.status(503).json({ error: { code: 'assistant_unavailable', message: 'Assistant is unavailable' } });
+    if (!z.string().uuid().safeParse(id).success) throw notFound('Conversation');
+    const input = parseInput(z.object({ sdp_offer: z.string().min(1).max(100000) }).strict(), body);
+    await this.conversations.assertBuyer(id, user.id);
+    try {
+      const result = await this.voice.runtime.startCall(id, user.id, input.sdp_offer);
+      return res.json({ data: { conversation_id: id, ...result } });
+    } catch (error) {
+      if (error instanceof Error && error.message === 'not_found') throw notFound('Conversation');
+      const busy = error instanceof Error && error.message === 'assistant_busy';
+      return res.status(busy ? 409 : 503).json({ error: { code: busy ? 'assistant_busy' : 'assistant_unavailable', message: busy ? 'Wait for the current reply or call to finish' : 'Voice call is unavailable; you can continue typing' } });
+    }
+  }
+  @Post('voice/sessions/:conversationId/call/stop')
+  async stopCall(@CurrentUser() user: User, @Param('conversationId') id: string, @Body() body: unknown) {
+    if (!z.string().uuid().safeParse(id).success) throw notFound('Conversation');
+    const input = parseInput(z.object({ call_id: z.string().uuid().optional() }).strict(), body ?? {});
+    await this.conversations.assertBuyer(id, user.id);
+    try { await this.voice.runtime.stopCall(id, user.id, input.call_id); }
+    catch (error) {
+      if (error instanceof Error && error.message === 'not_found') throw notFound('Conversation');
+      throw validation('Could not finish the voice call; please retry');
+    }
+    return { data: { ok: true } };
+  }
   @Patch('voice/sessions/:conversationId/context')
   async context(@CurrentUser() user: User, @Param('conversationId') id: string, @Body() body: unknown) {
     if (!z.string().uuid().safeParse(id).success) throw notFound('Conversation');

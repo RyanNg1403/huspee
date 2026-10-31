@@ -17,15 +17,17 @@ import {
   applyChannelEvent,
   type ChannelEvent,
   type TranscriptEntry,
+  scopeCallEvent,
 } from './transcript';
 
 type LiveEvent =
-  | { type: 'transcript'; role: 'user' | 'assistant'; text: string; final: boolean; item_id?: string }
+  | { type: 'transcript'; role: 'user' | 'assistant'; text: string; final: boolean; item_id?: string; source?: 'text' | 'voice' }
   | { type: 'tool'; name: string; status: 'started' | 'done' | 'error' }
   | { type: 'card'; card: Card }
   | { type: 'action'; action: Action }
   | { type: 'closed'; reason: string | null }
-  | { type: 'error'; message: string };
+  | { type: 'error'; message: string }
+  | { type: 'call'; state: 'active' | 'ended'; call_id: string; reason?: string | null };
 type HistoryItem = {
   conversation_id: string;
   channel: 'VOICE' | 'TEXT';
@@ -57,6 +59,8 @@ type Adapter = {
   text: (id: string, text: string) => Promise<unknown>;
   stop: (id: string) => Promise<unknown>;
   eventsUrl: (id: string) => string;
+  startCall: (id: string, sdp: string) => Promise<{ conversation_id: string; sdp_answer: string; call_id: string }>;
+  stopCall: (id: string, callId?: string) => Promise<unknown>;
   setContext: (id: string, itemId: number | null) => Promise<{ item_id: number | null }>;
   poll: (id: string, after: number) => Promise<{ events: Record<string, unknown>[]; cursor: number; closed: boolean }>;
   confirm: (id: string, key: string) => Promise<{ action: Action }>;
@@ -192,6 +196,8 @@ export function VoicePanel({
   const [open, setOpen] = useState(false);
   const [state, setState] = useState<'idle' | 'connecting' | 'active'>('idle');
   const [error, setError] = useState('');
+  const [callState, setCallState] = useState<'idle' | 'connecting' | 'active' | 'ending'>('idle');
+  const callGeneration = useRef(0);
   const [muted, setMuted] = useState(false);
   const [pushToTalk, setPushToTalk] = useState(false);
   const [message, setMessage] = useState('');
@@ -213,6 +219,7 @@ export function VoicePanel({
     pollTimer?: number;
     conversationId?: string;
     contextItemId?: number | null;
+    callId?: string;
     audio?: HTMLAudioElement;
     audioContext?: AudioContext;
     analyserTimer?: number;
@@ -246,26 +253,49 @@ export function VoicePanel({
   const generation = useRef(0);
   const stopRef = useRef(adapter.stop);
   stopRef.current = adapter.stop;
-  function cleanup(sendStop: boolean) {
-    generation.current++;
+  function releaseAudio() {
+    callGeneration.current++;
     const current = resources.current;
-    resources.current = {};
     if (current.analyserTimer !== undefined) window.clearInterval(current.analyserTimer);
     current.voiceActivity?.stop();
     void current.audioContext?.close().catch(() => undefined);
+    if (current.pc) {
+      current.pc.onconnectionstatechange = null;
+      current.pc.ontrack = null;
+      current.pc.close();
+    }
+    current.stream?.getTracks().forEach((track) => track.stop());
+    if (current.audio) { current.audio.pause(); current.audio.srcObject = null; }
+    delete current.pc; delete current.stream; delete current.audio; delete current.audioContext;
+    delete current.analyserTimer; delete current.voiceActivity; delete current.callId;
+    channelOpened.current = false;
+    setSpeaking(false);
+    setMuted(false);
+    setPushToTalk(false);
+    setCallState('idle');
+  }
+  function cleanup(sendStop: boolean) {
+    generation.current++;
+    releaseAudio();
+    const current = resources.current;
+    resources.current = {};
+    contextQueue.current = Promise.resolve();
     current.events?.close();
     if (current.pollTimer !== undefined) window.clearTimeout(current.pollTimer);
-    current.pc?.close();
-    current.stream?.getTracks().forEach((track) => track.stop());
-    if (current.audio) {
-      current.audio.pause();
-      current.audio.srcObject = null;
-    }
-    if (sendStop && current.conversationId)
-      void stopRef.current(current.conversationId).catch(() => undefined);
+    if (sendStop && current.conversationId) void stopRef.current(current.conversationId).catch(() => undefined);
     setChecking(false);
-    setSpeaking(false);
     setState('idle');
+  }
+  async function endCall() {
+    const id = resources.current.conversationId;
+    const callId = resources.current.callId;
+    const token = generation.current;
+    releaseAudio();
+    if (!id) return;
+    setCallState('ending');
+    try { await adapter.stopCall(id, callId); }
+    catch { if (generation.current === token) setError(t('callEndError')); }
+    finally { if (generation.current === token) setCallState('idle'); }
   }
   const synchronizeProduct = useCallback(() => {
     const current = resources.current;
@@ -333,6 +363,7 @@ export function VoicePanel({
   useEffect(
     () => () => {
       generation.current++;
+      callGeneration.current++;
       const current = resources.current;
       if (current.analyserTimer !== undefined) window.clearInterval(current.analyserTimer);
       current.voiceActivity?.stop();
@@ -350,12 +381,16 @@ export function VoicePanel({
     [],
   );
   function onEvent(event: LiveEvent) {
-    if (event.type === 'transcript' && !channelOpened.current) {
+    if (event.type === 'call' && event.state === 'ended' && event.call_id === resources.current.callId) {
+      releaseAudio();
+      if (event.reason) setError(t('callDropped'));
+    }
+    if (event.type === 'transcript' && (event.source === 'text' || !channelOpened.current)) {
       const id = sequence.current++;
       const now = Date.now();
       setEntries((previous) =>
         appendFinalTranscript(previous, event, id).map((entry) =>
-          entry.createdAt === undefined ? { ...entry, createdAt: now } : entry,
+          entry.createdAt === undefined ? { ...entry, id: event.source === 'voice' ? `call-fallback-${callGeneration.current}-${entry.id}` : entry.id, createdAt: now } : entry,
         ),
       );
     }
@@ -411,30 +446,48 @@ export function VoicePanel({
     };
   }
   async function start(textOnly = false, resumeId?: string) {
+    if (resources.current.conversationId) {
+      if (!textOnly) await startCall();
+      return;
+    }
     if (!resumeId) setEarlier(null);
     followConversation.current = true;
     setError('');
     setState('connecting');
     setEntries([]);
-    channelOpened.current = false;
     setCards([]);
+    channelOpened.current = false;
     const token = ++generation.current;
     const itemId = desiredItemId.current;
     try {
-      if (textOnly) {
-        const result = await adapter.startText({ shop_id: shopId, lang, resume_conversation_id: resumeId, item_id: itemId ?? undefined });
-        if (generation.current !== token) {
-          void adapter.stop(result.conversation_id).catch(() => undefined);
-          return;
-        }
-        resources.current.conversationId = result.conversation_id;
-        resources.current.contextItemId = itemId;
-        setAppliedItemId(itemId);
-        setLiveId(result.conversation_id);
-        connectEvents(result.conversation_id);
-        setState('active');
+      const result = await adapter.startText({ shop_id: shopId, lang, resume_conversation_id: resumeId, item_id: itemId ?? undefined });
+      if (generation.current !== token) {
+        void adapter.stop(result.conversation_id).catch(() => undefined);
         return;
       }
+      resources.current.conversationId = result.conversation_id;
+      resources.current.contextItemId = itemId;
+      setAppliedItemId(itemId);
+      setLiveId(result.conversation_id);
+      connectEvents(result.conversation_id);
+      setState('active');
+      if (!textOnly) await startCall();
+    } catch {
+      if (generation.current !== token) return;
+      setError(t('unavailable'));
+      cleanup(true);
+    }
+  }
+  async function startCall() {
+    const id = resources.current.conversationId;
+    if (!id || resources.current.pc || callState === 'ending') return;
+    const token = ++callGeneration.current;
+    let joinedCallId: string | undefined;
+    setCallState('connecting');
+    setError('');
+    try {
+      await synchronizeProduct();
+      if (callGeneration.current !== token) return;
       if (!window.isSecureContext) throw new Error('secureContext');
       if (!window.RTCPeerConnection || !navigator.mediaDevices?.getUserMedia) throw new Error('microphone');
       let stream: MediaStream | undefined;
@@ -445,7 +498,7 @@ export function VoicePanel({
       } catch {
         throw new Error('microphone');
       }
-      if (generation.current !== token) {
+      if (callGeneration.current !== token) {
         stream?.getTracks().forEach((track) => track.stop());
         return;
       }
@@ -454,11 +507,11 @@ export function VoicePanel({
       resources.current.pc = pc;
       pc.onconnectionstatechange = () => {
         if (
-          generation.current === token &&
+          callGeneration.current === token &&
           (pc.connectionState === 'failed' || pc.connectionState === 'disconnected')
         ) {
-          setError(t('unavailable'));
-          cleanup(true);
+          setError(t('callDropped'));
+          void endCall();
         }
       };
       if (stream) pc.addTrack(stream.getAudioTracks()[0], stream);
@@ -479,7 +532,7 @@ export function VoicePanel({
         micAnalyser.fftSize = 1024;
         context.createMediaStreamSource(stream).connect(micAnalyser);
         await context.resume();
-        if (generation.current !== token) {
+        if (callGeneration.current !== token) {
           void context.close().catch(() => undefined);
           return;
         }
@@ -487,7 +540,7 @@ export function VoicePanel({
         // Silero tells speech from noise; until it has loaded (or if it cannot), loudness alone is used.
         void startVoiceActivity(stream, context)
           .then((activity) => {
-            if (generation.current === token) resources.current.voiceActivity = activity;
+            if (callGeneration.current === token) resources.current.voiceActivity = activity;
             else activity.stop();
           })
           .catch(() => undefined);
@@ -518,14 +571,14 @@ export function VoicePanel({
       }
       const channel = pc.createDataChannel('oai-events');
       channel.onopen = () => {
-        if (generation.current !== token) return;
+        if (callGeneration.current !== token) return;
         channelOpened.current = true;
-        setEntries([]);
+        setEntries((previous) => previous.filter((entry) => !entry.id.startsWith(`call-fallback-${token}-`)));
       };
       channel.onmessage = (event) => {
-        if (generation.current !== token || typeof event.data !== 'string') return;
+        if (callGeneration.current !== token || typeof event.data !== 'string') return;
         try {
-          const payload = JSON.parse(event.data) as ChannelEvent;
+          const payload = scopeCallEvent(JSON.parse(event.data) as ChannelEvent, String(token));
           const now = Date.now();
           const role = 'turn' in payload ? (payload.turn as { role?: string } | undefined)?.role : undefined;
           if (
@@ -576,28 +629,21 @@ export function VoicePanel({
           }
         });
       });
-      const result = await adapter.start({
-        shop_id: shopId,
-        sdp_offer: pc.localDescription?.sdp ?? '',
-        lang,
-        resume_conversation_id: resumeId,
-        item_id: itemId ?? undefined,
-      });
-      if (generation.current !== token) {
-        void adapter.stop(result.conversation_id).catch(() => undefined);
+      if (callGeneration.current !== token) return;
+      const result = await adapter.startCall(id, pc.localDescription?.sdp ?? '');
+      if (callGeneration.current !== token) {
+        void adapter.stopCall(id, result.call_id).catch(() => undefined);
         return;
       }
-      resources.current.conversationId = result.conversation_id;
-      resources.current.contextItemId = itemId;
-      setAppliedItemId(itemId);
-      setLiveId(result.conversation_id);
+      joinedCallId = result.call_id;
+      resources.current.callId = result.call_id;
       await pc.setRemoteDescription({ type: 'answer', sdp: result.sdp_answer });
-      connectEvents(result.conversation_id);
+      if (callGeneration.current !== token) return;
       setMuted(false);
       setPushToTalk(false);
-      setState('active');
+      setCallState('active');
     } catch (e) {
-      if (generation.current !== token) return;
+      if (callGeneration.current !== token) return;
       const code = typeof e === 'object' && e && 'code' in e ? String(e.code).toLowerCase() : '';
       const microphone =
         (e instanceof DOMException &&
@@ -612,13 +658,14 @@ export function VoicePanel({
               ? t('busy')
               : t('unavailable'),
       );
-      cleanup(true);
+      releaseAudio();
+      if (joinedCallId) await adapter.stopCall(id, joinedCallId).catch(() => undefined);
     }
   }
   async function send(override?: string) {
     const text = (override ?? message).trim();
     const id = resources.current.conversationId;
-    if (!text || !id || busy) return;
+    if (!text || !id || busy || callState === 'connecting' || callState === 'ending') return;
     setBusy(true);
     try {
       await synchronizeProduct();
@@ -654,9 +701,11 @@ export function VoicePanel({
   }
   const shopName = profile?.shop_name ?? t('open');
   const greeting = (lang === 'en' ? profile?.greeting.en : profile?.greeting.vi) || t('greetingFallback');
-  const voiceActive = state === 'active' && !!resources.current.stream;
+  const voiceActive = callState === 'active';
   const status =
-    state === 'connecting'
+    callState === 'connecting'
+      ? t('calling')
+      : state === 'connecting'
       ? t('connecting')
       : state !== 'active'
         ? t('subtitle')
@@ -1024,6 +1073,18 @@ export function VoicePanel({
                 )}
                 {state === 'active' && (
                   <div className="space-y-2">
+                    <div className="flex items-center gap-3">
+                      <p className="min-w-0 flex-1 text-xs text-muted">{t('sharedChat')}</p>
+                      <button
+                        type="button"
+                        className={`flex h-11 shrink-0 items-center gap-2 rounded-full border border-line px-3 text-sm font-semibold transition disabled:opacity-50 ${callState === 'idle' ? 'text-primary hover:bg-primary-soft' : 'text-red-600 hover:bg-red-50'}`}
+                        disabled={callState === 'ending' || busy}
+                        onClick={() => void (callState === 'idle' ? startCall() : endCall())}
+                      >
+                        {callState === 'idle' ? <MicGlyph className="h-4 w-4" /> : <MicOffGlyph className="h-4 w-4" />}
+                        {callState === 'idle' ? t('call') : callState === 'connecting' ? t('cancelCall') : callState === 'ending' ? t('endingCall') : t('endCall')}
+                      </button>
+                    </div>
                     <form
                       className="flex items-center gap-2"
                       onSubmit={(e) => {
@@ -1079,7 +1140,7 @@ export function VoicePanel({
                           aria-label={t('placeholder')}
                         />
                         <button
-                          disabled={busy || !message.trim()}
+                          disabled={busy || !message.trim() || callState === 'connecting' || callState === 'ending'}
                           aria-label={t('send')}
                           className="absolute top-1/2 right-1.5 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-primary text-white transition hover:bg-primary-hover disabled:bg-gray-300"
                         >

@@ -266,9 +266,11 @@ These `/api/v1` routes use platform sessions unless marked public, and the brows
 | POST | `/assistant/voice/sessions` | buyer session | `assistant.voice.start` | voice module; optional `item_id` (public product in this shop) and `resume_conversation_id`; voice tests |
 | GET | `/assistant/voice/sessions/:conversationId/events` | buyer session | `assistant.voice.eventsUrl` | voice module; SSE (transcripts, tools, cards, actions); voice tests |
 | GET | `/assistant/voice/sessions/:conversationId/poll` | buyer session | `assistant.voice.poll` | custom; cursor-based JSON fallback for tunnels without SSE; voice tests |
+| POST | `/assistant/voice/sessions/:conversationId/call` | buyer session | `assistant.voice.startCall` | custom; attach WebRTC to the existing conversation/thread, returns `call_id`; voice and continuity tests |
+| POST | `/assistant/voice/sessions/:conversationId/call/stop` | buyer session | `assistant.voice.stopCall` | custom; optional `call_id` targets a call; detach audio and retain chat/history; voice and continuity tests |
 | PATCH | `/assistant/voice/sessions/:conversationId/context` | buyer session | `assistant.voice.setContext` | custom; update/clear viewed product for own active session; verifies shop and visibility; voice tests |
 | POST | `/assistant/voice/sessions/:conversationId/text` | buyer session | `assistant.voice.text` | voice module; voice tests |
-| POST | `/assistant/voice/sessions/:conversationId/stop` | buyer session | `assistant.voice.stop` | voice module; voice tests |
+| POST | `/assistant/voice/sessions/:conversationId/stop` | buyer session | `assistant.voice.stop` | ends the entire conversation; voice tests |
 | GET | `/assistant/actions/:actionId/options` | buyer session | `assistant.actions.options` | custom; pending cart, order or return edit options; assistant tests |
 | PATCH | `/assistant/actions/:actionId` | buyer session | `assistant.actions.edit` | custom; replaces pending cart, order or return action; assistant tests |
 | POST | `/assistant/actions/:actionId/confirm` | buyer session | `assistant.actions.confirm` | implemented; assistant tests |

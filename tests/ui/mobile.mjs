@@ -103,7 +103,7 @@ try {
     await page.waitForTimeout(800);
     assert.deepEqual(cursors.slice(0, 3), [0, 0, 1], 'Polling should retry the cursor and advance after delivery');
     assert.equal(await page.getByText('Tunnel polling check', { exact: true }).count(), 1);
-    await page.getByRole('button', { name: 'End', exact: true }).click();
+    await page.getByRole('button', { name: 'End chat', exact: true }).click();
     const count = cursors.length;
     await page.waitForTimeout(1200);
     assert.equal(cursors.length, count, 'Polling must stop when the conversation ends');

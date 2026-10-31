@@ -30,6 +30,15 @@ type Session = {
   rejectAnswer?: (error: Error) => void;
   closed: boolean;
   mode: 'voice' | 'text';
+  config: VoicePromptConfig & { voice: string };
+  callState: 'off' | 'starting' | 'active' | 'stopping';
+  callStop?: Promise<void>;
+  callId?: string;
+  realtimeRequested: boolean;
+  voiceClosed?: () => void;
+  history: Array<{ role: 'user' | 'assistant'; text: string }>;
+  voiceHistory: Array<{ role: 'user' | 'assistant'; text: string }>;
+  historySync?: Promise<void>;
   /** Tool results and buyer words: the only facts speech may contain. */
   evidence: string[];
   lastUser?: string;
@@ -128,7 +137,12 @@ export class VoiceRuntime {
         eventLog: { buyerId: ctx.buyerId, cursor: 0, events: [], closed: false },
         timer: setTimeout(() => {}, 0),
         closed: false,
-        mode: sdp === undefined ? 'text' : 'voice',
+        mode: 'text',
+        config,
+        callState: 'off',
+        realtimeRequested: false,
+        history: [...(config.history ?? [])],
+        voiceHistory: [],
         evidence: [],
         spoken: new Set(),
         handoff: false,
@@ -144,38 +158,116 @@ export class VoiceRuntime {
       this.threads.set(session.threadId, session);
       this.touch(session);
       if (sdp === undefined) return;
-      const answer = new Promise<string>((resolve, reject) => {
-        session!.answer = resolve;
-        session!.rejectAnswer = reject;
-      });
-      const timeout = setTimeout(() => session?.rejectAnswer?.(new Error('SDP answer timed out')), 30000);
-      try {
-        const [, sdpAnswer] = await Promise.all([
-          this.transport.request('thread/realtime/start', {
-            threadId: session.threadId,
-            version: 'v3',
-            voice: config.voice,
-            outputModality: 'audio',
-            transport: { type: 'webrtc', sdp },
-            includeStartupContext: false,
-            // Thread answers are checked by the backend before the voice says them.
-            clientManagedHandoffs: true,
-            prompt: realtimeVoicePrompt(config),
-            // A developer item weighs more than session instructions with the backend voice model.
-            initialItems: [{ role: 'developer', text: realtimeIdentity(config) }],
-          }),
-          answer,
-        ]);
-        return sdpAnswer;
-      } finally {
-        clearTimeout(timeout);
-      }
+      return (await this.startCall(ctx.conversationId, ctx.buyerId, sdp)).sdp_answer;
     } catch (error) {
       if (session) await this.stopSession(session, 'start_failed');
       throw error;
     } finally {
       if (reserved) this.reservations--;
     }
+  }
+  /** Attach audio to the existing model thread. No new conversation or thread is created. */
+  async startCall(id: string, buyerId: number, sdp: string): Promise<{ sdp_answer: string; call_id: string }> {
+    const session = this.own(id, buyerId);
+    if (session.callState !== 'off' || session.callStop || session.turnActive) throw new Error('assistant_busy');
+    session.callState = 'starting';
+    let accepted = false;
+    session.callId = randomUUID();
+    session.realtimeRequested = false;
+    try {
+      await this.syncVoiceHistory(session);
+      if (session.closed || session.callState !== 'starting') throw new Error('call_cancelled');
+      session.mode = 'voice';
+      const answer = new Promise<string>((resolve, reject) => {
+        session.answer = resolve;
+        session.rejectAnswer = reject;
+      });
+      const timeout = setTimeout(() => session.rejectAnswer?.(new Error('SDP answer timed out')), 30000);
+      try {
+        session.realtimeRequested = true;
+        const [, sdpAnswer] = await Promise.all([
+          this.transport.request('thread/realtime/start', {
+            threadId: session.threadId,
+            version: 'v3',
+            voice: session.config.voice,
+            outputModality: 'audio',
+            transport: { type: 'webrtc', sdp },
+            includeStartupContext: false,
+            clientManagedHandoffs: true,
+            prompt: realtimeVoicePrompt(session.config),
+            initialItems: [
+              { role: 'developer', text: realtimeIdentity({ ...session.config, history: undefined }) },
+              ...session.history.slice(-12).map((item) => ({ ...item, text: item.text.slice(0, 500) })),
+            ],
+          }).then((result) => { accepted = true; return result; }),
+          answer,
+        ]);
+        if (session.closed || session.callState !== 'starting') throw new Error('call_cancelled');
+        session.callState = 'active';
+        this.emit(session, { type: 'call', state: 'active', call_id: session.callId });
+        this.touch(session);
+        return { sdp_answer: sdpAnswer, call_id: session.callId! };
+      } finally {
+        clearTimeout(timeout);
+        session.answer = undefined;
+        session.rejectAnswer = undefined;
+      }
+    } catch (error) {
+      if (!accepted && session.callState === 'starting') { session.callState = 'off'; session.mode = 'text'; }
+      else await this.endCall(session, 'connection_failed').catch(() => undefined);
+      throw error;
+    }
+  }
+  async stopCall(id: string, buyerId: number, callId?: string): Promise<void> {
+    const session = this.own(id, buyerId);
+    if (callId && session.callId !== callId) return;
+    await this.endCall(session, null);
+  }
+  private async endCall(session: Session, reason: string | null, requestStop = true): Promise<void> {
+    if (session.callStop) return session.callStop;
+    if (session.callState === 'off') return;
+    session.callState = 'stopping';
+    session.rejectAnswer?.(new Error('call_cancelled'));
+    // A late close from an earlier call cannot close a later one: do not allow another call
+    // until the transport has acknowledged closure. Text remains available meanwhile.
+    const closed = new Promise<void>((resolve) => { session.voiceClosed = resolve; });
+    const work = (async () => {
+      let timer: NodeJS.Timeout | undefined;
+      try {
+        if (requestStop && session.realtimeRequested) {
+          await this.transport.request('thread/realtime/stop', { threadId: session.threadId }, 5000);
+          await Promise.race([closed, new Promise<void>((resolve) => { timer = setTimeout(resolve, 1500); })]);
+        } else {
+          session.callState = 'off';
+        }
+      } finally {
+        clearTimeout(timer);
+        session.mode = 'text';
+        await this.syncVoiceHistory(session).catch(() => {
+          this.emit(session, { type: 'error', message: 'Could not sync call history; please retry your message.' });
+        });
+        if (!session.closed) this.emit(session, { type: 'call', state: 'ended', reason, call_id: session.callId });
+      }
+    })();
+    session.callStop = work;
+    try { await work; } finally { session.callStop = undefined; }
+  }
+  /** Persist voice-only turns in model-visible history before a text turn or another call. */
+  private async syncVoiceHistory(session: Session): Promise<void> {
+    while (session.historySync) await session.historySync;
+    const pending = session.voiceHistory.slice();
+    if (!pending.length) return;
+    const work = this.transport.request('thread/injectItems', {
+      threadId: session.threadId,
+      items: pending.map(({ role, text }) => ({ type: 'message', role, content: [{ type: role === 'user' ? 'input_text' : 'output_text', text }] })),
+    }).then(() => { session.voiceHistory.splice(0, pending.length); });
+    session.historySync = work;
+    try { await work; } finally { session.historySync = undefined; }
+  }
+  private remember(session: Session, role: 'user' | 'assistant', text: string, voice = false): void {
+    session.history.push({ role, text });
+    if (session.history.length > 40) session.history.shift();
+    if (voice) session.voiceHistory.push({ role, text });
   }
   private own(id: string, buyerId: number): Session {
     const session = this.sessions.get(id);
@@ -204,15 +296,22 @@ export class VoiceRuntime {
   async text(id: string, buyerId: number, text: string): Promise<void> {
     const session = this.own(id, buyerId);
     this.touch(session);
+    if (session.callStop) await session.callStop;
+    if (session.callState === 'starting') throw new Error('assistant_busy');
     if (session.mode === 'text') {
-      await this.transport.request('turn/start', { threadId: session.threadId, input: [{ type: 'text', text, text_elements: [] }] });
+      session.turnActive = true;
+      try {
+        await this.syncVoiceHistory(session);
+        await this.transport.request('turn/start', { threadId: session.threadId, input: [{ type: 'text', text, text_elements: [] }] });
+      } catch (error) { session.turnActive = false; throw error; }
     } else {
       await this.transport.request('thread/realtime/appendText', { threadId: session.threadId, role: 'user', text });
     }
+    this.remember(session, 'user', text, session.mode === 'voice');
     session.evidence.push(text);
     session.lastUser = text;
     session.handoff = false;
-    this.emit(session, { type: 'transcript', role: 'user', text, final: true, ...(session.mode === 'text' ? { item_id: randomUUID() } : {}) });
+    this.emit(session, { type: 'transcript', role: 'user', text, final: true, item_id: randomUUID(), source: 'text' });
     await this.saveTranscript(session.context, 'user', text);
   }
   action(
@@ -304,6 +403,7 @@ export class VoiceRuntime {
   private async stopSession(session: Session, reason: string | null, requestStop = true): Promise<void> {
     if (session.closed) return;
     session.closed = true;
+    session.voiceClosed?.();
     clearTimeout(session.timer);
     session.rejectAnswer?.(new Error(reason || 'closed'));
     this.sessions.delete(session.context.conversationId);
@@ -314,7 +414,7 @@ export class VoiceRuntime {
     this.closedEvents.set(session.context.conversationId, session.eventLog);
     if (this.closedEvents.size > 100) this.closedEvents.delete(this.closedEvents.keys().next().value!);
     setTimeout(() => this.closedEvents.delete(session.context.conversationId), 60000).unref();
-    if (requestStop && session.mode === 'voice')
+    if (requestStop && session.callState !== 'off')
       await this.transport.request('thread/realtime/stop', { threadId: session.threadId }, 5000).catch(() => undefined);
     await this.transport.request('thread/unsubscribe', { threadId: session.threadId }, 5000).catch(() => undefined);
     await this.endConversation(session.context).catch(() => undefined);
@@ -332,12 +432,18 @@ export class VoiceRuntime {
     return detectLanguage(session.lastUser);
   }
   private async speak(session: Session, text: string): Promise<void> {
+    if (session.callState === 'stopping' || session.mode === 'text') {
+      this.emit(session, { type: 'transcript', role: 'assistant', text, final: true, item_id: randomUUID(), source: 'text' });
+      this.remember(session, 'assistant', text);
+      await this.saveTranscript(session.context, 'assistant', text);
+      return;
+    }
     if (session.spoken.size > 50) session.spoken.clear();
     session.spoken.add(text.trim());
     await this.transport.request('thread/realtime/appendSpeech', { threadId: session.threadId, text }).catch(() => undefined);
   }
   private async delegateStalled(session: Session, asked: string | undefined): Promise<void> {
-    if (session.closed || session.handoff || session.turnActive || !asked || session.lastUser !== asked) return;
+    if (session.closed || session.callState !== 'active' || session.handoff || session.turnActive || !asked || session.lastUser !== asked) return;
     session.handoff = true;
     await this.transport
       .request('turn/start', { threadId: session.threadId, input: [{ type: 'text', text: withContext(session, asked), text_elements: [] }] })
@@ -448,7 +554,7 @@ export class VoiceRuntime {
       const role = params.role === 'user' ? 'user' : 'assistant';
       const final = message.method.endsWith('/done');
       const text = String(final ? params.text : params.delta);
-      this.emit(session, { type: 'transcript', role, text, final, ...(typeof params.itemId === 'string' ? { item_id: params.itemId } : {}) });
+      this.emit(session, { type: 'transcript', role, text, final, source: 'voice', ...(typeof params.itemId === 'string' ? { item_id: params.itemId } : {}) });
       if (final && role === 'user') {
         session.evidence.push(text);
         session.lastUser = text;
@@ -457,17 +563,24 @@ export class VoiceRuntime {
         else this.supersede(session, text);
         session.pendingHandoff = undefined;
       }
-      if (final) await this.saveTranscript(session.context, role, text).catch(() => undefined);
-      if (final && role === 'assistant') await this.checkOwnSpeech(session, text);
-    } else if (session.mode === 'text' && message.method === 'item/agentMessage/delta') {
-      this.emit(session, { type: 'transcript', role: 'assistant', text: String(params.delta ?? ''), final: false, item_id: String(params.itemId) });
-    } else if (session.mode === 'text' && message.method === 'item/completed') {
+      if (final) {
+        this.remember(session, role, text, true);
+        await this.saveTranscript(session.context, role, text).catch(() => undefined);
+      }
+      if (final && role === 'assistant' && session.callState === 'active') await this.checkOwnSpeech(session, text);
+    } else if (session.mode === 'text' && !session.turn && !session.silentTurns && message.method === 'item/agentMessage/delta') {
+      this.emit(session, { type: 'transcript', role: 'assistant', text: String(params.delta ?? ''), final: false, item_id: String(params.itemId), source: 'text' });
+    } else if (session.mode === 'text' && !session.turn && message.method === 'item/completed') {
       const item = params.item as { type?: string; id?: string; text?: string } | undefined;
-      if (item?.type === 'agentMessage' && typeof item.text === 'string') {
-        this.emit(session, { type: 'transcript', role: 'assistant', text: item.text, final: true, item_id: item.id });
+      if (!session.silentTurns && item?.type === 'agentMessage' && typeof item.text === 'string') {
+        this.remember(session, 'assistant', item.text);
+        this.emit(session, { type: 'transcript', role: 'assistant', text: item.text, final: true, item_id: item.id, source: 'text' });
         await this.saveTranscript(session.context, 'assistant', item.text).catch(() => undefined);
       }
-    } else if (session.mode === 'text' && message.method === 'turn/completed') {
+    } else if (session.mode === 'text' && !session.turn && message.method === 'turn/completed') {
+      session.turnActive = false;
+      session.turn = undefined;
+      if (session.silentTurns) { session.silentTurns--; return; }
       this.onTurnCompleted?.(session.context.conversationId, (params.turn as { status?: string } | undefined)?.status);
     } else if (session.mode === 'voice' && message.method === 'thread/realtime/itemAdded') {
       if ((params.item as { type?: string } | undefined)?.type === 'handoff_request') {
@@ -481,10 +594,10 @@ export class VoiceRuntime {
       session.pendingHandoff = undefined;
       const turnId = (params.turn as { id?: string } | undefined)?.id;
       if (turnId) session.turn = { id: turnId, asked: session.lastUser, silent: session.silentTurns > 0, awaitingWords };
-    } else if (session.mode === 'voice' && message.method === 'item/completed') {
+    } else if ((session.mode === 'voice' || session.turn) && message.method === 'item/completed') {
       const item = params.item as { type?: string; text?: string } | undefined;
       if (item?.type === 'agentMessage' && typeof item.text === 'string' && item.text.trim()) session.reply = item.text;
-    } else if (session.mode === 'voice' && message.method === 'turn/completed') {
+    } else if ((session.mode === 'voice' || session.turn) && message.method === 'turn/completed') {
       session.turnActive = false;
       session.handoff = false;
       session.turn = undefined;
@@ -525,8 +638,16 @@ export class VoiceRuntime {
       }
     } else if (message.method === 'thread/realtime/error') {
       this.emit(session, { type: 'error', message: 'Assistant session unavailable' });
-      await this.stopSession(session, 'runtime_unavailable');
-    } else if (message.method === 'thread/realtime/closed') await this.stopSession(session, 'runtime_closed', false);
+      await this.endCall(session, 'runtime_unavailable');
+    } else if (message.method === 'thread/realtime/closed') {
+      if (session.callState === 'stopping') {
+        session.callState = 'off';
+        session.voiceClosed?.();
+        session.voiceClosed = undefined;
+      } else if (session.callState !== 'off') {
+        await this.endCall(session, 'connection_closed', false);
+      }
+    }
   }
 }
 /** The buyer's latest words, with what they said just before when the server starts the turn itself. */

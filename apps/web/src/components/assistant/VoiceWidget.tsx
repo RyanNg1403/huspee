@@ -11,6 +11,8 @@ const adapter = {
   startText: (input: { shop_id: number; lang: string; resume_conversation_id?: string; item_id?: number }) =>
     getApiClient().assistant.text.start(input),
   text: (id: string, text: string) => getApiClient().assistant.voice.text(id, text),
+  startCall: (id: string, sdp: string) => getApiClient().assistant.voice.startCall(id, sdp),
+  stopCall: (id: string, callId?: string) => getApiClient().assistant.voice.stopCall(id, callId),
   setContext: (id: string, itemId: number | null) => getApiClient().assistant.voice.setContext(id, itemId),
   stop: (id: string) => getApiClient().assistant.voice.stop(id),
   eventsUrl: (id: string) => getApiClient().assistant.voice.eventsUrl(id),

@@ -120,6 +120,8 @@ export class HuspeeClient {
       start: (input: { shop_id: number; sdp_offer: string; lang?: string; resume_conversation_id?: string; item_id?: number }) => this.http.request<{ conversation_id: string; sdp_answer: string }>('POST', '/api/v1/assistant/voice/sessions', { body: input }),
       text: (conversationId: string, text: string) => this.http.request<{ ok: true }>('POST', `/api/v1/assistant/voice/sessions/${encodeURIComponent(conversationId)}/text`, { body: { text } }),
       stop: (conversationId: string) => this.http.request<{ ok: true }>('POST', `/api/v1/assistant/voice/sessions/${encodeURIComponent(conversationId)}/stop`),
+      startCall: (conversationId: string, sdpOffer: string) => this.http.request<{ conversation_id: string; sdp_answer: string; call_id: string }>('POST', `/api/v1/assistant/voice/sessions/${encodeURIComponent(conversationId)}/call`, { body: { sdp_offer: sdpOffer } }),
+      stopCall: (conversationId: string, callId?: string) => this.http.request<{ ok: true }>('POST', `/api/v1/assistant/voice/sessions/${encodeURIComponent(conversationId)}/call/stop`, { body: { call_id: callId } }),
       setContext: (conversationId: string, itemId: number | null) => this.http.request<{ item_id: number | null }>('PATCH', `/api/v1/assistant/voice/sessions/${encodeURIComponent(conversationId)}/context`, { body: { item_id: itemId } }),
       eventsUrl: (conversationId: string) => this.http.url(`/api/v1/assistant/voice/sessions/${encodeURIComponent(conversationId)}/events`),
       poll: (conversationId: string, after = 0) => this.http.request<{ events: Record<string, unknown>[]; cursor: number; closed: boolean }>('GET', `/api/v1/assistant/voice/sessions/${encodeURIComponent(conversationId)}/poll`, { query: { after } }),

@@ -77,10 +77,12 @@ Buyer (role BUYER):
 |---|---|
 | `GET /assistant/shops/:shopId/profile` (public) | `{ shop_id, shop_name, enabled, voice, greeting: {vi, en} }` |
 | `GET /assistant/voices` (public) | `{ voices: string[] }` (from the runtime; static fallback) |
-| `POST /assistant/text/sessions` | `{ shop_id, lang?, resume_conversation_id? }` → `{ conversation_id }`; text-only thread, reusing the voice session events/text/stop paths |
+| `POST /assistant/text/sessions` | `{ shop_id, lang?, resume_conversation_id? }` → `{ conversation_id }`; shared chat thread, reusing the voice session events/text/stop paths |
 | `GET /assistant/shops/:shopId/conversations` | The buyer's own conversations with the shop (latest 30): `conversation_id, channel, status, started_at, ended_at, preview, message_count` |
 | `GET /assistant/conversations/:conversationId` | The buyer's own conversation: `messages` and `cards` rebuilt from stored tool results |
 | `POST /assistant/voice/sessions` | `{ shop_id, sdp_offer, lang?, resume_conversation_id? }` → `{ conversation_id, sdp_answer }`. A resumed session is a new conversation whose prompt carries the last 20 messages of the earlier one as context only |
+| `POST /assistant/voice/sessions/:conversationId/call` | `{ sdp_offer }` → `{ conversation_id, sdp_answer, call_id }`; attach voice to the existing chat/thread |
+| `POST /assistant/voice/sessions/:conversationId/call/stop` | `{ call_id? }` → `{ ok: true }`; stop only audio, retain text chat and call transcripts |
 | `GET /assistant/voice/sessions/:conversationId/events` | Server-sent events, section 4 |
 | `POST /assistant/voice/sessions/:conversationId/text` | `{ text }` typed input into the live session → `{ ok: true }` |
 | `POST /assistant/voice/sessions/:conversationId/stop` | → `{ ok: true }`; marks the conversation ENDED |
