@@ -10,6 +10,7 @@ import { Public, SessionGuard } from '../auth/session.guard';
 import { maskName } from '../compat/ops/product.ops';
 import {
   CatalogService,
+  describeAttributes,
   itemInclude,
   ItemWithRelations,
   mediaUrl,
@@ -240,7 +241,7 @@ export class MarketplaceController {
         category: { category_id: item.category.id, display_name: item.category.displayName },
         brand: item.brand ? { brand_id: item.brand.id, name: item.brand.name } : null,
         images: item.images.map((i) => mediaUrl(i.url)),
-        attributes: this.presentAttributes(item, attrs),
+        attributes: describeAttributes(item, attrs),
         price_min: range.min,
         price_max: range.max,
         original_price_min: range.minOriginal,
@@ -327,27 +328,6 @@ export class MarketplaceController {
     };
   }
 
-  private presentAttributes(item: ItemWithRelations, defs: Array<{ id: number; displayName: string; values: Prisma.JsonValue }>) {
-    const list = (Array.isArray(item.attributes) ? item.attributes : []) as Array<{
-      attribute_id: number;
-      attribute_value_list?: Array<{ value_id: number; original_value_name?: string; value_unit?: string }>;
-    }>;
-    return list
-      .map((a) => {
-        const def = defs.find((d) => d.id === a.attribute_id);
-        if (!def) return null;
-        const values = (def.values ?? []) as Array<{ value_id: number; name: string; display_name?: string }>;
-        const text = (a.attribute_value_list ?? [])
-          .map((v) => {
-            const known = values.find((x) => x.value_id === v.value_id);
-            return (known?.display_name ?? known?.name ?? v.original_value_name ?? '') + (v.value_unit ? ` ${v.value_unit}` : '');
-          })
-          .filter(Boolean)
-          .join(', ');
-        return { name: def.displayName, value: text };
-      })
-      .filter((x): x is { name: string; value: string } => !!x && !!x.value);
-  }
 
   private async descendants(categoryId: number): Promise<number[]> {
     const all = await this.prisma.category.findMany({ select: { id: true, parentId: true } });

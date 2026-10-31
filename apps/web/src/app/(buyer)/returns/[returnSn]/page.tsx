@@ -5,18 +5,44 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useParams } from 'next/navigation';
 import type { BuyerReturn } from '@huspee/sdk';
-import { RequireRole } from '@/components/session';
-import { Button, QueryState, useToast } from '@/components/ui';
-import { useLang, useT } from '@/i18n';
-import { common } from '@/i18n/common';
-import { getApiClient } from '@/lib/api';
-import { formatDateTime, formatVnd } from '@/lib/format';
-import { useApi } from '@/lib/use-api';
+import { EvidenceImage } from '@huspee/web-ui/components/refunds/EvidenceImage';
+import { buyerEvidenceContent } from '@huspee/web-ui/components/refunds/EvidencePicker';
+import { messages as evidenceMessages } from '@huspee/web-ui/components/refunds/messages';
+import { RequireRole } from '@huspee/web-ui/components/session';
+import { Button, QueryState, useToast } from '@huspee/web-ui/components/ui';
+import { useLang, useT } from '@huspee/web-ui/i18n';
+import { common } from '@huspee/web-ui/i18n/common';
+import { getApiClient } from '@huspee/web-ui/lib/api';
+import { formatDateTime, formatVnd } from '@huspee/web-ui/lib/format';
+import { useApi } from '@huspee/web-ui/lib/use-api';
 import { messages } from '../../_orders/messages';
 import { formatReturnReason, getErrorMessage, panel, ReturnStatusBadge } from '../../_orders/shared';
+import { returnDetailMessages } from './messages';
+
+type DetailKey = keyof typeof returnDetailMessages.vi;
+
+/** The buyer's next step, from the return status. */
+function todoKey(r: BuyerReturn): DetailKey {
+  if (r.refund_paid) return 'todoRefunded';
+  switch (r.status) {
+    case 'REQUESTED':
+      return r.seller_offer ? 'todoOffer' : 'todoReview';
+    case 'JUDGING':
+    case 'SELLER_DISPUTE':
+      return 'todoDispute';
+    case 'CANCELLED':
+      return 'todoCancelled';
+    case 'CLOSED':
+      return 'todoClosed';
+    default:
+      return 'todoProcessing';
+  }
+}
 
 function ReturnDetailView() {
   const t = useT(messages);
+  const td = useT(returnDetailMessages);
+  const te = useT(evidenceMessages);
   const tCommon = useT(common);
   const { lang } = useLang();
   const toast = useToast();
@@ -46,7 +72,7 @@ function ReturnDetailView() {
   };
 
   const handleCancelReturn = async () => {
-    if (!window.confirm(t('confirm'))) return;
+    if (!window.confirm(t('cancelReturnConfirm'))) return;
     setActing(true);
     try {
       await getApiClient().buyer.returns.cancel(returnSn);
@@ -83,6 +109,16 @@ function ReturnDetailView() {
         </div>
       </div>
 
+      <section className="rounded-2xl border border-line border-t-[3px] border-t-primary bg-white p-4 shadow-card">
+        <h2 className="mb-1 text-base font-medium text-ink">{td('todoTitle')}</h2>
+        <p className="text-sm text-ink">
+          {td(todoKey(returnData), {
+            shop: returnData.shop_name,
+            amount: formatVnd(returnData.refund_amount),
+          })}
+        </p>
+      </section>
+
       {/* Seller Offer Banner if present and return is still active */}
       {returnData.seller_offer && returnData.status === 'REQUESTED' && (
         <div className="rounded-2xl border border-orange-200 bg-orange-50 p-4">
@@ -116,6 +152,15 @@ function ReturnDetailView() {
             </Link>
           </div>
           <div>
+            <span className="text-gray-500">{td('shop')}: </span>
+            <Link
+              href={`/shops/${returnData.shop_id}`}
+              className="font-medium text-gray-900 hover:text-primary"
+            >
+              {returnData.shop_name}
+            </Link>
+          </div>
+          <div>
             <span className="text-gray-500">{t('solution')}: </span>
             <span className="font-medium text-gray-900">
               {returnData.solution === 'RETURN_REFUND' ? t('solutionReturnRefund') : t('solutionRefundOnly')}
@@ -129,10 +174,11 @@ function ReturnDetailView() {
             <span className="text-gray-500">{t('refundAmount')}: </span>
             <span className="text-base font-bold text-primary">{formatVnd(returnData.refund_amount)}</span>
             <span className="ml-2 text-xs text-gray-500">
-              ({returnData.refund_paid ? t('refundPaid') : t('refundPending')})
+              {td('simulated')} · {returnData.refund_paid ? t('refundPaid') : t('refundPending')}
             </span>
           </div>
         </div>
+
 
         {returnData.text_reason && (
           <div className="mt-4 border-t pt-3">
@@ -141,6 +187,22 @@ function ReturnDetailView() {
           </div>
         )}
       </div>
+
+      <section className={panel} aria-label={te('title')}>
+        <h3 className="mb-2 text-base font-semibold">{te('title')}</h3>
+        <p className="mb-3 text-xs text-gray-600">{te('review')}</p>
+        <div className="flex flex-wrap gap-3">
+          {(returnData.evidence ?? []).map((photo, index) => (
+            <EvidenceImage
+              key={photo.evidence_id}
+              evidenceId={photo.evidence_id}
+              number={index + 1}
+              fetchContent={buyerEvidenceContent}
+            />
+          ))}
+        </div>
+        {!returnData.evidence?.length && <p className="text-sm text-gray-500">{te('noPhotos')}</p>}
+      </section>
 
       {/* Reverse Tracking Timeline if available */}
       {(returnData.reverse_tracking_number || returnData.reverse_tracking.length > 0) && (

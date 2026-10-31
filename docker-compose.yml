@@ -30,6 +30,8 @@ services:
       PORT: "3000"
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:3000}
       WEB_APP_URL: ${WEB_APP_URL:-http://localhost:3001}
+      SELLER_APP_URL: ${SELLER_APP_URL:-http://localhost:3002}
+      BROWSER_PROXY_ENABLED: "true"
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       HUSPEE_PARTNER_ID: ${HUSPEE_PARTNER_ID:-2001001}
       HUSPEE_PARTNER_KEY: ${HUSPEE_PARTNER_KEY:-dev-partner-key-change-me-0123456789abcdef}
@@ -51,8 +53,6 @@ services:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
-      args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3000}
     depends_on:
       api:
         condition: service_healthy
@@ -61,6 +61,27 @@ services:
     environment:
       PORT: "3001"
       NODE_ENV: production
+      API_INTERNAL_URL: http://api:3000
+      API_PUBLIC_URL: ${PUBLIC_BASE_URL:-http://localhost:3000}
+      WEB_APP_URL: ${WEB_APP_URL:-http://localhost:3001}
+      SELLER_APP_URL: ${SELLER_APP_URL:-http://localhost:3002}
+
+  seller-web:
+    build:
+      context: .
+      dockerfile: apps/seller-web/Dockerfile
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "3002:3002"
+    environment:
+      PORT: "3002"
+      NODE_ENV: production
+      API_INTERNAL_URL: http://api:3000
+      API_PUBLIC_URL: ${PUBLIC_BASE_URL:-http://localhost:3000}
+      WEB_APP_URL: ${WEB_APP_URL:-http://localhost:3001}
+      SELLER_APP_URL: ${SELLER_APP_URL:-http://localhost:3002}
 
 volumes:
   pgdata:

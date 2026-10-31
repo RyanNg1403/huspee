@@ -5,12 +5,45 @@ import readline from 'node:readline';
 if (process.argv.includes('--version')) { console.log('codex-cli 0.166.0'); process.exit(0); }
 const send = value => process.stdout.write(JSON.stringify(value) + '\n');
 let thread = 0;
+const memories = new Map();
+const calls = new Map();
+const toolReplies = new Map();
+let toolId = 11000;
 let loginTimer;
 readline.createInterface({ input: process.stdin }).on('line', line => {
   const message = JSON.parse(line);
+  if (message.id != null && !message.method) {
+    const reply = toolReplies.get(message.id);
+    toolReplies.delete(message.id);
+    reply?.();
+    return;
+  }
   if (message.id == null || !message.method) return;
   const { method, params, id } = message;
-  if (method === 'thread/start') send({ id, result: { thread: { id: `thread-${++thread}` } } });
+  if (method === 'thread/start') {
+    const threadId = `thread-${++thread}`;
+    memories.set(threadId, []);
+    send({ id, result: { thread: { id: threadId } } });
+  }
+  else if (method === 'thread/inject_items') {
+    memories.get(params.threadId)?.push(...params.items.flatMap((item) => item.content?.map((part) => part.text) ?? []));
+    send({ id, result: {} });
+  }
+  else if (method === 'thread/realtime/stop') {
+    clearTimeout(calls.get(params.threadId));
+    calls.delete(params.threadId);
+    send({ id, result: {} });
+    send({ method: 'thread/realtime/closed', params: { threadId: params.threadId, reason: 'stopped' } });
+  }
+  else if (method === 'turn/start' && params.input?.[0]?.text === 'CONTINUITY_RECALL') {
+    send({ id, result: { turn: { id: 'recall-turn' } } });
+    const history = (memories.get(params.threadId) ?? []).join(' ');
+    const text = ['La Roche', 'Cocoon'].filter((name) => history.includes(name)).join(' and ');
+    setTimeout(() => {
+      send({ method: 'item/completed', params: { threadId: params.threadId, item: { type: 'agentMessage', id: 'recall-message', text } } });
+      send({ method: 'turn/completed', params: { threadId: params.threadId, turn: { id: 'recall-turn', status: 'completed' } } });
+    }, 10);
+  }
   else if (method === 'turn/start' && params.input?.[0]?.text?.startsWith('Summarize this single conversation')) {
     send({ id, result: { turn: { id: 'summary-turn' } } });
     const text = params.input[0].text.includes('FAKE_SUMMARY_ERROR') ? 'invalid JSON' : JSON.stringify({ topics: ['product'], hesitations: [], listing_suggestions: [{ text: 'Clarify details' }], language: 'en' });
@@ -23,24 +56,49 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
       send({ method: 'turn/completed', params: { threadId: params.threadId, turn: { id: 'note-turn', status: 'completed' } } });
     }, 10);
   }
+  else if (method === 'turn/start' && params.input?.[0]?.text === 'FAKE_EXIT') { process.exit(1); }
+  else if (method === 'turn/start' && params.input?.[0]?.text === 'FAKE_ERROR') {
+    send({ id, result: {} });
+    send({ method: 'thread/realtime/error', params: { threadId: params.threadId, message: 'fake error' } });
+  }
   else if (method === 'turn/start') {
+    memories.get(params.threadId)?.push(params.input?.[0]?.text ?? '');
     send({ id, result: { turn: { id: 'turn-1' } } });
     setTimeout(() => {
-      send({ id: 10002, method: 'item/tool/call', params: { threadId: params.threadId, tool: 'search_products', arguments: { query: 'tai nghe' } } });
-      send({ method: 'item/agentMessage/delta', params: { threadId: params.threadId, itemId: 'text-1', delta: 'Verified' } });
-      send({ method: 'item/completed', params: { threadId: params.threadId, item: { type: 'agentMessage', id: 'text-1', text: 'Verified product' } } });
-      setTimeout(() => {
-        send({ method: 'item/completed', params: { threadId: params.threadId, item: { type: 'agentMessage', id: 'text-2', text: 'Final answer' } } });
-        send({ method: 'turn/completed', params: { threadId: params.threadId, turn: { id: 'turn-1', status: 'completed' } } });
-      }, 30);
+      const callId = ++toolId;
+      toolReplies.set(callId, () => {
+        send({ method: 'item/agentMessage/delta', params: { threadId: params.threadId, itemId: 'text-1', delta: 'Verified' } });
+        send({ method: 'item/completed', params: { threadId: params.threadId, item: { type: 'agentMessage', id: 'text-1', text: 'Verified product' } } });
+        setTimeout(() => {
+          send({ method: 'item/completed', params: { threadId: params.threadId, item: { type: 'agentMessage', id: 'text-2', text: 'Final answer' } } });
+          send({ method: 'turn/completed', params: { threadId: params.threadId, turn: { id: 'turn-1', status: 'completed' } } });
+        }, 30);
+      });
+      send({ id: callId, method: 'item/tool/call', params: { threadId: params.threadId, tool: params.input?.[0]?.text === 'VIEWED_PRODUCT_TEST' ? 'get_viewed_product' : 'search_products', arguments: params.input?.[0]?.text === 'VIEWED_PRODUCT_TEST' ? {} : { query: 'tai nghe' } } });
     }, 20);
   }
   else if (method === 'thread/realtime/start') {
+    if (params.transport?.sdp === 'failed-offer') return send({ id, error: { message: 'Fake failed call' } });
+    if (params.transport?.sdp === 'delayed-offer') {
+      send({ id, result: {} });
+      calls.set(params.threadId, setTimeout(() => send({ method: 'thread/realtime/sdp', params: { threadId: params.threadId, sdp: 'fake-answer' } }), 200));
+      return;
+    }
+    if (params.transport?.sdp === 'continuity-offer') {
+      send({ id, result: {} });
+      send({ method: 'thread/realtime/sdp', params: { threadId: params.threadId, sdp: 'fake-answer' } });
+      calls.set(params.threadId, setTimeout(() => {
+        send({ method: 'thread/realtime/transcript/done', params: { threadId: params.threadId, role: 'user', text: 'Tell me about Cocoon.' } });
+        send({ method: 'thread/realtime/transcript/done', params: { threadId: params.threadId, role: 'assistant', text: 'Let me check.' } });
+      }, 10));
+      return;
+    }
     send({ id, result: {} });
     send({ method: 'thread/realtime/sdp', params: { threadId: params.threadId, sdp: 'fake-answer' } });
     setTimeout(() => {
       const marker = /SPEECH_(\w+)/.exec(params.prompt || '')?.[1];
-      send({ method: 'thread/realtime/transcript/done', params: { threadId: params.threadId, role: 'user', text: marker ? 'Tai nghe giá bao nhiêu?' : 'Find a product' } });
+      if (marker !== 'EARLY') send({ method: 'thread/realtime/transcript/done', params: { threadId: params.threadId, role: 'user', text: marker ? 'Tai nghe giá bao nhiêu?' : 'Find a product' } });
+      if (['OK', 'BLOCKED', 'FAILED', 'EMPTY'].includes(marker)) send({ method: 'turn/started', params: { threadId: params.threadId, turn: { id: 'v-turn' } } });
       send({ id: 10001, method: 'item/tool/call', params: { threadId: params.threadId, tool: 'search_products', arguments: { query: 'tai nghe' } } });
       // Delegated thread turn: with clientManagedHandoffs the backend decides what is spoken.
       if (!marker) return;
@@ -69,6 +127,7 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
           send({ method: 'turn/started', params: { threadId: params.threadId, turn: { id: 'v-turn' } } });
           own('Dạ, để mình xem nhé.');
         }
+        if (marker === 'FAILED' || marker === 'EMPTY') return send({ method: 'turn/completed', params: { threadId: params.threadId, turn: { id: 'v-turn', status: marker === 'FAILED' ? 'failed' : 'completed' } } });
         const text = marker === 'BLOCKED' ? 'Giá 999.000đ' : 'Giá 790.000đ';
         send({ method: 'item/completed', params: { threadId: params.threadId, item: { type: 'agentMessage', id: 'v-1', text } } });
         send({ method: 'turn/completed', params: { threadId: params.threadId, turn: { id: 'v-turn', status: 'completed' } } });
@@ -109,5 +168,6 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     unlinkSync(join(process.env.CODEX_HOME, 'auth.json'));
     send({ id, result: {} });
   } else if (method === 'thread/realtime/listVoices') send({ id, result: { voices: { v3: ['spruce'] } } });
-  else send({ id, result: {} });
+  else if (['initialize', 'thread/unsubscribe', 'turn/interrupt', 'thread/realtime/appendText'].includes(method)) send({ id, result: {} });
+  else send({ id, error: { code: -32601, message: 'Unknown method' } });
 });

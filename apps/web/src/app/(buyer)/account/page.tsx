@@ -2,8 +2,8 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { RequireRole } from '@/components/session';
-import { Spinner } from '@/components/ui';
+import { RequireRole } from '@huspee/web-ui/components/session';
+import { Spinner } from '@huspee/web-ui/components/ui';
 
 function AccountRedirect() {
   const router = useRouter();

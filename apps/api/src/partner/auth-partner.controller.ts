@@ -4,7 +4,8 @@ import { User } from '@prisma/client';
 import { verifyPassword, sha256Hex } from '../common/crypto';
 import { DomainError } from '../common/errors';
 import { PrismaService } from '../common/prisma.service';
-import { SESSION_COOKIE, SessionService } from '../auth/session.service';
+import { SessionService } from '../auth/session.service';
+import { sessionCookie, type SessionSurface } from '../auth/session-surface';
 import { ShopeeError } from '../compat/compat.types';
 import { OAuthService } from './oauth.service';
 import { PartnerService } from './partner.service';
@@ -55,12 +56,13 @@ export class AuthPartnerController {
       res.status(400).type('html').send(page('Authorization failed', '<p class="err">This authorization link has expired. Please start again.</p>'));
       return;
     }
-    const user = await this.sessions.resolve(req);
+    const session = await this.sessions.resolvePartner(req);
+    const user = session?.user;
     if (!user || !user.roles.includes('SELLER')) {
       res.type('html').send(loginPage(request.id, request.partner.name, user ? 'Please sign in with a seller account.' : undefined));
       return;
     }
-    res.type('html').send(await this.consentPage(user, request.id, request.partner.name, request.redirectUri, csrfFor(req, request.id)));
+    res.type('html').send(await this.consentPage(user, request.id, request.partner.name, request.redirectUri, csrfFor(req, request.id, session!.surface)));
   }
 
   @Post('auth_partner/login')
@@ -76,19 +78,20 @@ export class AuthPartnerController {
       res.status(401).type('html').send(loginPage(request.id, request.partner.name, 'Invalid seller email or password.'));
       return;
     }
-    await this.sessions.create(user.id, res);
+    await this.sessions.create(user.id, res, 'seller');
     res.redirect(303, `/api/v2/shop/auth_partner/consent?request_id=${encodeURIComponent(request.id)}`);
   }
 
   @Post('auth_partner/approve')
   async approve(@Body() body: Record<string, string>, @Req() req: Request, @Res() res: Response) {
     const requestId = String(body.request_id ?? '');
-    const user = await this.sessions.resolve(req);
+    const session = await this.sessions.resolvePartner(req);
+    const user = session?.user;
     if (!user) {
       res.status(401).type('html').send(page('Authorization failed', '<p class="err">Please sign in again.</p>'));
       return;
     }
-    if (!body.csrf || body.csrf !== csrfFor(req, requestId)) {
+    if (!body.csrf || body.csrf !== csrfFor(req, requestId, session!.surface)) {
       res.status(403).type('html').send(page('Authorization failed', '<p class="err">Invalid form token.</p>'));
       return;
     }
@@ -143,8 +146,8 @@ export class AuthPartnerController {
 }
 
 /** Form token bound to the browser session and the consent request. */
-function csrfFor(req: Request, requestId: string): string {
-  const sid = req.cookies?.[SESSION_COOKIE];
+function csrfFor(req: Request, requestId: string, surface: SessionSurface): string {
+  const sid = req.cookies?.[sessionCookie(surface)];
   return sha256Hex(`consent:${typeof sid === 'string' ? sid : ''}:${requestId}`);
 }
 

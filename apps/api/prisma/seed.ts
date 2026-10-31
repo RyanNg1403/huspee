@@ -2,8 +2,7 @@ import { defaultAssistantConfig } from '../src/assistant/assistant-defaults';
 /* Deterministic demo seed. Truncates all tables, then recreates the fixed dataset. */
 import { Prisma, PrismaClient } from '@prisma/client';
 import { scryptSync } from 'node:crypto';
-import { existsSync, readFileSync } from 'node:fs';
-import path from 'node:path';
+import { catalogItemData, productMedia, shopAvatar } from './catalog-assets';
 import {
   ATTRIBUTES,
   BRANDS,
@@ -29,43 +28,6 @@ function hashPassword(password: string, email: string): string {
   const salt = Buffer.from(email.padEnd(16, '#').slice(0, 16));
   const key = scryptSync(password, salt, 64);
   return `scrypt$${salt.toString('base64')}$${key.toString('base64')}`;
-}
-
-function svgImage(title: string, subtitle: string, color: string, variant: number): Buffer {
-  const safe = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
-  const angle = variant * 35;
-  return Buffer.from(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600" viewBox="0 0 600 600">` +
-      `<defs><linearGradient id="g" gradientTransform="rotate(${angle})"><stop offset="0" stop-color="${color}"/><stop offset="1" stop-color="#ffffff"/></linearGradient></defs>` +
-      `<rect width="600" height="600" fill="url(#g)"/>` +
-      `<circle cx="300" cy="250" r="${120 - variant * 15}" fill="#ffffff" fill-opacity="0.35"/>` +
-      `<text x="300" y="270" font-family="Arial, sans-serif" font-size="44" font-weight="700" fill="#222" text-anchor="middle">${safe(title)}</text>` +
-      `<text x="300" y="520" font-family="Arial, sans-serif" font-size="26" fill="#333" text-anchor="middle">${safe(subtitle)}</text>` +
-      `</svg>`,
-    'utf8',
-  );
-}
-
-/** Openly licensed product photos (sources and licenses in seed-images/credits.json); one or two per item. */
-const SEED_IMAGE_DIR = path.join(__dirname, 'seed-images');
-function productPhotos(itemId: number): Buffer[] {
-  return [0, 1]
-    .map((n) => path.join(SEED_IMAGE_DIR, `${itemId}-${n}.jpg`))
-    .filter((file) => existsSync(file))
-    .map((file) => readFileSync(file));
-}
-
-function logoSvg(name: string, color: string): Buffer {
-  const words = name.split(/\s+/);
-  const capitals = words[0]!.replace(/[^A-Z]/g, '');
-  const initials = capitals.length >= 2 ? capitals.slice(0, 2) : words.slice(0, 2).map((word) => word[0]!.toUpperCase()).join('');
-  return Buffer.from(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="0 0 240 240">` +
-      `<rect width="240" height="240" rx="120" fill="${color}"/>` +
-      `<text x="120" y="150" font-family="Helvetica, Arial, sans-serif" font-size="92" font-weight="700" fill="#fff" text-anchor="middle">${initials}</text>` +
-      `</svg>`,
-    'utf8',
-  );
 }
 
 async function truncateAll() {
@@ -128,7 +90,8 @@ async function main() {
   await prisma.buyerAddress.createMany({ data: BUYER_ADDRESSES.map((a) => ({ ...a, createdAt: SEED_BASE_TIME })) });
 
   for (const s of SHOPS) {
-    const logoId = `seed-shoplogo-${s.id}`;
+    const avatar = shopAvatar(s.id);
+    const logoId = avatar.imageId;
     await prisma.shop.create({
       data: {
         id: s.id,
@@ -156,60 +119,14 @@ async function main() {
       { shopId: s.id, question: 'What is the return policy?', answer: s.policy.returnPolicy, lang: 'en' },
     ] });
     await prisma.mediaImage.create({
-      data: { imageId: logoId, shopId: s.id, mimeType: 'image/svg+xml', data: new Uint8Array(logoSvg(s.name, s.color)), createdAt: SEED_BASE_TIME },
+      data: avatar,
     });
   }
 
   const collections = new Map<string, number>();
   for (const [idx, item] of ITEMS.entries()) {
-    const shop = SHOPS.find((s) => s.id === item.shopId)!;
-    const photos = productPhotos(item.id);
-    const imageIds = (photos.length ? photos : [undefined]).map((_, n) => `seed-photo-${item.id}-${n}`);
-    for (const [n, imageId] of imageIds.entries()) {
-      await prisma.mediaImage.create({
-        data: {
-          imageId,
-          shopId: item.shopId,
-          mimeType: photos[n] ? 'image/jpeg' : 'image/svg+xml',
-          data: new Uint8Array(photos[n] ?? svgImage(item.short, shop.name, shop.color, n + 1)),
-          createdAt: SEED_BASE_TIME,
-        },
-      });
-    }
-    const hasModel = !!item.tiers;
-    await prisma.item.create({
-      data: {
-        id: item.id,
-        shopId: item.shopId,
-        categoryId: item.categoryId,
-        brandId: item.brandId,
-        name: item.name,
-        description: item.description,
-        itemSku: item.sku,
-        weightKg: new Prisma.Decimal(item.weightKg),
-        attributes: item.attributes as Prisma.InputJsonValue,
-        logistics: LOGISTICS_CHANNELS.map((c) => ({ logistic_id: c.id, enabled: item.weightKg <= 2 || c.id !== 50066, is_free: false })),
-        tierVariation: (item.tiers ?? []).map((t) => ({ name: t.name, option_list: t.options.map((option) => ({ option })) })),
-        hasModel,
-        sales: item.sales,
-        views: item.views,
-        likes: item.likes,
-        createdAt: at(-30 + idx),
-        updatedAt: at(-30 + idx),
-        images: { create: imageIds.map((imageId, sortOrder) => ({ imageId, url: `/media/${imageId}`, sortOrder })) },
-        models: {
-          create: item.models.map((m) => ({
-            id: m.id,
-            isDefault: !hasModel,
-            tierIndex: m.tierIndex,
-            sku: m.sku,
-            originalPrice: new Prisma.Decimal(m.price),
-            stock: m.stock,
-            createdAt: at(-30 + idx),
-          })),
-        },
-      },
-    });
+    for (const media of productMedia(item.id)) await prisma.mediaImage.create({ data: media });
+    await prisma.item.create({ data: catalogItemData(item, idx) });
     for (const name of item.collections ?? []) {
       const key = `${item.shopId}:${name}`;
       if (!collections.has(key)) {
@@ -307,7 +224,7 @@ async function main() {
             modelName: tierNames,
             itemSku: item.sku,
             modelSku: model.sku,
-            imageUrl: `${process.env.PUBLIC_BASE_URL ?? 'http://localhost:3000'}/media/seed-photo-${item.id}-0`,
+            imageUrl: `/media/${productMedia(item.id)[0]!.imageId}`,
             quantity: h.quantity,
             originalPrice: new Prisma.Decimal(model.price),
             discountedPrice: new Prisma.Decimal(unit),
@@ -354,7 +271,7 @@ async function main() {
   // Leave a gap so newly created shops/items get visibly different IDs from fixtures.
   await prisma.$executeRawUnsafe(`SELECT setval(pg_get_serial_sequence('"shops"', 'id'), 881000)`);
   await prisma.$executeRawUnsafe(`SELECT setval(pg_get_serial_sequence('"items"', 'id'), 2100000)`);
-  await prisma.$executeRawUnsafe(`SELECT setval(pg_get_serial_sequence('"models"', 'id'), 3100000)`);
+  await prisma.$executeRawUnsafe(`SELECT setval(pg_get_serial_sequence('"models"', 'id'), GREATEST((SELECT MAX(id) FROM models), 3100000))`);
   await prisma.$executeRawUnsafe(`SELECT setval(pg_get_serial_sequence('"users"', 'id'), 1000)`);
 
   console.log(

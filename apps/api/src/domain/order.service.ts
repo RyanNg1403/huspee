@@ -1,3 +1,4 @@
+import { returnRequestBlock } from './return-eligibility';
 import { Injectable } from '@nestjs/common';
 import { LogisticsStatus, Order, OrderStatus, Prisma } from '@prisma/client';
 import { createHash, randomBytes } from 'node:crypto';
@@ -5,10 +6,11 @@ import { DomainError, invalidState, notFound, validation } from '../common/error
 import { CURRENCY, dec, toNumber } from '../common/money';
 import { PrismaService, Tx } from '../common/prisma.service';
 import { addDays, unix } from '../common/time';
-import { mediaUrl, modelName, resolveModelPrice } from './catalog.service';
+import { mediaUrl, modelImage, modelName, resolveModelPrice } from './catalog.service';
 import { LogisticsService, ShippingOption } from './logistics.service';
 import { PushService } from './push.service';
 import { VoucherService } from './voucher.service';
+import { purchaseIssue } from './purchase-availability';
 
 export const PAYMENT_METHODS = ['COD', 'SHOPEEPAY_SIM', 'CARD_SIM', 'BANK_TRANSFER_SIM'] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
@@ -28,7 +30,7 @@ const TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   SHIPPED: ['TO_CONFIRM_RECEIVE', 'CANCELLED'],
   TO_CONFIRM_RECEIVE: ['COMPLETED', 'TO_RETURN'],
   COMPLETED: ['TO_RETURN'],
-  TO_RETURN: ['COMPLETED'],
+  TO_RETURN: ['COMPLETED', 'TO_CONFIRM_RECEIVE'],
   IN_CANCEL: ['CANCELLED', 'READY_TO_SHIP'],
   CANCELLED: [],
 };
@@ -123,12 +125,14 @@ export function assistantQuoteSnapshot(quote: Quote, address: { id: number; name
 }
 
 export const orderInclude = {
+  returns: { select: { status: true, items: true } },
   items: { orderBy: { id: 'asc' } },
   package: { include: { events: { orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] } } },
   shop: { select: { id: true, name: true } },
   buyer: { select: { id: true, name: true } },
 } satisfies Prisma.OrderInclude;
-export type OrderWithRelations = Prisma.OrderGetPayload<{ include: typeof orderInclude }>;
+type LoadedOrder = Prisma.OrderGetPayload<{ include: typeof orderInclude }>;
+export type OrderWithRelations = Omit<LoadedOrder, 'returns'> & { returns?: LoadedOrder['returns'] };
 
 @Injectable()
 export class OrderService {
@@ -172,12 +176,7 @@ export class OrderService {
       const item = model.item;
       const shop = item.shop;
       const price = resolveModelPrice(model);
-      let issue: string | undefined;
-      if (item.status !== 'NORMAL' || shop.status !== 'NORMAL') issue = 'Product is no longer available';
-      else if (shop.holidayMode) issue = 'Shop is on holiday';
-      else if (item.hasModel === model.isDefault || model.status !== 'MODEL_NORMAL') issue = 'Variation is unavailable';
-      else if (ownShops.has(shop.id)) issue = 'You cannot buy from your own shop';
-      else if (model.stock < req.quantity) issue = model.stock === 0 ? 'Out of stock' : `Only ${model.stock} left in stock`;
+      const issue = purchaseIssue(item, model, shop, req.quantity, ownShops.has(shop.id));
 
       let group = groups.get(shop.id);
       if (!group) {
@@ -207,7 +206,7 @@ export class OrderService {
         model_id: model.id,
         item_name: item.name,
         model_name: modelName(item, model.tierIndex),
-        image_url: item.images[0] ? mediaUrl(item.images[0].url) : null,
+        image_url: modelImage(item, model.tierIndex),
         quantity: req.quantity,
         stock: model.stock,
         original_price: price.originalPrice,
@@ -599,9 +598,11 @@ export class OrderService {
   // ---------------------------------------------------------------------------
 
   /** Project-defined buyer view (custom API). */
-  presentForBuyer(order: OrderWithRelations, returnWindowDays = 7) {
-    const deliveredAt = order.package?.deliveredAt ?? null;
+  /** `viaAssistant`: the assistant conversation whose confirmed quote placed this order, if any. */
+  presentForBuyer(order: OrderWithRelations, returnWindowDays = 7, viaAssistant: { conversationId: string; at: Date } | null = null) {
+    const deliveredAt = order.package?.deliveredAt ?? order.completedAt;
     const returnDue = deliveredAt ? addDays(deliveredAt, returnWindowDays) : null;
+    const latest = order.package?.events.at(-1);
     return {
       order_sn: order.orderSn,
       checkout_id: order.checkoutId,
@@ -615,7 +616,7 @@ export class OrderService {
         model_id: i.modelId,
         item_name: i.itemName,
         model_name: i.modelName,
-        image_url: i.imageUrl,
+        image_url: i.imageUrl ? mediaUrl(i.imageUrl) : null,
         quantity: i.quantity,
         original_price: toNumber(i.originalPrice),
         unit_price: toNumber(i.discountedPrice),
@@ -637,18 +638,21 @@ export class OrderService {
         tracking_number: order.package?.trackingNumber ?? null,
         logistics_status: order.package?.logisticsStatus ?? null,
       },
+      latest_tracking: latest ? { description: latest.description, logistics_status: latest.logisticsStatus, time: unix(latest.createdAt) } : null,
+      placed_via_assistant: viaAssistant ? { conversation_id: viaAssistant.conversationId, placed_at: unix(viaAssistant.at) } : null,
       cancel_by: order.cancelBy,
       cancel_reason: order.cancelReason,
       create_time: unix(order.createdAt),
       update_time: unix(order.updatedAt),
       pay_time: order.payTime ? unix(order.payTime) : null,
       ship_by_date: unix(order.shipByDate),
+      shipped_time: order.package?.shippedAt ? unix(order.package.shippedAt) : null,
       delivered_time: deliveredAt ? unix(deliveredAt) : null,
       actions: {
         can_cancel: canTransition(order.status, 'CANCELLED') && ['UNPAID', 'READY_TO_SHIP'].includes(order.status),
         can_confirm_receipt: order.status === 'TO_CONFIRM_RECEIVE',
         can_request_return:
-          (order.status === 'TO_CONFIRM_RECEIVE' || order.status === 'COMPLETED') && !!returnDue && returnDue > new Date(),
+          !returnRequestBlock({ status: order.status, deliveredAt: order.package?.deliveredAt ?? null, completedAt: order.completedAt, windowDays: returnWindowDays, items: order.items, returns: order.returns ?? [] }),
         return_request_due_date: returnDue ? unix(returnDue) : null,
       },
     };
@@ -721,7 +725,7 @@ export class OrderService {
       promotion_id: i.promotionId ?? 0,
       order_item_id: i.id,
       promotion_group_id: 0,
-      image_info: { image_url: i.imageUrl ?? '' },
+      image_info: { image_url: i.imageUrl ? mediaUrl(i.imageUrl) : '' },
       product_location_id: '',
       is_prescription_item: false,
       is_b2c_owned_item: false,

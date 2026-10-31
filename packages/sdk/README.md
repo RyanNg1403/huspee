@@ -58,7 +58,7 @@ Public Codex setup uses `api.assistant.connection.get()`, `.login()` and `.cance
 device-code ownership. Account disconnection remains under the seller-only
 `api.seller.assistant.connection.disconnect()` maintenance method; seller status never returns a
 pending device code. The former seller `.login()` and `.cancel()` methods and routes are removed.
-The only app sign-in page is `/setup/codex`. No upstream SDK contracts change.
+The only app sign-in page is `/setup/codex`. No upstream SDK contracts change. Assistant product-list cards no longer emit or type the old lexical `resolution`/confidence metadata; stored history can still contain extra JSON fields, which the UI ignores. This is a project-owned assistant type change, not a Shopee SDK change.
 
 ### Server (signed Shopee-compatible calls)
 
@@ -78,3 +78,23 @@ await sdk.authenticateWithCode(code, 880001);
 await sdk.product.getItemList({ offset: 0, page_size: 20, item_status: ['NORMAL'] }); // upstream method
 await sdk.custom.shop.updatePolicies({ return_window_days: 10 });                    // Huspee extension
 ```
+
+Product page context: `assistant.text.start` and `assistant.voice.start` accept an optional
+`item_id` from the public catalog. `assistant.voice.setContext(conversationId, itemId)` updates
+that context for either session type; pass `null` to clear it when leaving the product page.
+Only the owning buyer can update an active session, and the item must be public in that shop.
+
+Text → voice → text uses one live conversation:
+
+```ts
+const { conversation_id: id } = await api.assistant.text.start({ shop_id: 880002 });
+await api.assistant.voice.text(id, 'Does La Roche have a discount?');
+// Wait for the reply, then create the browser WebRTC SDP offer.
+const call = await api.assistant.voice.startCall(id, sdpOffer);
+// Apply call.sdp_answer to the peer connection and talk about Cocoon.
+await api.assistant.voice.stopCall(id, call.call_id); // preserves chat and model history
+await api.assistant.voice.text(id, 'Compare the two products we discussed.');
+await api.assistant.voice.stop(id); // ends the entire conversation
+```
+
+Refund evidence extensions are private custom APIs: buyer draft upload/list/delete/content, conversation evidence selection, and submitted-return evidence list/content for authorized shop sellers. Use the surface-aware SDK Blob methods; do not put these bytes through public media or an image optimizer. Evidence metadata contains opaque IDs, size and timestamps, never original filenames or content URLs. Buyer return creation and pending-action edits accept buyer-selected evidence_ids. The agent cannot supply evidence IDs; it receives counts from quotes/readbacks. Cancel-return and accept-offer actions require their own exact final tap. Existing upstream Shopee image response contracts are unchanged.

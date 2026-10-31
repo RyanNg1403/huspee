@@ -1,88 +1,66 @@
-import { closestProducts, distance, matchProducts, resolveVoucher, spokenNumber, words } from './speech-resolution';
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { DomainError } from '../../common/errors';
 import { ActionsService } from '../actions.service';
-import { RETURN_REASONS } from '../../domain/return.service';
+import { RETURN_REASONS, ReturnService } from '../../domain/return.service';
 import { LogisticsService } from '../../domain/logistics.service';
 import { PAYMENT_METHODS } from '../../domain/order.service';
+import { purchaseIssue } from '../../domain/purchase-availability';
+import { VoucherService, VOUCHER_PRODUCT, voucherRedemption } from '../../domain/voucher.service';
 import { toNumber } from '../../common/money';
 import { PrismaService } from '../../common/prisma.service';
-import { CatalogService, itemInclude, mediaUrl, modelName, resolveModelPrice, sellableModels, tierVariations, type ItemWithRelations } from '../../domain/catalog.service';
-import type { AssistantCard } from '../types';
+import { CatalogService, describeAttributes, itemInclude, mediaUrl, modelImage, modelName, resolveModelPrice, sellableModels, tierVariations, type ItemWithRelations } from '../../domain/catalog.service';
+import type { AssistantCard, PendingActionView } from '../types';
 import { maskName } from '../../compat/ops/product.ops';
 
 export interface ToolContext {
   conversationId: string;
   buyerId: number;
   shopId: number;
+  /** Verified page context, supplied by the runtime rather than the model. */
+  viewedItemId?: number | null;
 }
 export interface ToolOutput {
   text: string;
   card?: AssistantCard;
   success: boolean;
-  missing?: { attribute: string; value: string };
+  validation_miss?: { attribute: string; value: string };
   out_of_stock?: boolean;
+  response_language?: 'vi' | 'en';
+  readback?: { vi: string; en: string; tap: boolean; actionId: string };
 }
 
-const quantity = z.union([z.number(), z.string().transform((value) => spokenNumber(value) ?? NaN)]).pipe(z.number().int().min(1).max(999));
-const quantityProperty = { anyOf: [{ type: 'integer', minimum: 1, maximum: 999 }, { type: 'string' }] };
+function ctxScope({ conversationId, buyerId, shopId }: ToolContext) {
+  return { conversationId, buyerId, shopId };
+}
+
+const quantity = z.number().int().min(1).max(999);
+const quantityProperty = { type: 'integer', minimum: 1, maximum: 999 };
 const requestedAttributes = z.record(z.string().trim().min(1).max(100)).optional();
-const requestedAttributesProperty = { type: 'object', additionalProperties: { type: 'string', minLength: 1, maxLength: 100 }, description: 'Buyer-requested variant attributes such as color, size, capacity or model.' };
+const requestedAttributesProperty = { type: 'object', additionalProperties: { type: 'string', minLength: 1, maxLength: 100 }, description: 'Exact tier names and option values from get_product_details or get_viewed_product. Translate the buyer request using those choices; ask for clarification when uncertain. No fuzzy matching is performed.' };
 
-function normalizeAttribute(value: string): string {
-  return value.toLocaleLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/[^a-z0-9]/g, '');
+/** A partial request may leave several sizes; show a color only when their images agree. */
+function requestedProductImage(item: ItemWithRelations, requested?: Record<string, string>): string | null {
+  if (!requested || !Object.keys(requested).length) return modelImage(item);
+  const matching = sellableModels(item).filter((model) => Object.entries(requested).every(([attribute, value]) =>
+    tierVariations(item).some((tier, index) =>
+      attribute === tier.name && tier.option_list?.[model.tierIndex[index] ?? -1]?.option === value,
+    ),
+  ));
+  const images = new Set(matching.map((model) => modelImage(item, model.tierIndex)));
+  return images.size === 1 ? images.values().next().value ?? null : modelImage(item);
 }
-const attributeAliases: string[][] = [
-  ['color', 'colour', 'mausac', 'mau'], ['size', 'kichthuoc', 'co'],
-  ['capacity', 'storage', 'dungluong', 'bonho'], ['model', 'phienban', 'loai'],
-];
-function sameAttribute(left: string, right: string): boolean {
-  const a = normalizeAttribute(left), b = normalizeAttribute(right);
-  return a === b || attributeAliases.some((group) => group.includes(a) && group.includes(b));
-}
-const valueAliases: string[][] = [
-  ['black', 'den'], ['white', 'trang'], ['red', 'do'], ['blue', 'xanhduong', 'xanhnuocbien', 'navy', 'xanhnavy'],
-  ['green', 'xanhla', 'xanhlacay'], ['yellow', 'vang'], ['gold', 'vanggold', 'vangdong'], ['pink', 'hong'], ['purple', 'tim'],
-  ['gray', 'grey', 'xam', 'ghi'], ['silver', 'bac'], ['brown', 'nau'], ['orange', 'cam'], ['beige', 'be', 'kem', 'cream'],
-  ['small', 's', 'nho'], ['medium', 'm', 'vua'], ['large', 'l', 'lon'],
-  ['extralarge', 'xl'], ['doubleextralarge', 'xxl', '2xl'],
-];
-const ambiguousValues: Record<string, string[]> = { xanh: ['xanhduong', 'xanhla'], blue: ['xanhduong'], green: ['xanhla'] };
-const fillerWords = /\b(mau|color|colour|size|co|loai|phien ban|ban)\b/g;
-function plainWords(value: string): string {
-  return value.toLocaleLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(fillerWords, ' ').replace(/[^a-z0-9]+/g, ' ').trim();
-}
-function sameVariantValue(left: string, right: string): boolean {
-  const a = normalizeAttribute(plainWords(left)), b = normalizeAttribute(plainWords(right));
-  if (!a || !b) return false;
-  if (a === b || valueAliases.some((group) => group.includes(a) && group.includes(b))) return true;
-  if ((ambiguousValues[b] ?? []).includes(a) || (ambiguousValues[a] ?? []).includes(b)) return true;
-  // "Đen nhám" vs "đen", "128GB" vs "128 gb": whole-word containment either way, words of 2+ chars.
-  const wa = plainWords(left).split(' '), wb = plainWords(right).split(' ');
-  const contains = (outer: string[], inner: string[]) => inner.every((w) => w.length >= 2 && outer.some((o) => o === w || valueAliases.some((g) => g.includes(o) && g.includes(w))));
-  return contains(wa, wb) || contains(wb, wa);
-}
-function describesProduct(item: ItemWithRelations, value: string): boolean {
-  const words = plainWords(value).split(' ').filter(Boolean);
-  const attrValues = (Array.isArray(item.attributes) ? item.attributes : []).flatMap((raw) =>
-    ((raw as { attribute_value_list?: Array<{ original_value_name?: string }> }).attribute_value_list ?? []).map((v) => v.original_value_name ?? ''));
-  const haystack = plainWords([item.name, item.brand?.name ?? '', ...attrValues].join(' ')).split(' ');
-  return words.length > 0 && words.every((w) => haystack.includes(w));
-}
-type VariantMatch = { missing?: { attribute: string; value: string }; variants?: 'default_only'; out_of_stock?: boolean };
+type VariantMatch = { validation_miss?: { attribute: string; value: string }; variants?: 'default_only'; out_of_stock?: boolean };
 function variantMatch(items: ItemWithRelations[], requested: Record<string, string>): VariantMatch {
   let matches = items.flatMap((item) => sellableModels(item).map((model) => ({ item, model })));
   for (const [attribute, value] of Object.entries(requested)) {
-    // A requested "model: iPhone 15" that the product itself is, is not a variant request.
-    if (matches.length && matches.every(({ item }) => describesProduct(item, value))) continue;
     matches = matches.filter(({ item, model }) => tierVariations(item).some((tier, i) =>
-      sameAttribute(attribute, tier.name) && sameVariantValue(tier.option_list?.[model.tierIndex[i] ?? -1]?.option ?? '', value),
-    ) || describesProduct(item, value));
+      attribute === tier.name && tier.option_list?.[model.tierIndex[i] ?? -1]?.option === value,
+    ));
     if (!matches.length) {
       const defaultOnly = items.every((item) => !tierVariations(item).length);
-      return { missing: { attribute, value }, ...(defaultOnly ? { variants: 'default_only' as const } : {}) };
+      return { validation_miss: { attribute, value }, ...(defaultOnly ? { variants: 'default_only' as const } : {}) };
     }
   }
   if (Object.keys(requested).length && matches.every(({ model }) => model.status !== 'MODEL_NORMAL' || model.stock <= 0)) return { out_of_stock: true };
@@ -90,12 +68,12 @@ function variantMatch(items: ItemWithRelations[], requested: Record<string, stri
 }
 
 const spokenSkip = new Set(['Địa chỉ', 'Address']);
-function readback(summary: { title: string; lines: { label: string; value: string }[]; total?: number }, lang: 0 | 1): string {
+function readback(summary: { title: string; lines: { label: string; value: string; verbatim?: boolean }[]; total?: number }, lang: 0 | 1): string {
   const pick = (text: string) => { const parts = text.split(' / '); return (parts[lang] ?? parts[0]!).trim(); };
   const lines = summary.lines
     .filter((line) => !spokenSkip.has(pick(line.label)))
     .map((line) => {
-      const value = (line.value.includes(' / ') ? pick(line.value) : line.value).replace(
+      const value = line.verbatim ? line.value : (line.value.includes(' / ') ? pick(line.value) : line.value).replace(
         /×\s*(\d+)\s*@\s*(\d+)\s*VND/,
         lang ? 'quantity $1, unit price $2 VND' : 'số lượng $1, đơn giá $2 VND',
       );
@@ -103,6 +81,13 @@ function readback(summary: { title: string; lines: { label: string; value: strin
     });
   const total = summary.total === undefined ? '' : ` ${lang ? 'Total' : 'Tổng cộng'}: ${summary.total} VND.`;
   return `${pick(summary.title)}. ${lines.join('; ')}.${total}`;
+}
+export function actionReadback(action: { action_id: string; summary: unknown; requires_tap: boolean }) {
+  const summary = action.summary as Parameters<typeof readback>[0];
+  return { vi: readback(summary, 0), en: readback(summary, 1), tap: action.requires_tap, actionId: action.action_id };
+}
+function preparedAction(action: PendingActionView): ToolOutput {
+  return { success: true, text: actionText(action), card: { kind: 'action', action }, readback: actionReadback(action) };
 }
 export function actionText(action: { action_id: string; summary: unknown }): string {
   const summary = action.summary as Parameters<typeof readback>[0];
@@ -115,24 +100,58 @@ export function actionText(action: { action_id: string; summary: unknown }): str
 }
 
 const definitions = {
+  get_return_quote: {
+    schema: z.object({ order_sn: z.string().min(1), items: z.array(z.object({ item_id: z.number().int(), model_id: z.number().int(), quantity }).strict()).min(1).optional() }).strict(),
+    properties: { order_sn: { type: 'string' }, items: { type: 'array', minItems: 1, items: { type: 'object', properties: { item_id: { type: 'integer' }, model_id: { type: 'integer' }, quantity: quantityProperty }, required: ['item_id', 'model_id', 'quantity'], additionalProperties: false } } },
+    required: ['order_sn'],
+  },
+  get_return_status: { schema: z.object({ return_sn: z.string().min(1).optional(), order_sn: z.string().min(1).optional() }).strict(), properties: { return_sn: { type: 'string' }, order_sn: { type: 'string' } }, required: [] },
+  prepare_return_cancellation: { schema: z.object({ return_sn: z.string().min(1) }).strict(), properties: { return_sn: { type: 'string' } }, required: ['return_sn'] },
+  prepare_offer_acceptance: { schema: z.object({ return_sn: z.string().min(1) }).strict(), properties: { return_sn: { type: 'string' } }, required: ['return_sn'] },
+  set_response_language: {
+    schema: z.object({ language: z.enum(['vi', 'en']) }).strict(),
+    properties: { language: { type: 'string', enum: ['vi', 'en'] } },
+    required: ['language'],
+  },
+  check_voucher: {
+    schema: z.object({
+      voucher_code: z.string().trim().min(1).max(20),
+      lines: z.array(z.object({ item_id: z.number().int(), model_id: z.number().int(), quantity }).strict()).min(1).max(50)
+        .refine((lines) => new Set(lines.map((line) => line.model_id)).size === lines.length).optional(),
+    }).strict(),
+    properties: {
+      voucher_code: { type: 'string', description: 'Exact code returned by get_vouchers; never a phonetic guess.' },
+      lines: {
+        type: 'array', minItems: 1, maxItems: 50,
+        description: 'Exact product and variant IDs plus quantities for a proposed basket. Omit to evaluate the current shop cart.',
+        items: { type: 'object', properties: { item_id: { type: 'integer' }, model_id: { type: 'integer' }, quantity: quantityProperty }, required: ['item_id', 'model_id', 'quantity'], additionalProperties: false },
+      },
+    },
+    required: ['voucher_code'],
+  },
   search_products: {
     schema: z
       .object({
         query: z.string(),
-        requested_attributes: requestedAttributes,
         min_price: z.number().min(0).optional(),
         max_price: z.number().min(0).optional(),
         limit: z.number().int().min(1).max(50).optional(),
+        offset: z.number().int().min(0).optional(),
       })
       .strict(),
     properties: {
       query: { type: 'string' },
-      requested_attributes: requestedAttributesProperty,
       min_price: { type: 'number', minimum: 0 },
       max_price: { type: 'number', minimum: 0 },
       limit: { type: 'integer', minimum: 1, maximum: 50 },
+      offset: { type: 'integer', minimum: 0 },
     },
     required: ['query'],
+  },
+  get_viewed_product: {
+    schema: z.object({ requested_attributes: requestedAttributes }).strict(),
+    properties: { requested_attributes: requestedAttributesProperty },
+    required: [],
   },
   get_product_details: {
     schema: z.object({ item_id: z.number().int(), requested_attributes: requestedAttributes }).strict(),
@@ -160,6 +179,13 @@ const definitions = {
     properties: { item_id: { type: 'integer' }, model_id: { type: 'integer' }, quantity: quantityProperty, requested_attributes: requestedAttributesProperty },
     required: ['item_id', 'model_id', 'quantity'],
   },
+  add_cart_items: {
+    schema: z.object({ lines: z.array(z.object({ item_id: z.number().int(), model_id: z.number().int(), quantity, requested_attributes: requestedAttributes }).strict()).min(1).max(50)
+      .refine((lines) => new Set(lines.map((line) => line.model_id)).size === lines.length, 'Each variant must appear once') }).strict(),
+    properties: { lines: { type: 'array', minItems: 1, maxItems: 50, description: 'All exact variants and quantities in this request, each variant once. One pending action and confirmation covers the whole batch.',
+      items: { type: 'object', properties: { item_id: { type: 'integer' }, model_id: { type: 'integer' }, quantity: quantityProperty, requested_attributes: requestedAttributesProperty }, required: ['item_id', 'model_id', 'quantity'], additionalProperties: false } } },
+    required: ['lines'],
+  },
   update_cart_item: {
     schema: z
       .object({ model_id: z.number().int(), quantity: quantity.optional(), new_model_id: z.number().int().optional() })
@@ -186,11 +212,13 @@ const definitions = {
         items: z.array(z.object({ item_id: z.number().int(), model_id: z.number().int(), quantity: quantity }).strict()).min(1),
         reason: z.enum(RETURN_REASONS),
         solution: z.enum(['RETURN_REFUND', 'REFUND_ONLY']),
+        text_reason: z.string().trim().max(300).optional(),
       })
       .strict()
       .refine((value) => new Set(value.items.map((item) => `${item.item_id}:${item.model_id}`)).size === value.items.length),
     properties: {
       order_sn: { type: 'string' },
+      text_reason: { type: 'string', maxLength: 300, description: 'The buyer-reported issue, as data. Never infer condition or an approval from photos.' },
       items: {
         type: 'array',
         minItems: 1,
@@ -207,9 +235,14 @@ const definitions = {
     required: ['order_sn', 'items', 'reason', 'solution'],
   },
   confirm_action: {
-    schema: z.object({ action_id: z.string().uuid().optional() }).strict(),
-    properties: { action_id: { type: 'string', description: 'Optional pending action ID; do not read aloud.' } },
-    required: [],
+    schema: z.object({ action_id: z.string().uuid() }).strict(),
+    properties: { action_id: { type: 'string', description: 'Exact pending cart action being confirmed; do not read aloud. A yes to a different question is not consent.' } },
+    required: ['action_id'],
+  },
+  cancel_action: {
+    schema: z.object({ action_id: z.string().uuid() }).strict(),
+    properties: { action_id: { type: 'string', description: 'Exact pending action to cancel before preparing a revision.' } },
+    required: ['action_id'],
   },
   handoff_to_seller: {
     schema: z.object({ question: z.string().trim().min(1).max(2000), reason: z.string().trim().min(1).max(1000) }).strict(),
@@ -220,20 +253,29 @@ const definitions = {
   get_vouchers: { schema: z.object({}).strict(), properties: {}, required: [] },
 } as const;
 const descriptions: Record<string, string> = {
-  search_products: 'Find public products in this shop by query and optional price range; an empty query lists everything the shop sells.',
-  get_product_details: 'Get verified public product details and available variants for this shop.',
+  get_return_quote: 'Read-only checks for submitting this buyer\'s return/refund request in this shop. Returns can_request, blocked_code, item-only refund estimate (shipping excluded), policy and selected photo count. This is NOT refund approval: policy conditions and evidence are reviewed by the seller. No pending action or state change.',
+  get_return_status: 'Read this buyer\'s own submitted return/refund requests in this shop, payment status, seller offer and reverse tracking. JUDGING means under dispute, never rejected. Missing status is unknown; do not invent it.',
+  prepare_return_cancellation: 'Prepare cancellation of an already-submitted return request. Read the exact summary and require a tap. This is different from cancel_action, which only cancels an unsubmitted confirmation card.',
+  prepare_offer_acceptance: 'Prepare acceptance of the seller\'s exact current, unexpired refund offer. Read its amount and solution and require a tap. Never accept, reject or negotiate based on photos. A buyer may cancel the request instead of accepting; there is no separate offer-rejection action.',
+  add_cart_items: 'Prepare all requested products/variants in one shop as ONE cart action, with a combined readback, total and one spoken confirmation. Use for multi-item requests instead of separate add_to_cart calls; also accepts one line. No cart changes until confirmed; any invalid line rejects the whole batch. Vouchers are applied at checkout, not to cart additions.',
+  set_response_language: 'Set Vietnamese or English for app-authored readbacks and action outcomes when the buyer changes language. Interpret their language yourself; the server does not guess it from keywords.',
+  cancel_action: 'Cancel an exact pending action in this conversation. Use when the buyer withdraws or revises it; then prepare and read back a replacement before asking for fresh confirmation.',
+  check_voucher: 'Read-only voucher eligibility for an exact proposed basket or the current shop cart. Returns live prices, covered items, eligible subtotal, minimum-spend shortfall, discount and reason, using checkout rules. Call before claiming that a voucher applies. This does not apply the voucher or place an order; checkout revalidates.',
+  get_viewed_product: 'Read the product the buyer is currently viewing in this shop, with fresh details and a product card. Check every time the buyer refers to this product, this item or the product on screen; the buyer may navigate between turns. Returns no product when they leave its page.',
+  search_products: 'Find public products in this shop by literal words across product name, brand and persisted category names (Vietnamese or English), plus optional price range. An empty query lists the catalog (default 50, stable order); total and has_more indicate remaining pages. Results are candidates, not an automatic interpretation of speech. Try a shorter keyword or list the catalog when unsure, then clarify with the buyer.',
+  get_product_details: 'Get public product details, exact tier names/options, and each variant ID, attributes, live price and stock. Use these choices to interpret the buyer request; requested_attributes must use those exact strings.',
   compare_products: 'Compare two to four public products from this shop.',
-  get_vouchers: 'List currently public, unexpired shop vouchers that this buyer has not used; eligibility rules still apply.',
+  get_vouchers: 'List this shop\'s public, unexpired vouchers, including already-used, fully-redeemed and upcoming codes, with buyer redemption status and reasons. Report that a voucher exists even when this buyer cannot use it. Listing does not establish basket eligibility; use check_voucher for an exact basket.',
   get_shipping_info: 'Get the shop shipping policy and, when a product is specified, its eligible channels and fees.',
   get_return_policy: 'Get the persisted shop return policy.',
-  get_shop_faqs: 'Search enabled seller-written FAQs for this shop.',
+  get_shop_faqs: 'Read all enabled seller-written FAQs for this shop. Interpret the buyer question using the complete answers; a query never hides a relevant FAQ.',
   get_cart: 'Get this buyer’s cart for this shop with calculated totals.',
   get_order_status: 'Get this buyer’s own order with its items and tracking for this shop, or the latest five orders. Use the item and model ids from here for open_return.',
   add_to_cart: 'Prepare a cart addition and read its exact summary aloud. Ask for spoken confirmation before calling confirm_action.',
   update_cart_item: 'Prepare a cart change and read its exact summary aloud. Ask for spoken confirmation before calling confirm_action.',
   place_order: 'Prepare an order for this shop. Read the summary aloud and ask the buyer to tap the on-screen confirmation card.',
   open_return: 'Check eligibility and prepare a return. Read the summary aloud and ask the buyer to tap the on-screen confirmation card.',
-  confirm_action: 'After the buyer explicitly says yes, execute a prepared cart action by ID, or omit the ID to select the latest pending action in this conversation. Orders and returns must be confirmed by tapping the card.',
+  confirm_action: 'Execute the exact prepared cart action only after the buyer approves its full readback in a new reply. Interpret their whole reply: clarification, acknowledgement, conditions and revisions are not approval of an earlier action. Orders and returns require tapping their card.',
   handoff_to_seller: 'Send an unanswered question and conversation excerpt to this shop’s seller inbox.',
 };
 
@@ -246,6 +288,8 @@ export class AssistantToolRegistry {
     private readonly catalog: CatalogService,
     private readonly actions: ActionsService,
     private readonly logistics: LogisticsService,
+    private readonly vouchers: VoucherService,
+    private readonly returns?: ReturnService,
   ) {}
 
   specs(): Array<{ name: string; description: string; inputSchema: object }> {
@@ -274,15 +318,12 @@ export class AssistantToolRegistry {
       const def = definitions[name as Name];
       if (!def) throw new Error('Tool unavailable');
       const input = def.schema.parse(args) as Record<string, unknown>;
-      const raw = args && typeof args === 'object' ? args as Record<string, unknown> : {};
-      if ((name === 'add_to_cart' || name === 'update_cart_item') && typeof raw.quantity === 'string') input.quantity_resolution = { resolved_from: raw.quantity, resolved_to: String(input.quantity), confidence: 1 };
-      if (name === 'open_return' && Array.isArray(raw.items)) input.quantity_resolutions = raw.items.flatMap((item, index) => { const parsed = (input.items as Array<{ quantity: number }>)[index]; return item && typeof item === 'object' && typeof (item as { quantity?: unknown }).quantity === 'string' && parsed ? [{ resolved_from: (item as { quantity: string }).quantity, resolved_to: String(parsed.quantity), confidence: 1 }] : []; });
       result = await this.execute(name as Name, input, ctx);
     } catch (error) {
       result = {
         success: false,
         text:
-          error instanceof z.ZodError ? 'Invalid tool arguments.' : error instanceof DomainError ? error.message : 'Requested data is unavailable.',
+          error instanceof z.ZodError ? JSON.stringify({ error: 'invalid_tool_arguments', issues: error.issues.map((issue) => ({ path: issue.path, message: issue.message })) }) : error instanceof DomainError ? error.message : 'Requested data is unavailable.',
       };
     }
     await this.prisma.conversationToolCall.create({
@@ -300,50 +341,126 @@ export class AssistantToolRegistry {
   }
 
   private async execute(name: Name, input: Record<string, unknown>, ctx: ToolContext): Promise<ToolOutput> {
-    if (name === 'add_to_cart') {
-      if (input.requested_attributes) {
-        const item = await this.prisma.item.findFirst({ where: { id: input.item_id as number, shopId: ctx.shopId, status: 'NORMAL', shop: { status: 'NORMAL' } }, include: itemInclude });
-        if (!item) return { success: false, text: 'Product not found.' };
-        const match = variantMatch([item], input.requested_attributes as Record<string, string>);
-        if (match.missing || match.out_of_stock) return { success: false, text: JSON.stringify(match), ...match };
-        const candidates = sellableModels(item).filter((model) => { const result = variantMatch([{ ...item, models: [model] }], input.requested_attributes as Record<string, string>); return !result.missing && !result.out_of_stock; });
-        if (candidates.length > 1) return { success: false, text: JSON.stringify({ error: 'Variant needs clarification', candidates: candidates.map((model) => ({ model_id: model.id, name: modelName(item, model.tierIndex) })) }) };
-        const selected = { ...item, models: item.models.filter((model) => model.id === input.model_id) };
-        const selectedMatch = variantMatch([selected], input.requested_attributes as Record<string, string>);
-        if (selectedMatch.out_of_stock) return { success: false, text: JSON.stringify(selectedMatch), ...selectedMatch };
-        if (selectedMatch.missing) return { success: false, text: 'Selected variant does not match the requested attributes.' };
+    if (name === 'get_return_quote') {
+      const quote = await this.returns!.quote(ctx.buyerId, ctx.shopId, input as { order_sn: string; items?: Array<{ item_id: number; model_id: number; quantity: number }> });
+      const selection = await this.prisma.returnEvidenceSelection.findUnique({ where: { conversationId: ctx.conversationId } });
+      const ids = selection && selection.orderSn === input.order_sn ? selection.evidenceIds : [];
+      const count = await this.prisma.returnEvidence.count({ where: { id: { in: ids }, buyerId: ctx.buyerId, orderSn: input.order_sn as string, returnSn: null } });
+      return { success: true, text: JSON.stringify({ ...quote, selected_photo_count: count, evidence_selection_valid: count === ids.length }) };
+    }
+    if (name === 'get_return_status') {
+      const rows = await this.prisma.returnRequest.findMany({ where: { buyerId: ctx.buyerId, shopId: ctx.shopId, ...(input.return_sn ? { returnSn: input.return_sn as string } : {}), ...(input.order_sn ? { orderSn: input.order_sn as string } : {}) }, orderBy: { createdAt: 'desc' }, take: 10, select: { returnSn: true } });
+      const data = await Promise.all(rows.map(async (row) => {
+        const ret = await this.returns!.getForBuyer(ctx.buyerId, row.returnSn);
+        const view = this.returns!.presentForBuyer(ret);
+        return { return_sn: view.return_sn, order_sn: view.order_sn, status: view.status, solution: view.solution, refund_amount: view.refund_amount, refund_paid: view.refund_paid, seller_offer: view.seller_offer, reverse_tracking: view.reverse_tracking,
+          photo_count: view.evidence.length + ret.imageUrls.length, decision: 'seller', can_cancel: ret.status === 'REQUESTED', can_accept_offer: !!view.seller_offer && view.seller_offer.due_date > Math.floor(Date.now() / 1000),
+          ...(ret.status === 'JUDGING' ? { note: 'Under seller dispute; not a rejection. Offer a seller handoff for further assistance.' } : {}),
+        };
+      }));
+      return { success: true, text: JSON.stringify(data) };
+    }
+    if (name === 'prepare_return_cancellation' || name === 'prepare_offer_acceptance') {
+      const action = await this.actions.prepareReturnChange(ctx, input.return_sn as string, name === 'prepare_return_cancellation' ? 'CANCEL_RETURN' : 'ACCEPT_RETURN_OFFER');
+      return preparedAction(action);
+    }
+    if (name === 'set_response_language') {
+      const language = input.language as 'vi' | 'en';
+      await this.prisma.conversation.update({ where: { id: ctx.conversationId }, data: { language } });
+      return { success: true, text: JSON.stringify({ response_language: language }), response_language: language };
+    }
+    if (name === 'check_voucher') {
+      const code = (input.voucher_code as string).toUpperCase();
+      const voucher = await this.prisma.voucher.findFirst({ where: { shopId: ctx.shopId, code, displayChannels: { has: 1 } } });
+      if (!voucher) return { success: false, text: 'Voucher is not publicly available in this shop. Call get_vouchers for exact available codes.' };
+      const used = await this.vouchers.alreadyUsedBy(ctx.buyerId, voucher.id);
+      const redemption = voucherRedemption(voucher, used);
+      const scope = input.lines ? 'proposed_basket' : 'current_shop_cart';
+      const lines = input.lines as Array<{ item_id: number; model_id: number; quantity: number }> | undefined
+        ?? (await this.prisma.cartItem.findMany({ where: { userId: ctx.buyerId, model: { item: { shopId: ctx.shopId } } }, include: { model: true } }))
+          .map((line) => ({ item_id: line.model.itemId, model_id: line.modelId, quantity: line.quantity }));
+      if (!lines.length) return { success: true, text: JSON.stringify({ code, scope, ...redemption,
+        ...(redemption.buyer_redemption_status === 'requires_basket_check'
+          ? { status: 'needs_basket', reason: 'Choose the exact variants and quantities to evaluate eligibility.' }
+          : { status: 'not_redeemable', eligible: false, discount: 0, shortfall: null, reason: redemption.buyer_redemption_reason }),
+      }) };
+      const models = await this.prisma.model.findMany({
+        where: { id: { in: lines.map((line) => line.model_id) }, item: { shopId: ctx.shopId, status: 'NORMAL', shop: { status: 'NORMAL' } } },
+        include: { item: { include: { shop: true } }, discountModels: { include: { discount: true } } },
+      });
+      const ownsShop = !!(await this.prisma.shopMember.findFirst({ where: { userId: ctx.buyerId, shopId: ctx.shopId } }));
+      const basket = [];
+      for (const line of lines) {
+        const model = models.find((model) => model.id === line.model_id && model.itemId === line.item_id);
+        if (!model || model.isDefault === model.item.hasModel) return { success: false, text: 'Product variant not found in this shop. Read fresh product details.' };
+        const price = resolveModelPrice(model).currentPrice;
+        const issue = purchaseIssue(model.item, model, model.item.shop, line.quantity, ownsShop);
+        basket.push({ ...line, name: model.item.name, variant: modelName(model.item, model.tierIndex), unit_price: price, line_total: price * line.quantity, stock: model.status === 'MODEL_NORMAL' ? model.stock : 0, covered: voucher.voucherType !== VOUCHER_PRODUCT || voucher.itemIds.includes(line.item_id), available: !issue, issue: issue ?? null });
       }
-      const action = await this.actions.prepareAdd(ctx, input as { item_id: number; model_id: number; quantity: number; quantity_resolution?: { resolved_from: string; resolved_to: string; confidence: number } });
-      return { success: true, text: `${actionText(action)}${input.quantity_resolution ? `\n${JSON.stringify(input.quantity_resolution)}` : ''}`, card: { kind: 'action', action } };
+      const available = basket.filter((line) => line.available);
+      const evaluation = this.vouchers.assess(voucher, available.map((line) => ({ itemId: line.item_id, lineTotal: line.line_total })));
+      return { success: true, text: JSON.stringify({
+        code, scope, status: 'evaluated', lines: basket, ...redemption,
+        requested_items_subtotal: basket.reduce((sum, line) => sum + line.line_total, 0),
+        items_subtotal: available.reduce((sum, line) => sum + line.line_total, 0),
+        eligible_subtotal: evaluation.eligibleSubtotal, min_spend: toNumber(voucher.minBasketPrice),
+        shortfall: used ? null : evaluation.shortfall,
+        eligible: !used && evaluation.eligible, discount: used ? 0 : evaluation.discount,
+        reason: used ? 'This buyer has already used the voucher' : evaluation.reason ?? null,
+        can_fulfill: available.length === basket.length,
+        note: 'This eligibility applies only to these lines at the time checked. Recheck after changes; checkout validates again.',
+      }) };
+    }
+    if (name === 'get_viewed_product') {
+      if (ctx.viewedItemId == null) return { success: true, text: JSON.stringify({ viewed: false, item: null, note: 'The buyer is not currently viewing a product in this shop. Ask which product they mean; do not treat an earlier viewed product as current.' }) };
+      return this.execute('get_product_details', { ...input, item_id: ctx.viewedItemId }, ctx);
+    }
+    if (name === 'add_to_cart' || name === 'add_cart_items') {
+      const lines = name === 'add_cart_items' ? input.lines as Array<Record<string, unknown>> : [input];
+      for (const input of lines) {
+        if (input.requested_attributes) {
+          const item = await this.prisma.item.findFirst({ where: { id: input.item_id as number, shopId: ctx.shopId, status: 'NORMAL', shop: { status: 'NORMAL' } }, include: itemInclude });
+          if (!item) return { success: false, text: 'Product not found.' };
+          const match = variantMatch([item], input.requested_attributes as Record<string, string>);
+          if (match.validation_miss || match.out_of_stock) return { success: false, text: JSON.stringify(match), ...match };
+          const candidates = sellableModels(item).filter((model) => { const result = variantMatch([{ ...item, models: [model] }], input.requested_attributes as Record<string, string>); return !result.validation_miss && !result.out_of_stock; });
+          if (candidates.length > 1) return { success: false, text: JSON.stringify({ error: 'Variant needs clarification', candidates: candidates.map((model) => ({ model_id: model.id, name: modelName(item, model.tierIndex) })) }) };
+          const selected = { ...item, models: item.models.filter((model) => model.id === input.model_id) };
+          const selectedMatch = variantMatch([selected], input.requested_attributes as Record<string, string>);
+          if (selectedMatch.out_of_stock) return { success: false, text: JSON.stringify(selectedMatch), ...selectedMatch };
+          if (selectedMatch.validation_miss) return { success: false, text: 'Selected variant does not match the requested attributes.' };
+        }
+      }
+      const action = await this.actions.prepareAdds(ctx, lines as Array<{ item_id: number; model_id: number; quantity: number }>);
+      return preparedAction(action);
     }
     if (name === 'update_cart_item') {
-      const action = await this.actions.prepareUpdate(ctx, input as { model_id: number; quantity?: number; new_model_id?: number; quantity_resolution?: { resolved_from: string; resolved_to: string; confidence: number } });
-      return { success: true, text: `${actionText(action)}${input.quantity_resolution ? `\n${JSON.stringify(input.quantity_resolution)}` : ''}`, card: { kind: 'action', action } };
+      const action = await this.actions.prepareUpdate(ctx, input as { model_id: number; quantity?: number; new_model_id?: number });
+      return preparedAction(action);
     }
     if (name === 'place_order') {
-      let resolution: { resolved_from: string; resolved_to: string; confidence: number } | undefined;
       if (input.voucher_code) {
         const now = new Date();
-        const vouchers = await this.prisma.voucher.findMany({
-          where: { shopId: ctx.shopId, startTime: { lte: now }, endTime: { gt: now }, displayChannels: { has: 1 } },
-          select: { code: true, currentUsage: true, usageQuantity: true },
-        });
-        const match = resolveVoucher(input.voucher_code as string, vouchers.filter((voucher) => voucher.currentUsage < voucher.usageQuantity).map((voucher) => voucher.code));
-        if (!match.resolution) return { success: false, text: JSON.stringify({ error: 'Voucher needs clarification', candidates: match.candidates }) };
-        resolution = match.resolution;
+        const voucher = await this.prisma.voucher.findFirst({ where: { shopId: ctx.shopId, code: (input.voucher_code as string).trim().toUpperCase(), displayChannels: { has: 1 }, startTime: { lte: now }, endTime: { gt: now } } });
+        if (!voucher || voucher.currentUsage >= voucher.usageQuantity) return { success: false, text: 'Voucher is not currently public and available in this shop. Call get_vouchers for exact codes.' };
       }
-      const action = await this.actions.prepareOrder(ctx, { ...input, ...(resolution ? { voucher_code: resolution.resolved_to, resolution } : {}) } as Parameters<ActionsService['prepareOrder']>[1]);
-      return { success: true, text: `${actionText(action)}${resolution ? `\n${JSON.stringify(resolution)}` : ''}`, card: { kind: 'action', action } };
+      const action = await this.actions.prepareOrder(ctx, input as Parameters<ActionsService['prepareOrder']>[1]);
+      return preparedAction(action);
     }
     if (name === 'open_return') {
-      const { quantity_resolutions, ...returnInput } = input;
-      const action = await this.actions.prepareReturn(ctx, returnInput as unknown as Parameters<ActionsService['prepareReturn']>[1], quantity_resolutions as Array<{ resolved_from: string; resolved_to: string; confidence: number }> | undefined);
-      return { success: true, text: `${actionText(action)}${quantity_resolutions ? `\n${JSON.stringify(quantity_resolutions)}` : ''}`, card: { kind: 'action', action } };
+      const action = await this.actions.prepareReturn(ctx, input as unknown as Parameters<ActionsService['prepareReturn']>[1]);
+      return preparedAction(action);
     }
     if (name === 'confirm_action') {
-      const id = (input.action_id as string | undefined) ?? (await this.actions.latestPendingId(ctx));
+      const id = input.action_id as string;
       const action = await this.actions.confirm(id, ctx.buyerId, ctx.conversationId, false);
       return { success: true, text: JSON.stringify(action), card: { kind: 'action', action } };
+    }
+    if (name === 'cancel_action') {
+      const action = await this.prisma.pendingAction.findFirst({ where: { id: input.action_id as string, ...ctxScope(ctx) } });
+      if (!action) return { success: false, text: 'Pending action not found in this conversation.' };
+      const cancelled = await this.actions.cancel(action.id, ctx.buyerId, 'agent');
+      return { success: true, text: JSON.stringify(cancelled), card: { kind: 'action', action: cancelled } };
     }
     if (name === 'get_cart') {
       const cart = await this.prisma.cartItem.findMany({
@@ -379,13 +496,26 @@ export class AssistantToolRegistry {
         include: itemInclude,
       });
       if (products.length !== new Set(ids).size) return { success: false, text: 'One or more products were not found.' };
-      const items = products.map((item) => ({
-        item_id: item.id,
-        name: item.name,
-        image: item.images[0] ? mediaUrl(item.images[0].url) : null,
-        price_min: this.catalog.priceRange(item).min,
-        rows: { description: item.description, stock: String(this.catalog.totalStock(item)) },
-      }));
+      const definitions = await this.prisma.categoryAttribute.findMany({ where: { categoryId: { in: [...new Set(products.map((item) => item.categoryId))] } } });
+      // Columns follow the order the buyer named the products in; specs left empty stay as null.
+      const items = [...new Set(ids)].map((id) => products.find((item) => item.id === id)!).map((item) => {
+        const range = this.catalog.priceRange(item);
+        return {
+          item_id: item.id,
+          name: item.name,
+          image: modelImage(item),
+          price_min: range.min,
+          price_max: range.max,
+          rows: { stock: String(this.catalog.totalStock(item)) },
+          specs: describeAttributes(item, definitions.filter((def) => def.categoryId === item.categoryId)),
+          models: sellableModels(item).map((m) => ({
+            model_id: m.id,
+            name: modelName(item, m.tierIndex),
+            price: resolveModelPrice(m).currentPrice,
+            stock: m.status === 'MODEL_NORMAL' ? m.stock : 0,
+          })),
+        };
+      });
       return { success: true, text: JSON.stringify(items), card: { kind: 'compare', items } };
     }
     if (name === 'handoff_to_seller') {
@@ -430,9 +560,32 @@ export class AssistantToolRegistry {
         take: 5,
         include: { items: { orderBy: { id: 'asc' } }, package: { include: { events: { orderBy: { createdAt: 'asc' } } } } },
       });
-      const rows = orders.map((order) => ({
+      const [policy, requests] = await Promise.all([
+        this.prisma.shopPolicy.findUnique({ where: { shopId: ctx.shopId }, select: { returnWindowDays: true } }),
+        this.prisma.returnRequest.findMany({
+          where: { buyerId: ctx.buyerId, orderSn: { in: orders.map((order) => order.orderSn) } },
+          select: { orderSn: true, returnSn: true, status: true },
+        }),
+      ]);
+      const windowDays = policy?.returnWindowDays ?? 7;
+      const sec = (date: Date) => Math.floor(date.getTime() / 1000);
+      const rows = orders.map((order) => {
+        const delivered = order.package?.deliveredAt ?? null;
+        const due = delivered ? new Date(delivered.getTime() + windowDays * 86_400_000) : null;
+        const request = requests.find((r) => r.orderSn === order.orderSn);
+        return {
         order_sn: order.orderSn,
         status: order.status,
+        shipping_carrier: order.shippingCarrier,
+        tracking_number: order.package?.trackingNumber ?? null,
+        delivered_time: delivered ? sec(delivered) : null,
+        // Return eligibility as the buyer's order page computes it, so the assistant can answer it without guessing.
+        return: {
+          window_days: windowDays,
+          due_time: due ? sec(due) : null,
+          eligible: !request && ['TO_CONFIRM_RECEIVE', 'COMPLETED'].includes(order.status) && !!due && due > new Date(),
+          request: request ? { return_sn: request.returnSn, status: request.status } : null,
+        },
         items: order.items.map((line) => ({
           item_id: line.itemId,
           model_id: line.modelId,
@@ -445,26 +598,28 @@ export class AssistantToolRegistry {
           time: Math.floor(event.createdAt.getTime() / 1000),
           description: event.description,
         })),
-      }));
+        };
+      });
       return { success: true, text: JSON.stringify(rows), ...(rows.length === 1 ? { card: { kind: 'order' as const, ...rows[0]! } } : {}) };
     }
     if (name === 'search_products' || name === 'get_product_details') {
-      let closest = false;
       const items = await this.prisma.item.findMany({
         where: {
           shopId: ctx.shopId,
           status: 'NORMAL',
           shop: { status: 'NORMAL' },
-          ...(name === 'get_product_details' ? { id: input.item_id as number } : {}),
+          ...(name === 'get_product_details' ? { id: input.item_id as number } : {
+            AND: (input.query as string).trim().split(/\s+/).filter(Boolean).map((token) => ({ OR: [
+              { name: { contains: token, mode: 'insensitive' as const } },
+              { brand: { name: { contains: token, mode: 'insensitive' as const } } },
+              { category: { name: { contains: token, mode: 'insensitive' as const } } },
+              { category: { displayName: { contains: token, mode: 'insensitive' as const } } },
+            ] })),
+          }),
         },
         include: itemInclude,
+        orderBy: { id: 'asc' },
       });
-      if (name === 'search_products') {
-        const matches = (input.query as string).trim() ? matchProducts(input.query as string, items) : items.slice();
-        const nearest = matches.length ? [] : closestProducts(input.query as string, items);
-        closest = nearest.length > 0;
-        items.splice(0, items.length, ...(matches.length ? matches : nearest));
-      }
       const ratings = await this.catalog.ratingSummary(items.map((item) => item.id));
       if (name === 'get_product_details') {
         const item = items[0];
@@ -475,27 +630,11 @@ export class AssistantToolRegistry {
           name: modelName(item, m.tierIndex),
           price: resolveModelPrice(m).currentPrice,
           stock: m.status === 'MODEL_NORMAL' ? m.stock : 0,
+          attributes: Object.fromEntries(tierVariations(item).map((tier, index) => [tier.name, tier.option_list[m.tierIndex[index] ?? -1]?.option ?? ''])),
         }));
         const definitions = await this.prisma.categoryAttribute.findMany({ where: { categoryId: item.categoryId } });
-        const attributes = (Array.isArray(item.attributes) ? item.attributes : [])
-          .map((raw) => {
-            const attr = raw as {
-              attribute_id?: number;
-              attribute_value_list?: Array<{ value_id?: number; original_value_name?: string; value_unit?: string }>;
-            };
-            const def = definitions.find((value) => value.id === attr.attribute_id);
-            if (!def) return null;
-            const known = (Array.isArray(def.values) ? def.values : []) as Array<{ value_id: number; name: string; display_name?: string }>;
-            const value = (attr.attribute_value_list ?? [])
-              .map((part) => {
-                const match = known.find((entry) => entry.value_id === part.value_id);
-                return (match?.display_name ?? match?.name ?? part.original_value_name ?? '') + (part.value_unit ? ` ${part.value_unit}` : '');
-              })
-              .filter(Boolean)
-              .join(', ');
-            return value ? { name: def.displayName, value } : null;
-          })
-          .filter(Boolean);
+        // Unfilled specs stay in the result as null so the assistant says the shop has not provided them.
+        const attributes = describeAttributes(item, definitions);
         const reviews = await this.prisma.review.findMany({
           where: { itemId: item.id, hidden: false },
           include: { buyer: { select: { name: true } } },
@@ -507,11 +646,11 @@ export class AssistantToolRegistry {
           kind: 'product',
           item_id: item.id,
           name: item.name,
-          image: item.images[0] ? mediaUrl(item.images[0].url) : null,
+          image: requestedProductImage(item, input.requested_attributes as Record<string, string> | undefined),
           models,
           images: item.images.slice(0, 6).map((image) => mediaUrl(image.url)),
           description: item.description,
-          attributes: attributes as Array<{ name: string; value: string }>,
+          attributes,
           brand: item.brand?.name ?? null,
           category: item.category.displayName,
           rating: rating?.avg ?? null,
@@ -531,6 +670,7 @@ export class AssistantToolRegistry {
         return {
           success: true,
           text: JSON.stringify({
+            item_id: item.id,
             name: item.name,
             description: item.description,
             attributes,
@@ -541,6 +681,7 @@ export class AssistantToolRegistry {
             sold: card.sold,
             days_to_ship: card.days_to_ship,
             recent_reviews: card.reviews,
+            tier_variations: tierVariations(item).map((tier) => ({ name: tier.name, options: tier.option_list.map((option) => option.option) })),
             models,
             ...match,
           }),
@@ -548,13 +689,13 @@ export class AssistantToolRegistry {
           ...match,
         };
       }
-      const rows = items
+      const filtered = items
         .map((item) => {
           const range = this.catalog.priceRange(item);
           return {
             item_id: item.id,
             name: item.name,
-            image: item.images[0] ? mediaUrl(item.images[0].url) : null,
+            image: requestedProductImage(item, input.requested_attributes as Record<string, string> | undefined),
             price_min: range.min,
             price_max: range.max,
             stock: this.catalog.totalStock(item),
@@ -566,34 +707,17 @@ export class AssistantToolRegistry {
             (input.min_price === undefined || item.price_max >= (input.min_price as number)) &&
             (input.max_price === undefined || item.price_min <= (input.max_price as number)),
         )
-        .slice(0, (input.limit as number | undefined) ?? 10);
-      const matchingItems = items.filter((item) => rows.some((row) => row.item_id === item.id));
-      const match = matchingItems.length && input.requested_attributes ? variantMatch(matchingItems, input.requested_attributes as Record<string, string>) : {};
-      const source = words(input.query as string), target = words(rows[0]?.name ?? '');
-      if (closest && rows.length)
-        return {
-          success: true,
-          text: JSON.stringify({ match: 'closest', note: 'No exact match for the words heard. Ask the buyer whether they meant one of these before giving details.', items: rows, candidates: rows.map((row) => row.name) }),
-          card: { kind: 'products', items: rows },
-        };
-      const resolution = rows.length === 1 && source ? { resolved_from: input.query as string, resolved_to: rows[0]!.name, confidence: Math.max(0, 1 - distance(source, target) / Math.max(source.length, target.length)) } : undefined;
-      return { success: true, text: JSON.stringify(rows.length === 0 && !input.requested_attributes ? rows : { items: rows, ...match, ...(resolution ? { resolution } : {}), ...(rows.length > 1 ? { candidates: rows.map((row) => row.name) } : {}) }), card: { kind: 'products', items: rows, ...(resolution ? { resolution } : {}) }, ...match };
+        ;
+      const offset = (input.offset as number | undefined) ?? 0;
+      const limit = (input.limit as number | undefined) ?? 50;
+      const rows = filtered.slice(offset, offset + limit);
+      return { success: true, text: JSON.stringify({ items: rows, total: filtered.length, offset, limit, has_more: offset + rows.length < filtered.length }), card: { kind: 'products', items: rows } };
     }
     if (name === 'get_shop_faqs') {
       const faqs = await this.prisma.assistantFaq.findMany({
-        where: {
-          shopId: ctx.shopId,
-          enabled: true,
-          ...(input.query
-            ? {
-                OR: [
-                  { question: { contains: input.query as string, mode: 'insensitive' } },
-                  { answer: { contains: input.query as string, mode: 'insensitive' } },
-                ],
-              }
-            : {}),
-        },
+        where: { shopId: ctx.shopId, enabled: true },
         select: { question: true, answer: true, lang: true },
+        orderBy: { id: 'asc' },
       });
       return { success: true, text: JSON.stringify(faqs) };
     }
@@ -629,7 +753,8 @@ export class AssistantToolRegistry {
     }
     const now = new Date();
     const vouchers = await this.prisma.voucher.findMany({
-      where: { shopId: ctx.shopId, startTime: { lte: now }, endTime: { gt: now }, displayChannels: { has: 1 } },
+      where: { shopId: ctx.shopId, endTime: { gt: now }, displayChannels: { has: 1 } },
+      orderBy: [{ startTime: 'asc' }, { id: 'asc' }],
       select: {
         id: true,
         code: true,
@@ -643,6 +768,7 @@ export class AssistantToolRegistry {
         usageQuantity: true,
         currentUsage: true,
         itemIds: true,
+        startTime: true,
         endTime: true,
       },
     });
@@ -651,9 +777,7 @@ export class AssistantToolRegistry {
       select: { voucherId: true },
     });
     const usedIds = new Set(used.map((order) => order.voucherId));
-    const visible = vouchers
-      .filter((v) => v.currentUsage < v.usageQuantity && !usedIds.has(v.id))
-      .map((v) => ({
+    const visible = vouchers.map((v) => ({
         code: v.code,
         name: v.name,
         voucher_type: v.voucherType,
@@ -663,7 +787,9 @@ export class AssistantToolRegistry {
         max_discount: v.maxPrice === null ? null : toNumber(v.maxPrice),
         min_spend: toNumber(v.minBasketPrice),
         item_ids: v.itemIds,
+        start_time: Math.floor(v.startTime.getTime() / 1000),
         end_time: Math.floor(v.endTime.getTime() / 1000),
+        ...voucherRedemption(v, usedIds.has(v.id), now),
       }));
     return { success: true, text: JSON.stringify(visible) };
   }

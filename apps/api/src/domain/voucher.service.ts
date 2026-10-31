@@ -20,6 +20,32 @@ export function voucherState(v: Pick<Voucher, 'startTime' | 'endTime'>, at = new
   return 'ongoing';
 }
 
+/** Public existence and buyer redemption restrictions are separate from basket eligibility. */
+export function voucherRedemption(v: Pick<Voucher, 'startTime' | 'endTime' | 'currentUsage' | 'usageQuantity'>, buyerHasUsed: boolean, at = new Date()) {
+  const state = voucherState(v, at);
+  const fullyRedeemed = v.currentUsage >= v.usageQuantity;
+  const status = buyerHasUsed ? 'already_used' as const
+    : state === 'expired' ? 'expired' as const
+    : state === 'upcoming' ? 'not_started' as const
+    : fullyRedeemed ? 'fully_redeemed' as const
+    : 'requires_basket_check' as const;
+  const reasons = {
+    already_used: 'This buyer has already used the voucher (one use per buyer).',
+    expired: 'The voucher has expired.',
+    not_started: 'The voucher has not started yet.',
+    fully_redeemed: 'The voucher has been fully redeemed.',
+    requires_basket_check: 'Check the exact basket against the voucher coverage and minimum spend before claiming eligibility.',
+  };
+  return {
+    voucher_status: state,
+    buyer_has_used: buyerHasUsed,
+    fully_redeemed: fullyRedeemed,
+    per_buyer_limit: 1,
+    buyer_redemption_status: status,
+    buyer_redemption_reason: reasons[status],
+  };
+}
+
 export interface VoucherLine {
   itemId: number;
   lineTotal: number;
@@ -41,14 +67,21 @@ export class VoucherService {
   constructor(private readonly prisma: PrismaService) {}
 
   evaluate(voucher: Voucher, lines: VoucherLine[], at = new Date()): VoucherEvaluation {
-    if (voucherState(voucher, at) !== 'ongoing') return { eligible: false, discount: 0, reason: 'Voucher is not active' };
-    if (voucher.currentUsage >= voucher.usageQuantity) return { eligible: false, discount: 0, reason: 'Voucher is fully redeemed' };
+    const result = this.assess(voucher, lines, at);
+    return { eligible: result.eligible, discount: result.discount, ...(result.reason ? { reason: result.reason } : {}) };
+  }
+
+  /** Details for agent tools without changing the existing checkout evaluation contract. */
+  assess(voucher: Voucher, lines: VoucherLine[], at = new Date()): VoucherEvaluation & { eligibleSubtotal: number; shortfall: number | null } {
     const eligibleLines = voucher.voucherType === VOUCHER_PRODUCT ? lines.filter((l) => voucher.itemIds.includes(l.itemId)) : lines;
     const subtotal = eligibleLines.reduce((s, l) => s + l.lineTotal, 0);
-    if (subtotal <= 0) return { eligible: false, discount: 0, reason: 'No eligible items for this voucher' };
+    const details = { eligibleSubtotal: subtotal, shortfall: null as number | null };
+    if (voucherState(voucher, at) !== 'ongoing') return { ...details, eligible: false, discount: 0, reason: 'Voucher is not active' };
+    if (voucher.currentUsage >= voucher.usageQuantity) return { ...details, eligible: false, discount: 0, reason: 'Voucher is fully redeemed' };
+    if (subtotal <= 0) return { ...details, eligible: false, discount: 0, reason: 'No eligible items for this voucher' };
     const minBasket = toNumber(voucher.minBasketPrice);
     if (subtotal < minBasket) {
-      return { eligible: false, discount: 0, reason: `Minimum spend of ${minBasket} VND not reached` };
+      return { ...details, shortfall: minBasket - subtotal, eligible: false, discount: 0, reason: `Minimum spend of ${minBasket} VND not reached` };
     }
     let discount: number;
     if (voucher.rewardType === REWARD_PERCENTAGE) {
@@ -58,7 +91,7 @@ export class VoucherService {
     } else {
       discount = toNumber(voucher.discountAmount);
     }
-    return { eligible: true, discount: roundVnd(Math.min(discount, subtotal)) };
+    return { ...details, shortfall: 0, eligible: true, discount: roundVnd(Math.min(discount, subtotal)) };
   }
 
   async findByCode(shopId: number, code: string, db: Tx = this.prisma): Promise<Voucher> {

@@ -7,3 +7,5 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+Read `CONVENTIONS.md` in this app. Shared browser code is in `../../packages/web-ui`; buyer and seller sessions are bound to their surface by the backend. Proxies forward cookies unchanged. Keep upstream Shopee contracts intact.

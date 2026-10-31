@@ -116,3 +116,14 @@ export function appendFinalTranscript(
     ? [...entries, { id: `sse-${id}`, role: event.role, text: event.text, final: true }]
     : entries;
 }
+
+/** Each WebRTC call may reuse turn IDs; preserve earlier calls in the shared chat timeline. */
+export function scopeCallEvent(event: ChannelEvent, callId: string): ChannelEvent {
+  if ((event.type === 'turn.created' || event.type === 'turn.done') && event.turn && typeof event.turn === 'object') {
+    const turn = event.turn as Turn;
+    if (typeof turn.id !== 'string') return event;
+    return { ...event, turn: { ...turn, id: `call-${callId}-${turn.id}` } };
+  }
+  if (event.type === 'turn.delta' && typeof event.turn_id === 'string') return { ...event, turn_id: `call-${callId}-${event.turn_id}` };
+  return event;
+}

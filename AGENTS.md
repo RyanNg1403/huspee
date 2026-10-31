@@ -286,9 +286,10 @@ Phase 2 adds a per-shop, real-time voice assistant for buyers and seller-side co
   experimental (tested: codex-cli 0.166.0). Tools are registered as `dynamicTools` on the Codex
   thread (`thread/start`); the realtime v3 voice hands questions off to that thread
   (`clientManagedHandoffs: true`), and the backend answers `item/tool/call` requests. Realtime
-  start has no tool field. The buyer hears Codex's own realtime voice; thread answers are checked
-  against tool results before it says them, and anything the voice states itself is checked after
-  speaking and corrected aloud. No browser or host-side text-to-speech. Expect several
+  start has no tool field. The buyer hears Codex's own realtime voice. Agent instructions require factual answers from
+  fresh tool results and seller FAQs; no lexical or regex speech checker claims to verify meaning.
+  The app supplies exact action readbacks and actual outcomes. Independent semantic review runs
+  only in the explicitly invoked eval harness; this does not provide a hard pre-speech guarantee. No browser or host-side text-to-speech. Expect several
   seconds before a tool-backed answer is spoken: the UI shows tool status and cards as soon as a
   tool returns. Details in `docs/VOICE.md`.
 - **Codex account setup.** `/setup/codex` is the only app sign-in page for the shared Codex
@@ -321,8 +322,9 @@ Phase 2 adds a per-shop, real-time voice assistant for buyers and seller-side co
 - **Languages.** The assistant answers in the buyer's spoken language: Vietnamese by default,
   English supported. Seller-facing text stays bilingual like Phase 1.
 - **Eval harness.** Text-mode runs of a fixed set of shopping questions through the same prompt
-  and tools on a Codex text thread; deterministic graders compare stated prices, stock, vouchers
-  and policies with the database and flag hallucinations. Runs only on explicit request
+  and tools on a Codex text thread; execution-contract checks compare structured tool data with the database, and an independent
+  Codex text thread reviews the meaning of the answer against the question, tools and snapshot.
+  Missing or uncertain semantic reviews are unverified, never passes. Runs only on explicit request
   (`pnpm eval:assistant`), never inside `pnpm test`.
 
 ### Safety rules for the assistant

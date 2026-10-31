@@ -1,12 +1,13 @@
 'use client';
 import { useEffect } from 'react';
-import { useLang } from '@/i18n';
+import Link from 'next/link';
+import { useLang } from '@huspee/web-ui/i18n';
 import credits from './credits.json';
 
-/** Attribution for the openly licensed seed product photos (copy of apps/api/prisma/seed-images/credits.json). */
+/** Provenance for the generated demo catalog assets. */
 export default function CreditsPage() {
   const { lang } = useLang();
-  const title = lang === 'vi' ? 'Nguồn ảnh sản phẩm' : 'Product photo credits';
+  const title = lang === 'vi' ? 'Nguồn ảnh' : 'Image credits';
   useEffect(() => {
     document.title = `${title} | Huspee`;
   }, [title]);
@@ -15,25 +16,20 @@ export default function CreditsPage() {
       <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
       <p className="text-sm text-gray-500">
         {lang === 'vi'
-          ? 'Ảnh sản phẩm mẫu lấy từ Wikimedia Commons theo giấy phép mở; ảnh đã được thu nhỏ. Sản phẩm và cửa hàng là mô phỏng.'
-          : 'Sample product photos come from Wikimedia Commons under open licenses and were resized. Products and shops are simulated.'}
+          ? 'Ảnh sản phẩm và ảnh đại diện cửa hàng được tạo bằng Image Gen cho bản mô phỏng Huspee. Hình ảnh mang tính minh họa, không phải ảnh chính thức của nhà sản xuất.'
+          : 'Product images and shop avatars were created with Image Gen for the Huspee demo. Images are illustrative, not official manufacturer photography.'}
       </p>
       <ul className="divide-y divide-line rounded-2xl border border-line bg-white">
         {credits.map((credit) => (
           <li
-            key={credit.file}
+            key={credit.href}
             className="flex flex-col gap-0.5 px-4 py-3 text-sm sm:flex-row sm:items-baseline sm:gap-3"
           >
-            <a
-              href={credit.source}
-              className="font-medium text-ink hover:text-primary"
-              rel="noreferrer"
-              target="_blank"
-            >
+            <Link href={credit.href} className="font-medium text-ink hover:text-primary">
               {credit.title}
-            </a>
+            </Link>
             <span className="text-gray-500 sm:ml-auto sm:text-right">
-              {credit.author || '—'} · {credit.license}
+              Image Gen · {credit.images} {lang === 'vi' ? 'ảnh' : credit.images === 1 ? 'image' : 'images'}
             </span>
           </li>
         ))}

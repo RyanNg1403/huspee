@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Kênh Người Bán — Sửa sản phẩm: bán hàng</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#f6f6f6}
+a{color:#2673dd;text-decoration:none}a:hover{color:#1a5bb8;text-decoration:underline}
+button,input,select,textarea{font-family:inherit}
+button{cursor:pointer}
+</style>
+</helmet>
+<div style="background: #f6f6f6; font-family: 'Be Vietnam Pro', system-ui, sans-serif; color: #222222; font-size: 14px; line-height: 1.5; font-variant-numeric: tabular-nums;">
+
+  <header style="position: relative; z-index: 2; background: #ffffff; box-shadow: 0 1px 4px rgba(0,0,0,0.08); height: 56px; padding: 0 24px; display: flex; align-items: center; gap: 16px;">
+    <a href="SellerHome.dc.html" style="display: flex; align-items: center; gap: 8px; color: #222222; text-decoration: none;">
+      <svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#d9381a"></rect><path d="M6.5 9h11l-.9 9.2a.8.8 0 0 1-.8.8H8.2a.8.8 0 0 1-.8-.8z" fill="none" stroke="#ffffff" stroke-width="1.6" stroke-linejoin="round"></path><path d="M9.6 9V7.8a2.4 2.4 0 0 1 4.8 0V9" fill="none" stroke="#ffffff" stroke-width="1.6" stroke-linecap="round"></path></svg>
+      <span style="font-size: 19px; font-weight: 700; letter-spacing: -0.01em;">Huspee</span>
+    </a>
+    <span style="height: 20px; border-left: 1px solid #d9d9d9;"></span>
+    <span style="font-size: 16px; color: #595959;">Kênh Người Bán</span>
+    <div style="margin-left: auto; display: flex; align-items: center; gap: 20px;">
+      <button type="button" style="border: 0; background: none; padding: 6px 0; display: flex; align-items: center; gap: 6px; font-size: 14px; color: #222222;">TechZone Official<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#595959" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg></button>
+      <button type="button" aria-label="Thông báo, 3 chưa đọc" style="position: relative; width: 36px; height: 36px; border: 0; background: none; color: #595959; display: flex; align-items: center; justify-content: center;"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"></path></svg><span style="position: absolute; top: 2px; right: 0; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box; border-radius: 8px; background: #d9381a; color: #ffffff; font-size: 10px; font-weight: 600; line-height: 16px; text-align: center;">3</span></button>
+      <button type="button" style="border: 0; background: none; padding: 0; display: flex; align-items: center; gap: 8px; font-size: 14px; color: #222222;"><span style="width: 28px; height: 28px; border-radius: 50%; background: #e8e8e8; color: #595959; font-size: 13px; font-weight: 600; display: flex; align-items: center; justify-content: center;">H</span>Phạm Quốc Huy<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#595959" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg></button>
+    </div>
+  </header>
+
+  <div style="display: flex; flex-wrap: wrap; align-items: stretch; min-height: 844px;">
+
+    <nav aria-label="Menu Kênh Người Bán" style="flex: 1 1 216px; max-width: 216px; background: #ffffff; padding: 12px 0 24px; box-sizing: border-box; font-size: 14px;">
+      <a href="SellerHome.dc.html" style="display: flex; align-items: center; gap: 12px; height: 40px; padding: 0 16px; color: #222222; font-weight: 600; text-decoration: none;"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8c8c8c" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 4l9 6.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"></path></svg>Tổng quan</a>
+      <div style="margin-top: 4px;">
+        <div style="display: flex; align-items: center; gap: 12px; height: 40px; padding: 0 16px; color: #222222; font-weight: 600;"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8c8c8c" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"></path></svg>Đơn hàng</div>
+        <a href="s-S3-1.dc.html" style="display: flex; justify-content: space-between; height: 32px; align-items: center; padding: 0 16px 0 46px; color: #595959; text-decoration: none;">Tất cả</a>
+        <a href="s-S3-1.dc.html" style="display: flex; justify-content: space-between; height: 32px; align-items: center; padding: 0 16px 0 46px; color: #595959; text-decoration: none;">Chờ lấy hàng<span style="color: #d9381a;">1</span></a>
+        <a href="s-S5-1.dc.html" style="display: flex; justify-content: space-between; height: 32px; align-items: center; padding: 0 16px 0 46px; color: #595959; text-decoration: none;">Trả hàng / Hoàn tiền</a>
+      </div>
+      <div style="margin-top: 4px;">
+        <div style="display: flex; align-items: center; gap: 12px; height: 40px; padding: 0 16px; color: #222222; font-weight: 600;"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8c8c8c" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5z"></path><path d="M3 8l9 5 9-5M12 13v8"></path></svg>Sản phẩm</div>
+        <a href="s-S4-1.dc.html" aria-current="page" style="display: flex; height: 32px; align-items: center; padding: 0 16px 0 46px; color: #d9381a; font-weight: 600; text-decoration: none;">Tất cả sản phẩm</a>
+        <a href="s-S4-2.dc.html" style="display: flex; height: 32px; align-items: center; padding: 0 16px 0 46px; color: #595959; text-decoration: none;">Thêm sản phẩm</a>
+      </div>
+      <div style="margin-top: 4px;">
+        <div style="display: flex; align-items: center; gap: 12px; height: 40px; padding: 0 16px; color: #222222; font-weight: 600;"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8c8c8c" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9a2 2 0 0 0 2-2h14a2 2 0 0 0 2 2v1.5a1.5 1.5 0 0 0 0 3V15a2 2 0 0 0-2 2H5a2 2 0 0 0-2-2v-1.5a1.5 1.5 0 0 0 0-3z"></path></svg>Khuyến mãi</div>
+        <a href="s-S6-1.dc.html" style="display: flex; height: 32px; align-items: center; padding: 0 16px 0 46px; color: #595959; text-decoration: none;">Mã giảm giá</a>
+        <a href="s-S6-3.dc.html" style="display: flex; height: 32px; align-items: center; padding: 0 16px 0 46px; color: #595959; text-decoration: none;">Chiến dịch</a>
+      </div>
+      <div style="margin-top: 4px;">
+        <div style="display: flex; align-items: center; gap: 12px; height: 40px; padding: 0 16px; color: #222222; font-weight: 600;"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8c8c8c" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3"></path></svg>Trợ lý ảo</div>
+        <a href="SellerInbox.dc.html" style="display: flex; justify-content: space-between; height: 32px; align-items: center; padding: 0 16px 0 46px; color: #595959; text-decoration: none;">Hộp thư<span style="color: #d9381a;">2</span></a>
+        <a href="SellerConversations.dc.html" style="display: flex; height: 32px; align-items: center; padding: 0 16px 0 46px; color: #595959; text-decoration: none;">Hội thoại</a>
+        <a href="SellerInsights.dc.html" style="display: flex; height: 32px; align-items: center; padding: 0 16px 0 46px; color: #595959; text-decoration: none;">Insights</a>
+        <a href="s-S7-3.dc.html" style="display: flex; height: 32px; align-items: center; padding: 0 16px 0 46px; color: #595959; text-decoration: none;">FAQ</a>
+        <a href="s-S10-2.dc.html" style="display: flex; height: 32px; align-items: center; padding: 0 16px 0 46px; color: #595959; text-decoration: none;">Thử trợ lý</a>
+        <a href="s-S10-1.dc.html" style="display: flex; height: 32px; align-items: center; padding: 0 16px 0 46px; color: #595959; text-decoration: none;">Cấu hình</a>
+      </div>
+      <div style="margin-top: 4px;">
+        <div style="display: flex; align-items: center; gap: 12px; height: 40px; padding: 0 16px; color: #222222; font-weight: 600;"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8c8c8c" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9 4.5 4h15L21 9M3 9v1a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0V9M3 9h18M5 13v7h14v-7"></path></svg>Cửa hàng</div>
+        <a href="#" style="display: flex; height: 32px; align-items: center; padding: 0 16px 0 46px; color: #595959; text-decoration: none;">Hồ sơ shop</a>
+        <a href="s-S1-3.dc.html" style="display: flex; height: 32px; align-items: center; padding: 0 16px 0 46px; color: #595959; text-decoration: none;">Kết nối &amp; ủy quyền</a>
+        <a href="w-B4.dc.html" style="display: flex; height: 32px; align-items: center; padding: 0 16px 0 46px; color: #595959; text-decoration: none;">Xem shop trên Huspee</a>
+      </div>
+    </nav>
+
+    <main style="flex: 999 1 640px; min-width: 0; padding: 20px 24px 40px; box-sizing: border-box;">
+      <div style="max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px;">
+        <nav aria-label="Đường dẫn" style="font-size: 13px; color: #595959;"><a href="s-S4-1.dc.html">Sản phẩm</a> › Apple iPhone 15 128GB Chính Hãng VN/A</nav>
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <h1 style="margin: 0; font-size: 20px; font-weight: 600;">Sửa sản phẩm</h1>
+          <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 14px;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #16a34a;"></span>Đang bán</span>
+          <a href="Main.dc.html" style="margin-left: auto; font-size: 14px;">Xem trên Huspee ›</a>
+        </div>
+
+        <div style="background: #ffffff; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); padding: 16px 24px 0; display: flex; flex-direction: column; gap: 12px;">
+          <div style="display: flex; gap: 14px; align-items: center;">
+            <img src="/_blob/8b1ea881a6a5dfb6b26870b7665f6bf7" alt="" style="width: 56px; height: 56px; flex-shrink: 0; border-radius: 4px; object-fit: cover;">
+            <div>
+              <div style="font-weight: 600;">Apple iPhone 15 128GB Chính Hãng VN/A</div>
+              <div style="font-size: 13px; color: #595959;">SKU TZ-IP15 · Điện thoại · Đã bán 312</div>
+            </div>
+          </div>
+          <nav aria-label="Các phần của sản phẩm" style="display: flex; border-top: 1px solid #f0f0f0; white-space: nowrap; overflow-x: auto;">
+            <a href="#" style="height: 46px; padding: 0 14px; display: flex; align-items: center; border-bottom: 2px solid transparent; color: #595959; text-decoration: none;">Thông tin cơ bản</a>
+            <a href="s-S4-3.dc.html" style="height: 46px; padding: 0 14px; display: flex; align-items: center; border-bottom: 2px solid transparent; color: #595959; text-decoration: none;">Thông số <span style="margin-left: 6px; color: #d9381a;">4 trống</span></a>
+            <a href="s-S4-2.dc.html" aria-current="page" style="height: 46px; padding: 0 14px; display: flex; align-items: center; border-bottom: 2px solid #d9381a; color: #d9381a; font-weight: 600; text-decoration: none;">Bán hàng</a>
+            <a href="#" style="height: 46px; padding: 0 14px; display: flex; align-items: center; border-bottom: 2px solid transparent; color: #595959; text-decoration: none;">Vận chuyển</a>
+          </nav>
+        </div>
+
+        <section aria-labelledby="sell-h" style="background: #ffffff; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); padding: 20px 24px; display: flex; flex-direction: column; gap: 20px;">
+          <h2 id="sell-h" style="margin: 0; font-size: 18px; font-weight: 600;">Thông tin bán hàng</h2>
+
+          <div style="display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: 12px 16px; align-items: start;">
+            <span style="color: #595959; padding-top: 8px;">Phân loại hàng</span>
+            <div style="background: #fafafa; border-radius: 4px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <label style="display: flex; align-items: center; gap: 12px; font-size: 14px; color: #595959;">Nhóm phân loại 1
+                  <input type="text" value="Màu sắc" style="width: 220px; height: 36px; box-sizing: border-box; padding: 0 10px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 14px; color: #222222;">
+                </label>
+              </div>
+              <div style="display: flex; flex-wrap: wrap; gap: 10px; padding-left: 128px;">
+                <label><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;">Phân loại 1</span><input type="text" value="Đen" style="width: 180px; height: 36px; box-sizing: border-box; padding: 0 10px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 14px;"></label>
+                <label><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;">Phân loại 2</span><input type="text" value="Hồng" style="width: 180px; height: 36px; box-sizing: border-box; padding: 0 10px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 14px;"></label>
+                <label><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;">Phân loại 3</span><input type="text" value="Xanh dương" style="width: 180px; height: 36px; box-sizing: border-box; padding: 0 10px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 14px;"></label>
+                <button type="button" style="height: 36px; padding: 0 14px; border: 1px dashed #bfbfbf; border-radius: 4px; background: #ffffff; color: #2673dd; font-size: 14px;">+ Thêm phân loại</button>
+              </div>
+              <button type="button" style="align-self: flex-start; height: 36px; padding: 0 14px; border: 1px dashed #bfbfbf; border-radius: 4px; background: #ffffff; color: #2673dd; font-size: 14px;">+ Thêm nhóm phân loại 2</button>
+            </div>
+
+            <span style="color: #595959; padding-top: 8px;">Áp dụng nhanh</span>
+            <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
+              <label><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;">Giá cho tất cả phân loại</span><input type="text" placeholder="Giá" style="width: 160px; height: 36px; box-sizing: border-box; padding: 0 10px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 14px;"></label>
+              <label><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;">Kho hàng cho tất cả phân loại</span><input type="text" placeholder="Kho hàng" style="width: 160px; height: 36px; box-sizing: border-box; padding: 0 10px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 14px;"></label>
+              <label><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;">SKU cho tất cả phân loại</span><input type="text" placeholder="SKU phân loại" style="width: 160px; height: 36px; box-sizing: border-box; padding: 0 10px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 14px;"></label>
+              <button type="button" style="height: 36px; padding: 0 16px; border: 1px solid #d9381a; border-radius: 4px; background: #ffffff; color: #d9381a; font-size: 14px;">Áp dụng cho tất cả</button>
+            </div>
+
+            <span style="color: #595959; padding-top: 12px;">Danh sách phân loại</span>
+            <table style="width: 100%; border-collapse: collapse; font-size: 14px; border: 1px solid #f0f0f0;">
+              <thead>
+                <tr style="text-align: left; color: #595959; font-size: 13px; background: #fafafa;">
+                  <th scope="col" style="padding: 10px 12px; font-weight: 500; border-bottom: 1px solid #f0f0f0;">Màu sắc</th>
+                  <th scope="col" style="padding: 10px 12px; font-weight: 500; border-bottom: 1px solid #f0f0f0;">Giá gốc</th>
+                  <th scope="col" style="padding: 10px 12px; font-weight: 500; border-bottom: 1px solid #f0f0f0;">Giá khuyến mãi</th>
+                  <th scope="col" style="padding: 10px 12px; font-weight: 500; border-bottom: 1px solid #f0f0f0;">Kho hàng</th>
+                  <th scope="col" style="padding: 10px 12px; font-weight: 500; border-bottom: 1px solid #f0f0f0;">SKU phân loại</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style="padding: 10px 12px; border-bottom: 1px solid #f5f5f5;">Đen</td>
+                  <td style="padding: 10px 12px; border-bottom: 1px solid #f5f5f5;"><label style="display: flex; align-items: center; height: 36px; border: 1px solid #e0e0e0; border-radius: 4px;"><span style="padding: 0 8px; color: #8c8c8c; border-right: 1px solid #f0f0f0;">₫</span><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;">Giá gốc màu Đen</span><input type="text" value="19.990.000" style="flex: 1; min-width: 0; width: 120px; border: 0; outline: none; padding: 0 8px; font-size: 14px; background: transparent;"></label></td>
+                  <td style="padding: 10px 12px; border-bottom: 1px solid #f5f5f5;"><label style="display: flex; align-items: center; height: 36px; border: 1px solid #e0e0e0; border-radius: 4px;"><span style="padding: 0 8px; color: #8c8c8c; border-right: 1px solid #f0f0f0;">₫</span><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;">Giá khuyến mãi màu Đen</span><input type="text" value="18.490.000" style="flex: 1; min-width: 0; width: 120px; border: 0; outline: none; padding: 0 8px; font-size: 14px; background: transparent;"></label></td>
+                  <td style="padding: 10px 12px; border-bottom: 1px solid #f5f5f5;"><label><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;">Kho hàng màu Đen</span><input type="text" value="25" style="width: 96px; height: 36px; box-sizing: border-box; padding: 0 10px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 14px;"></label></td>
+                  <td style="padding: 10px 12px; border-bottom: 1px solid #f5f5f5;"><label><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;">SKU màu Đen</span><input type="text" value="TZ-IP15-BLK" style="width: 150px; height: 36px; box-sizing: border-box; padding: 0 10px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 14px;"></label></td>
+                </tr>
+                <tr>
+                  <td style="padding: 10px 12px; border-bottom: 1px solid #f5f5f5;">Hồng</td>
+                  <td style="padding: 10px 12px; border-bottom: 1px solid #f5f5f5;"><label style="display: flex; align-items: center; height: 36px; border: 1px solid #e0e0e0; border-radius: 4px;"><span style="padding: 0 8px; color: #8c8c8c; border-right: 1px solid #f0f0f0;">₫</span><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;">Giá gốc màu Hồng</span><input type="text" value="19.990.000" style="flex: 1; min-width: 0; width: 120px; border: 0; outline: none; padding: 0 8px; font-size: 14px; background: transparent;"></label></td>
+                  <td style="padding: 10px 12px; border-bottom: 1px solid #f5f5f5;"><label style="display: flex; align-items: center; height: 36px; border: 1px solid #e0e0e0; border-radius: 4px;"><span style="padding: 0 8px; color: #8c8c8c; border-right: 1px solid #f0f0f0;">₫</span><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;">Giá khuyến mãi màu Hồng</span><input type="text" value="18.490.000" style="flex: 1; min-width: 0; width: 120px; border: 0; outline: none; padding: 0 8px; font-size: 14px; background: transparent;"></label></td>
+                  <td style="padding: 10px 12px; border-bottom: 1px solid #f5f5f5;"><label><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;">Kho hàng màu Hồng</span><input type="text" value="12" style="width: 96px; height: 36px; box-sizing: border-box; padding: 0 10px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 14px;"></label></td>
+                  <td style="padding: 10px 12px; border-bottom: 1px solid #f5f5f5;"><label><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;">SKU màu Hồng</span><input type="text" value="TZ-IP15-PNK" style="width: 150px; height: 36px; box-sizing: border-box; padding: 0 10px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 14px;"></label></td>
+                </tr>
+                <tr>
+                  <td style="padding: 10px 12px;">Xanh dương</td>
+                  <td style="padding: 10px 12px;"><label style="display: flex; align-items: center; height: 36px; border: 1px solid #e0e0e0; border-radius: 4px;"><span style="padding: 0 8px; color: #8c8c8c; border-right: 1px solid #f0f0f0;">₫</span><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;">Giá gốc màu Xanh dương</span><input type="text" value="19.990.000" style="flex: 1; min-width: 0; width: 120px; border: 0; outline: none; padding: 0 8px; font-size: 14px; background: transparent;"></label></td>
+                  <td style="padding: 10px 12px;"><label style="display: flex; align-items: center; height: 36px; border: 1px solid #e0e0e0; border-radius: 4px;"><span style="padding: 0 8px; color: #8c8c8c; border-right: 1px solid #f0f0f0;">₫</span><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;">Giá khuyến mãi màu Xanh dương</span><input type="text" placeholder="Không có" style="flex: 1; min-width: 0; width: 120px; border: 0; outline: none; padding: 0 8px; font-size: 14px; background: transparent;"></label></td>
+                  <td style="padding: 10px 12px;"><label><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;">Kho hàng màu Xanh dương</span><input type="text" value="0" style="width: 96px; height: 36px; box-sizing: border-box; padding: 0 10px; border: 1px solid #d9381a; border-radius: 4px; font-size: 14px;"></label><div style="font-size: 12px; color: #d9381a; margin-top: 2px;">Hết hàng · 14 lượt hỏi</div></td>
+                  <td style="padding: 10px 12px;"><label><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;">SKU màu Xanh dương</span><input type="text" value="TZ-IP15-BLU" style="width: 150px; height: 36px; box-sizing: border-box; padding: 0 10px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 14px;"></label></td>
+                </tr>
+              </tbody>
+            </table>
+
+            <span style="color: #595959; padding-top: 8px;">Mua nhiều giảm giá</span>
+            <div style="padding-top: 8px;"><button type="button" style="height: 36px; padding: 0 14px; border: 1px dashed #bfbfbf; border-radius: 4px; background: #ffffff; color: #2673dd; font-size: 14px;">+ Thêm khoảng giá</button></div>
+          </div>
+        </section>
+
+        <div style="display: flex; justify-content: flex-end; gap: 12px;">
+          <a href="s-S4-1.dc.html" style="height: 40px; padding: 0 20px; border: 1px solid #e0e0e0; border-radius: 4px; background: #ffffff; color: #222222; font-size: 14px; display: flex; align-items: center; text-decoration: none;">Huỷ</a>
+          <a href="s-S4-1.dc.html" style="height: 40px; padding: 0 24px; border-radius: 4px; background: #d9381a; color: #ffffff; font-size: 14px; display: flex; align-items: center; text-decoration: none;">Lưu</a>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1008}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

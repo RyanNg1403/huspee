@@ -3,7 +3,7 @@ import { Prisma, ReturnStatus } from '@prisma/client';
 import { z } from 'zod';
 import { PrismaService } from '../../common/prisma.service';
 import { q } from '../../common/validation';
-import { ReturnService } from '../../domain/return.service';
+import { returnInclude, ReturnService } from '../../domain/return.service';
 import { CompatOperationProvider, op } from '../compat.types';
 
 const RETURN_STATUSES = Object.values(ReturnStatus) as [ReturnStatus, ...ReturnStatus[]];
@@ -53,7 +53,7 @@ export class ReturnsOps implements CompatOperationProvider {
           // Shopee's page_no is 0-based for this endpoint.
           const rows = await this.prisma.returnRequest.findMany({
             where,
-            include: { buyer: { select: { name: true, email: true } } },
+            include: returnInclude,
             orderBy: { createdAt: 'desc' },
             skip: input.page_no * input.page_size,
             take: input.page_size + 1,

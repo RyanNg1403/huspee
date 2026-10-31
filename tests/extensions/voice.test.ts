@@ -6,7 +6,7 @@ import { resolve } from 'node:path';
 import { appendFinalTranscript, applyChannelEvent, type ChannelEvent, type TranscriptEntry } from '../../apps/web/src/components/assistant/transcript.js';
 import { readFileSync } from 'node:fs';
 import { VoiceRuntime } from '../../apps/api/src/assistant/voice/voice-runtime.js';
-import { speechText } from '../../apps/api/src/assistant/voice/speech-check.js';
+import { speechText } from '../../apps/api/src/assistant/voice/speech.js';
 
 
 it('replays captured channel turns without duplicates and marks the overlapping interruption once', () => {
@@ -36,7 +36,7 @@ it('starts a text-only fake thread with tools and streams its answer', async () 
   const completion: unknown[] = [];
   runtime.onTurnCompleted = (conversationId, status) => completion.push({ conversationId, status, saved: [...saved] });
   const ctx = { conversationId: 'text-session', buyerId: 1, shopId: 2 };
-  const config = { shopName: 'Shop', tone: 'FRIENDLY', greetingVi: 'Xin chào', greetingEn: 'Hello', voice: 'spruce' };
+  const config = { language: 'en' as const, shopName: 'Shop', tone: 'FRIENDLY', greetingVi: 'Xin chào', greetingEn: 'Hello', voice: 'spruce' };
   try {
     await runtime.startText(ctx, config);
     const events: Record<string, unknown>[] = [];
@@ -44,7 +44,7 @@ it('starts a text-only fake thread with tools and streams its answer', async () 
     await runtime.text(ctx.conversationId, 1, 'Find a product');
     await new Promise((resolveWait) => setTimeout(resolveWait, 100));
     expect(calls).toEqual([ctx]);
-    expect(events).toContainEqual({ type: 'transcript', role: 'assistant', text: 'Verified product', final: true, item_id: 'text-1' });
+    expect(events).toContainEqual({ type: 'transcript', role: 'assistant', text: 'Verified product', final: true, item_id: 'text-1', source: 'text' });
     expect(saved).toContainEqual({ role: 'assistant', text: 'Verified product' });
     expect(completion).toEqual([{ conversationId: ctx.conversationId, status: 'completed', saved: expect.arrayContaining([{ role: 'assistant', text: 'Verified product' }, { role: 'assistant', text: 'Final answer' }]) }]);
     await runtime.stop(ctx.conversationId, 1);
@@ -89,13 +89,14 @@ describe('voice runtime with fake app-server', () => {
       },
     );
     const ctx = { conversationId: 'conversation-1', buyerId: 1, shopId: 2 };
-    const config = { shopName: 'Shop', tone: 'FRIENDLY', greetingVi: 'Xin chào', greetingEn: 'Hello', voice: 'spruce' };
+    const config = { language: 'en' as const, shopName: 'Shop', tone: 'FRIENDLY', greetingVi: 'Xin chào', greetingEn: 'Hello', voice: 'spruce' };
     try {
       expect(await runtime.start(ctx, config, 'offer')).toBe('fake-answer');
       await expect(runtime.start({ ...ctx, conversationId: 'conversation-2' }, config, 'offer')).rejects.toThrow(
         'assistant_busy',
       );
       expect(() => runtime.subscribe(ctx.conversationId, 999, () => undefined)).toThrow('not_found');
+      expect(() => runtime.poll(ctx.conversationId, 999, 0)).toThrow('not_found');
       const events: Record<string, unknown>[] = [];
       runtime.subscribe(ctx.conversationId, 1, (event) => events.push(event));
       await new Promise((resolveWait) => setTimeout(resolveWait, 100));
@@ -103,7 +104,7 @@ describe('voice runtime with fake app-server', () => {
       expect(saved).toEqual([{ ctx, role: 'user', text: 'Find a product' }]);
       expect(events).toEqual(
         expect.arrayContaining([
-          { type: 'card', card: { kind: 'products', items: [] } },
+          { type: 'card', card: { kind: 'products', items: [] }, source: 'voice' },
           { type: 'tool', name: 'search_products', status: 'done' },
         ]),
       );
@@ -122,7 +123,7 @@ describe('voice runtime with fake app-server', () => {
         action: { status: 'EXECUTED', requires_tap: true, summary: { title: 'Order confirmed' }, result: { order_sn: 'SN1' } },
       });
       await runtime.text(ctx.conversationId, 1, 'Typed question');
-      expect(events).toContainEqual({ type: 'transcript', role: 'user', text: 'Typed question', final: true });
+      expect(events).toContainEqual(expect.objectContaining({ type: 'transcript', role: 'user', text: 'Typed question', final: true, source: 'text' }));
       await runtime.stop(ctx.conversationId, 1);
       expect(ended).toEqual([ctx]);
     } finally {
@@ -130,17 +131,19 @@ describe('voice runtime with fake app-server', () => {
     }
   });
 
-  it('emits an error before closing on a realtime session error', async () => {
+  it('ends only the call on a realtime error and keeps text available', async () => {
     const runtime = new VoiceRuntime({ specs: () => [], run: async () => ({ success: true, text: 'ok' }) }, async () => undefined, async () => undefined);
     const ctx = { conversationId: 'error-session', buyerId: 1, shopId: 2 };
-    const config = { shopName: 'Shop', tone: 'FRIENDLY', greetingVi: 'Xin chào', greetingEn: 'Hello', voice: 'spruce' };
+    const config = { language: 'en' as const, shopName: 'Shop', tone: 'FRIENDLY', greetingVi: 'Xin chào', greetingEn: 'Hello', voice: 'spruce' };
     try {
       await runtime.start(ctx, config, 'offer');
       const events: Record<string, unknown>[] = [];
       runtime.subscribe(ctx.conversationId, 1, (event) => events.push(event));
       await runtime.text(ctx.conversationId, 1, 'FAKE_ERROR');
       await new Promise((resolveWait) => setTimeout(resolveWait, 30));
-      expect(events.findIndex((event) => event.type === 'error')).toBeLessThan(events.findIndex((event) => event.type === 'closed'));
+      expect(events.some((event) => event.type === 'closed')).toBe(false);
+      expect(events).toContainEqual(expect.objectContaining({ type: 'call', state: 'ended' }));
+      await runtime.text(ctx.conversationId, 1, 'Keep chatting');
       expect(events).toContainEqual({ type: 'error', message: 'Assistant session unavailable' });
     } finally { runtime.close(); }
   });
@@ -155,7 +158,7 @@ describe('voice runtime with fake app-server', () => {
       },
     );
     const ctx = { conversationId: 'restart-1', buyerId: 1, shopId: 2 };
-    const config = { shopName: 'Shop', tone: 'FRIENDLY', greetingVi: 'Xin chào', greetingEn: 'Hello', voice: 'spruce' };
+    const config = { language: 'en' as const, shopName: 'Shop', tone: 'FRIENDLY', greetingVi: 'Xin chào', greetingEn: 'Hello', voice: 'spruce' };
     try {
       await runtime.start(ctx, config, 'offer');
       const events: Record<string, unknown>[] = [];
@@ -253,7 +256,15 @@ it('serves a fake voice session over HTTP and protects its event stream', async 
     expect(data).toContain('"type":"transcript"');
     expect(data).toContain('"type":"tool"');
     expect(data).toContain('"type":"card"');
+    await expect(other.assistant.voice.poll(started.conversation_id)).rejects.toMatchObject({ status: 404 });
+    await expect(buyer.assistant.voice.poll(started.conversation_id, -1)).rejects.toMatchObject({ status: 400 });
+    const snapshot = await buyer.assistant.voice.poll(started.conversation_id);
+    expect(snapshot.events).toEqual(expect.arrayContaining([expect.objectContaining({ type: 'card' })]));
+    expect(snapshot.closed).toBe(false);
+    expect((await buyer.assistant.voice.poll(started.conversation_id)).events.slice(0, snapshot.events.length)).toEqual(snapshot.events);
+    expect((await buyer.assistant.voice.poll(started.conversation_id, snapshot.cursor)).events).not.toEqual(expect.arrayContaining(snapshot.events));
     await buyer.assistant.voice.stop(started.conversation_id);
+    expect(await buyer.assistant.voice.poll(started.conversation_id, snapshot.cursor)).toMatchObject({ closed: true, events: expect.arrayContaining([{ type: 'closed', reason: null }]) });
     controller.abort();
     const textSession = await buyer.assistant.text.start({ shop_id: 880001, lang: 'vi' });
     await expect(other.assistant.voice.text(textSession.conversation_id, 'test')).rejects.toMatchObject({ status: 404 });
@@ -275,6 +286,104 @@ it('serves a fake voice session over HTTP and protects its event stream', async 
     const resumed = await buyer.assistant.text.start({ shop_id: 880001, resume_conversation_id: textSession.conversation_id });
     expect(resumed.conversation_id).not.toBe(textSession.conversation_id);
     await buyer.assistant.voice.stop(resumed.conversation_id);
+    // JSON-only transport: no EventSource subscription, ordered replay and no duplicates at the cursor.
+    const polled = await buyer.assistant.text.start({ shop_id: 880001 });
+    await buyer.assistant.voice.text(polled.conversation_id, 'Find a product');
+    let cursor = 0;
+    const polledEvents: Record<string, unknown>[] = [];
+    for (let attempt = 0; attempt < 50; attempt++) {
+      const page = await buyer.assistant.voice.poll(polled.conversation_id, cursor);
+      expect(page.cursor).toBeGreaterThanOrEqual(cursor);
+      cursor = page.cursor;
+      polledEvents.push(...page.events);
+      if (polledEvents.some((event) => event.text === 'Final answer')) break;
+      await new Promise((resolveWait) => setTimeout(resolveWait, 50));
+    }
+    expect(polledEvents).toContainEqual(expect.objectContaining({ type: 'card' }));
+    expect(polledEvents.filter((event) => event.text === 'Verified product')).toHaveLength(1);
+    expect(await buyer.assistant.voice.poll(polled.conversation_id, cursor)).toMatchObject({ events: [], cursor, closed: false });
+    await buyer.assistant.voice.stop(polled.conversation_id);
+    expect(await buyer.assistant.voice.poll(polled.conversation_id, cursor)).toMatchObject({ closed: true, events: [{ type: 'closed', reason: null }] });
+    await expect(other.assistant.voice.poll(polled.conversation_id)).rejects.toMatchObject({ status: 404 });
+    // One HTTP conversation survives text → voice → text, with buyer-scoped call controls.
+    const mixed = await buyer.assistant.text.start({ shop_id: 880002, item_id: 2000201 });
+    const mixedId = mixed.conversation_id;
+    const guest = new HuspeeClient({ baseUrl });
+    await expect(guest.assistant.voice.startCall(mixedId, 'offer')).rejects.toMatchObject({ status: 401 });
+    await expect(other.assistant.voice.startCall(mixedId, 'offer')).rejects.toMatchObject({ status: 404 });
+    await expect(other.assistant.voice.stopCall(mixedId)).rejects.toMatchObject({ status: 404 });
+    await expect(buyer.assistant.voice.startCall(mixedId, '')).rejects.toMatchObject({ status: 400 });
+    await buyer.assistant.voice.text(mixedId, 'Does La Roche have a discount?');
+    async function waitForText(text: string) {
+      for (let attempt = 0; attempt < 100; attempt++) {
+        const batch = await buyer.assistant.voice.poll(mixedId);
+        if (batch.events.some((event) => event.text === text)) return;
+        await new Promise((resolveWait) => setTimeout(resolveWait, 30));
+      }
+      throw new Error(`Missing mixed-chat transcript: ${text}`);
+    }
+    await waitForText('Final answer');
+    const call = await buyer.assistant.voice.startCall(mixedId, 'continuity-offer');
+    expect(call.conversation_id).toBe(mixedId);
+    await expect(buyer.assistant.voice.startCall(mixedId, 'offer')).rejects.toMatchObject({ status: 409 });
+    await waitForText('Tell me about Cocoon.');
+    await buyer.assistant.voice.stopCall(mixedId, call.call_id);
+    expect((await buyer.assistant.voice.poll(mixedId)).closed).toBe(false);
+    await buyer.assistant.voice.text(mixedId, 'CONTINUITY_RECALL');
+    await waitForText('La Roche and Cocoon');
+    const detail = await buyer.assistant.conversations.get(mixedId);
+    expect(detail.status).toBe('ACTIVE');
+    expect(detail.messages).toEqual(expect.arrayContaining([
+      expect.objectContaining({ role: 'user', text: 'Does La Roche have a discount?' }),
+      expect.objectContaining({ role: 'user', text: 'Tell me about Cocoon.' }),
+      expect.objectContaining({ role: 'assistant', text: 'La Roche and Cocoon' }),
+    ]));
+    await buyer.assistant.voice.stop(mixedId);
+    await expect(buyer.assistant.voice.startCall(mixedId, 'offer')).rejects.toMatchObject({ status: 404 });
+    // Page context is scoped to the shop and buyer, and the tool re-reads live catalog data.
+    await expect(buyer.assistant.text.start({ shop_id: 880001, item_id: 2000201 })).rejects.toMatchObject({ status: 404 });
+    await expect(buyer.assistant.voice.start({ shop_id: 880001, item_id: 99999999, sdp_offer: 'offer' })).rejects.toMatchObject({ status: 404 });
+    const contextual = await buyer.assistant.text.start({ shop_id: 880001, item_id: 2000101 });
+    const contextId = contextual.conversation_id;
+    const anonymous = new HuspeeClient({ baseUrl });
+    await expect(anonymous.assistant.voice.setContext(contextId, null)).rejects.toMatchObject({ status: 401 });
+    await expect(other.assistant.voice.setContext(contextId, 2000103)).rejects.toMatchObject({ status: 404 });
+    await expect(buyer.assistant.voice.setContext(contextId, 2000201)).rejects.toMatchObject({ status: 404 });
+    await expect(buyer.assistant.voice.setContext(contextId, -1)).rejects.toMatchObject({ status: 400 });
+    let contextCursor = 0;
+    async function viewedCards() {
+      await buyer.assistant.voice.text(contextId, 'VIEWED_PRODUCT_TEST');
+      const collected: Record<string, unknown>[] = [];
+      for (let attempt = 0; attempt < 100; attempt++) {
+        const batch = await buyer.assistant.voice.poll(contextId, contextCursor);
+        contextCursor = batch.cursor;
+        collected.push(...batch.events);
+        if (collected.some((event) => event.type === 'tool' && event.name === 'get_viewed_product' && ['done', 'error'].includes(String(event.status)))) {
+          return collected.filter((event) => event.type === 'card').map((event) => event.card);
+        }
+        await new Promise((resolveWait) => setTimeout(resolveWait, 30));
+      }
+      throw new Error('Context tool timed out');
+    }
+    expect(await viewedCards()).toEqual([expect.objectContaining({ kind: 'product', item_id: 2000101 })]);
+    expect(await buyer.assistant.voice.setContext(contextId, 2000103)).toEqual({ item_id: 2000103 });
+    expect(await viewedCards()).toEqual([expect.objectContaining({ kind: 'product', item_id: 2000103 })]);
+    const { db } = await import('../helpers/fixtures.js');
+    await db().query('UPDATE items SET status = $1 WHERE id = $2', ['UNLIST', 2000103]);
+    try {
+      await expect(buyer.assistant.text.start({ shop_id: 880001, item_id: 2000103 })).rejects.toMatchObject({ status: 404 });
+      expect(await viewedCards()).toEqual([]);
+    } finally {
+      await db().query('UPDATE items SET status = $1 WHERE id = $2', ['NORMAL', 2000103]);
+    }
+    expect(await buyer.assistant.voice.setContext(contextId, null)).toEqual({ item_id: null });
+    expect(await viewedCards()).toEqual([]);
+    await buyer.assistant.voice.stop(contextId);
+    await expect(buyer.assistant.voice.setContext(contextId, 2000101)).rejects.toMatchObject({ status: 404 });
+    const voiceContext = await buyer.assistant.voice.start({ shop_id: 880001, item_id: 2000101, sdp_offer: 'offer' });
+    expect(await buyer.assistant.voice.setContext(voiceContext.conversation_id, 2000103)).toEqual({ item_id: 2000103 });
+    await buyer.assistant.voice.stop(voiceContext.conversation_id);
+
   } finally {
     server.kill('SIGTERM');
   }

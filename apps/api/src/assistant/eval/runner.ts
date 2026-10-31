@@ -13,12 +13,11 @@ import { ActionsService } from "../actions.service";
 import { AssistantEvents } from "../assistant.events";
 import { AssistantToolRegistry } from "../tools/assistant-tool.registry";
 import { defaultAssistantConfig } from "../assistant-defaults";
-import { voicePrompt } from "../voice/prompt";
 import { VoiceRuntime } from "../voice/voice-runtime";
 import { cases, type EvalCase } from "./cases";
 import { grade, type RecordedRun } from "./grader";
 import { loadFacts } from "./facts";
-import { parseClaims, type Claim } from "./claims";
+import { reviewRun } from "./review";
 
 const args = process.argv.slice(2);
 function option(name: string): string | undefined {
@@ -106,6 +105,7 @@ async function runCase(
           catalog,
           actions,
           logistics,
+          vouchers,
         );
         const row = await tx.shop.findUnique({
           where: { id: test.shop },
@@ -153,13 +153,10 @@ async function runCase(
           shopId: test.shop,
         };
         const observed: RecordedRun["tools"] = [];
-        let claimsTurn = false;
         const runtime = new VoiceRuntime(
           {
             specs: () => registry.specs(),
             run: async (name, input, ctx) => {
-              if (claimsTurn)
-                throw new Error("Tools are forbidden during claim extraction");
               const result = await registry.run(name, input, ctx);
               observed.push({
                 name,
@@ -259,60 +256,22 @@ async function runCase(
             }
           };
           answer = await turn(test.question);
-          claimsTurn = true;
-          const claimsPrompt =
-            "List every fact you stated in your last answer as JSON: [{entity, field, value, unit}] with field in this fixed enum: price, stock, voucher_code, voucher_value, voucher_min_spend, shipping_fee, shipping_days_min, shipping_days_max, return_days, faq, availability, order_status, return_status, return_eligible, voucher_eligible, policy, handoff_offered, refused. For policy include key identifying the policy field, such as return_policy or cod_allowed. For shipping_fee use unit VND for the base fee or VND/kg for the per-kilogram fee. Return only JSON; unit may be null for other fields.";
-          const parse = (text: string) =>
-            parseClaims(
-              JSON.parse(text.replace(/^```(?:json)?\s*|\s*```$/g, "")),
-            );
-          let claims: Claim[];
-          let claimsUnparsed = false;
-          try {
-            claims = parse(await turn(claimsPrompt));
-          } catch {
-            try {
-              claims = parse(
-                await turn(
-                  `${claimsPrompt} Your previous output was invalid. Return valid JSON with scalar values only.`,
-                ),
-              );
-            } catch {
-              claims = [];
-              claimsUnparsed = true;
-            }
-          }
           recording = {
             answer,
-            claims,
-            claimsUnparsed,
             tools: observed,
             latencyMs: Date.now() - start,
             facts,
-            toolNames: registry.specs().map((spec) => spec.name),
-            schemaKeys: registry
-              .specs()
-              .flatMap((spec) =>
-                Object.keys(
-                  (spec.inputSchema as { properties?: Record<string, unknown> })
-                    .properties ?? {},
-                ),
-              ),
-            prompt: voicePrompt({
-              shopName: row.name,
-              tone: config.tone,
-              greetingVi: config.greetingVi,
-              greetingEn: config.greetingEn,
-            }),
           };
           await runtime.stop(context.conversationId, context.buyerId);
+          try { recording.review = await reviewRun(test, recording); }
+          catch (error) { recording.reviewError = error instanceof Error ? error.message : 'Semantic review unavailable'; }
         } finally {
           runtime.close();
           push.onModuleDestroy();
         }
         throw new Rollback();
       },
-      { timeout: 90000 },
+      { timeout: 180000 },
     );
   } catch (error) {
     if (!(error instanceof Rollback)) throw error;
@@ -356,7 +315,7 @@ async function main() {
         "| --- | --- | --- |",
         ...results.map(
           (r) =>
-            `| ${r.case.id} | ${r.grade?.passed ? "PASS" : "FAIL"} | ${(r.error || r.grade?.flags.map((f) => `${f.span}: ${f.reason}`).join("; ") || "").replace(/\|/g, "\\|").replace(/\n/g, " ")} |`,
+            `| ${r.case.id} | ${r.grade?.status?.toUpperCase() ?? "FAIL"} | ${(r.error || r.grade?.flags.map((f) => `${f.span}: ${f.reason}`).join("; ") || "").replace(/\|/g, "\\|").replace(/\n/g, " ")} |`,
         ),
         "",
       ].join("\n"),
@@ -393,7 +352,7 @@ async function main() {
   );
   const rows = results.map(
     (result) =>
-      `| ${result.case.id} | ${result.grade?.passed ? "PASS" : "FAIL"} | ${result.grade?.latencyMs ?? "-"} | ${(result.error || result.grade?.flags.map((f) => `${f.span}: ${f.reason}`).join("; ") || "").replace(/\|/g, "\\|").replace(/\n/g, " ")} |`,
+      `| ${result.case.id} | ${result.grade?.status?.toUpperCase() ?? "FAIL"} | ${result.grade?.latencyMs ?? "-"} | ${(result.error || result.grade?.flags.map((f) => `${f.span}: ${f.reason}`).join("; ") || "").replace(/\|/g, "\\|").replace(/\n/g, " ")} |`,
   );
   await writeFile(
     resolve(out, "report.md"),

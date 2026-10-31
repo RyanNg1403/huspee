@@ -1,4 +1,4 @@
-import { defineMessages } from '@/i18n';
+import { defineMessages } from '@huspee/web-ui/i18n';
 
 export const messages = defineMessages({
   vi: {
@@ -23,7 +23,12 @@ export const messages = defineMessages({
     authorBuyer: 'Bạn',
     authorSeller: 'Người bán',
     authorAssistant: 'Trợ lý ảo Huspee',
-    assistantNotice: 'Được chuyển giao từ phiên trợ lý ảo',
+    viaAssistant: 'gửi qua trợ lý',
+    askedViaAssistant: 'Bạn hỏi qua trợ lý',
+    excerptToggle: 'Đoạn hội thoại đã gửi kèm ({count} câu)',
+    excerptBuyer: 'Bạn',
+    excerptAssistant: 'Trợ lý',
+    unreadCount: '{count} tin chưa đọc',
     replyPlaceholder: 'Nhập câu trả lời hoặc thắc mắc của bạn...',
     sendReply: 'Gửi tin nhắn',
     sending: 'Đang gửi...',
@@ -56,7 +61,12 @@ export const messages = defineMessages({
     authorBuyer: 'You',
     authorSeller: 'Seller',
     authorAssistant: 'Huspee Assistant',
-    assistantNotice: 'Forwarded from assistant session',
+    viaAssistant: 'sent via assistant',
+    askedViaAssistant: 'You asked via the assistant',
+    excerptToggle: 'Conversation excerpt sent along ({count} lines)',
+    excerptBuyer: 'You',
+    excerptAssistant: 'Assistant',
+    unreadCount: '{count} unread',
     replyPlaceholder: 'Type your reply or question...',
     sendReply: 'Send message',
     sending: 'Sending...',

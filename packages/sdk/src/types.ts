@@ -109,7 +109,7 @@ export interface ProductDetail {
   category: { category_id: number; display_name: string };
   brand: { brand_id: number; name: string } | null;
   images: string[];
-  attributes: Array<{ name: string; value: string }>;
+  attributes: Array<{ name: string; value: string | null }>;
   price_min: number;
   price_max: number;
   original_price_min: number;
@@ -296,17 +296,22 @@ export interface BuyerOrder {
   recipient_address: Record<string, string>;
   message_to_seller: string;
   logistics: { logistics_channel_id: number; shipping_carrier: string; tracking_number: string | null; logistics_status: string | null };
+  latest_tracking: { description: string; logistics_status: string; time: number } | null;
+  /** Set when the order came from tapping an assistant quote. */
+  placed_via_assistant: { conversation_id: string; placed_at: number } | null;
   cancel_by: string | null;
   cancel_reason: string | null;
   create_time: number;
   update_time: number;
   pay_time: number | null;
   ship_by_date: number;
+  shipped_time: number | null;
   delivered_time: number | null;
   actions: { can_cancel: boolean; can_confirm_receipt: boolean; can_request_return: boolean; return_request_due_date: number | null };
 }
 
 export interface BuyerOrderListQuery {
+  shop_id?: number;
   status?: OrderStatus | OrderStatus[] | string | string[];
   page?: number;
   page_size?: number;
@@ -349,12 +354,25 @@ export interface CreateReturnInput {
   solution?: 'RETURN_REFUND' | 'REFUND_ONLY';
   items?: Array<{ item_id: number; model_id: number; quantity: number }>;
   image_urls?: string[];
+  evidence_ids?: string[];
 }
 
+export interface BuyerOrderCounts {
+  total: number;
+  by_status: Partial<Record<string, number>>;
+  returns: number;
+}
+/** Opaque private evidence metadata. Original filenames and content URLs are never returned. */
+export interface ReturnEvidence { evidence_id: string; size: number; create_time: number; return_sn: string | null }
+export interface ReturnEvidenceSelection { order_sn: string | null; evidence_ids: string[]; evidence: ReturnEvidence[] }
+
 export interface BuyerReturn {
+  evidence: ReturnEvidence[];
   return_sn: string;
   order_sn: string;
   shop_id: number;
+  shop_name: string;
+  image_urls: string[];
   status: 'REQUESTED' | 'ACCEPTED' | 'CANCELLED' | 'JUDGING' | 'CLOSED' | 'PROCESSING' | 'SELLER_DISPUTE';
   reason: ReturnReason;
   text_reason: string;
@@ -448,13 +466,35 @@ export interface AssistantConfig { shop_id: number; enabled: boolean; tone: 'FRI
 export type AssistantConfigInput = Partial<Pick<AssistantConfig, 'enabled' | 'tone' | 'voice' | 'greeting_vi' | 'greeting_en'>>;
 export interface AssistantFaq { id: number; shop_id: number; question: string; answer: string; lang: 'vi' | 'en' | 'any'; enabled: boolean; created_at: number; updated_at: number }
 export type AssistantFaqInput = Pick<AssistantFaq, 'question' | 'answer' | 'lang' | 'enabled'>;
-export interface PendingActionView { action_id: string; type: 'ADD_TO_CART' | 'UPDATE_CART_ITEM' | 'PLACE_ORDER' | 'OPEN_RETURN'; status: 'PENDING' | 'EXECUTED' | 'CANCELLED' | 'EXPIRED' | 'FAILED'; requires_tap: boolean; expires_at: number; summary: { title: string; lines: Array<{label: string; value: string}>; total?: number }; result?: { order_sn?: string; return_sn?: string; message?: string } }
+export interface PendingActionView { action_id: string; type: 'ADD_TO_CART' | 'UPDATE_CART_ITEM' | 'PLACE_ORDER' | 'OPEN_RETURN' | 'CANCEL_RETURN' | 'ACCEPT_RETURN_OFFER'; status: 'PENDING' | 'EXECUTED' | 'CANCELLED' | 'EXPIRED' | 'FAILED'; requires_tap: boolean; expires_at: number; summary: { title: string; lines: Array<{label: string; value: string}>; total?: number; evidence?: { order_sn: string; evidence_ids: string[] } }; result?: { order_sn?: string; return_sn?: string; message?: string } }
 export type AssistantCard =
-  | { kind: 'products'; resolution?: { resolved_from: string; resolved_to: string; confidence: number }; items: Array<{ item_id: number; name: string; image: string | null; price_min: number; price_max: number; stock: number; rating: number | null }> }
+  | { kind: 'products'; items: Array<{ item_id: number; name: string; image: string | null; price_min: number; price_max: number; stock: number; rating: number | null }> }
   | { kind: 'product'; item_id: number; name: string; image: string | null; models: Array<{ model_id: number; name: string; price: number; stock: number }> }
-  | { kind: 'compare'; items: Array<{ item_id: number; name: string; image: string | null; price_min: number; rows: Record<string, string> }> }
+  | {
+      kind: 'compare';
+      items: Array<{
+        item_id: number;
+        name: string;
+        image: string | null;
+        price_min: number;
+        price_max?: number;
+        rows: Record<string, string>;
+        specs?: Array<{ name: string; value: string | null }>;
+        models?: Array<{ model_id: number; name: string; price: number; stock: number }>;
+      }>;
+    }
   | { kind: 'cart'; lines: Array<{ item_id: number; model_id: number; name: string; quantity: number; price: number }>; total: number }
-  | { kind: 'order'; order_sn: string; status: string; tracking: Array<{ time: number; description: string }> }
+  | {
+      kind: 'order';
+      order_sn: string;
+      status: string;
+      items?: Array<{ item_id: number; model_id: number; name: string; variant?: string; quantity: number; price: number }>;
+      shipping_carrier?: string | null;
+      tracking_number?: string | null;
+      delivered_time?: number | null;
+      return?: { window_days: number; due_time: number | null; eligible: boolean; request: { return_sn: string; status: string } | null };
+      tracking: Array<{ time: number; description: string }>;
+    }
   | { kind: 'handoff'; ticket_id: number }
   | { kind: 'action'; action: PendingActionView };
 export type AssistantEvent =
@@ -465,11 +505,13 @@ export type AssistantEvent =
   | { type: 'closed'; reason: string | null }
   | { type: 'error'; message: string };
 export interface HandoffMessage { id: number; ticket_id: number; author: 'BUYER' | 'SELLER' | 'ASSISTANT'; author_user_id: number | null; body: string; created_at: number }
-export interface HandoffTicket { ticket_id: number; shop_id: number; shop_name: string; logo_url: string | null; subject: string; status: 'OPEN' | 'ANSWERED' | 'CLOSED'; buyer_unread: number; seller_unread: number; updated_at: number; last_message: HandoffMessage | null; conversation_id?: string | null }
+export interface HandoffTicket { ticket_id: number; shop_id: number; shop_name: string; logo_url: string | null; buyer_name: string; subject: string; status: 'OPEN' | 'ANSWERED' | 'CLOSED'; buyer_unread: number; seller_unread: number; updated_at: number; last_message: HandoffMessage | null; conversation_id?: string | null }
 export interface HandoffTicketDetail extends HandoffTicket { messages: HandoffMessage[] }
-export interface AssistantConversation { conversation_id: string; shop_id: number; buyer_id: number; channel: 'VOICE' | 'TEXT'; status: 'ACTIVE' | 'ENDED'; started_at: number; ended_at: number | null; language: string | null; summary: unknown }
+export interface AssistantConversation { conversation_id: string; shop_id: number; buyer_id: number; buyer_name: string; channel: 'VOICE' | 'TEXT'; status: 'ACTIVE' | 'ENDED'; started_at: number; ended_at: number | null; language: string | null; summary: unknown }
 export interface AssistantConversationDetail extends AssistantConversation { messages: Array<{ id: number; role: 'USER' | 'ASSISTANT'; text: string; created_at: number }>; tool_calls: Array<{ id: number; tool: string; args: unknown; result: unknown; success: boolean; error: string | null; latency_ms: number; created_at: number }> }
 
 export interface AssistantInsightsTotals { conversations: number; voice: number; text: number; handoffs: number; orders_placed: number; returns_opened: number }
 export type AssistantSummary = { topics: string[]; hesitations: string[]; listing_suggestions: Array<{ item_id?: number; text: string }>; language: string; model: string; created_at: number } | { error: string };
-export interface AssistantInsights { source: 'logs'; from: number; to: number; totals: AssistantInsightsTotals; top_products: Array<{ item_id: number; name: string; count: number }>; missing_requests: Array<{ conversation_id: string; question: string; tool: string; created_at: number }>; unanswered_questions: Array<{ conversation_id: string; question: string; tool: string; created_at: number }>; daily: Array<AssistantInsightsTotals & { date: string }>; campaigns: Array<{ code: string; count: number }>; summaries: Array<{ conversation_id: string; source: 'model'; summary: AssistantSummary }> }
+export interface AssistantInsightsFunnel { conversations: number; asked_product: number; quoted: number; cart_confirmed: number; ordered: number }
+export interface AssistantUnansweredGroup { question: string; count: number; buyers: number; last_at: number; conversation_ids: string[] }
+export interface AssistantInsights { source: 'logs'; from: number; to: number; totals: AssistantInsightsTotals; unique_buyers: number; orders_revenue: number; funnel: AssistantInsightsFunnel; unanswered_groups: AssistantUnansweredGroup[]; top_products: Array<{ item_id: number; name: string; count: number }>; missing_requests: Array<{ conversation_id: string; question: string; tool: string; created_at: number }>; unanswered_questions: Array<{ conversation_id: string; question: string; tool: string; created_at: number }>; daily: Array<AssistantInsightsTotals & { date: string }>; campaigns: Array<{ code: string; count: number }>; summaries: Array<{ conversation_id: string; source: 'model'; summary: AssistantSummary }> }

@@ -1,13 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import type { BuyerOrder, ReturnReason } from '@huspee/sdk';
-import { Button, Input, Modal, Select, Textarea, useToast } from '@/components/ui';
-import { useT } from '@/i18n';
-import { common } from '@/i18n/common';
-import { getApiClient } from '@/lib/api';
-import { formatVnd } from '@/lib/format';
+import type { BuyerOrder, ReturnReason, ReturnEvidence } from '@huspee/sdk';
+import { Button, Input, Modal, Select, Textarea, useToast } from '@huspee/web-ui/components/ui';
+import { EvidencePicker } from '@huspee/web-ui/components/refunds/EvidencePicker';
+import { useT } from '@huspee/web-ui/i18n';
+import { common } from '@huspee/web-ui/i18n/common';
+import { getApiClient } from '@huspee/web-ui/lib/api';
+import { formatVnd } from '@huspee/web-ui/lib/format';
 import { messages } from './messages';
+import { formatFullDate } from './order-view';
 import { getErrorMessage } from './shared';
 
 export function ReturnRequestModal({
@@ -24,6 +26,8 @@ export function ReturnRequestModal({
   const t = useT(messages);
   const tCommon = useT(common);
   const toast = useToast();
+  const [evidence, setEvidence] = useState<ReturnEvidence[]>([]);
+  const [evidenceBusy, setEvidenceBusy] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [solution, setSolution] = useState<'RETURN_REFUND' | 'REFUND_ONLY'>('RETURN_REFUND');
   const [reason, setReason] = useState<ReturnReason>('DIFFERENT_DESCRIPTION');
@@ -53,6 +57,7 @@ export function ReturnRequestModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting || evidenceBusy) return;
     const chosenItems = order.items.filter((i) => selectedModels.has(i.model_id));
     if (chosenItems.length === 0) {
       toast(t('pleaseSelectAtLeastOneItem'));
@@ -66,6 +71,7 @@ export function ReturnRequestModal({
         reason,
         solution,
         text_reason: textReason,
+        evidence_ids: evidence.map((photo) => photo.evidence_id),
         items: chosenItems.map((i) => ({
           item_id: i.item_id,
           model_id: i.model_id,
@@ -85,6 +91,11 @@ export function ReturnRequestModal({
   return (
     <Modal open={open} onClose={onClose} title={t('requestReturn')}>
       <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+        {order.actions.return_request_due_date && (
+          <p className="text-sm text-muted">
+            {t('returnDeadline', { date: formatFullDate(order.actions.return_request_due_date) })}
+          </p>
+        )}
         {/* Item & Quantity Selection */}
         <div>
           <label className="mb-2 block text-sm font-semibold text-gray-800">{t('selectItemsToReturn')}</label>
@@ -152,9 +163,12 @@ export function ReturnRequestModal({
             onChange={(e) => setReason(e.target.value as ReturnReason)}
             className="w-full"
           >
+            <option value="NOT_RECEIPT">{t('reasonNotReceipt')}</option>
             <option value="DIFFERENT_DESCRIPTION">{t('reasonDifferentDescription')}</option>
             <option value="WRONG_ITEM">{t('reasonWrongItem')}</option>
             <option value="ITEM_DAMAGED">{t('reasonDamaged')}</option>
+            <option value="PHYSICAL_DMG">{t('reasonPhysicalDamage')}</option>
+            <option value="FUNCTIONAL_DMG">{t('reasonFunctionalDamage')}</option>
             <option value="ITEM_MISSING">{t('reasonMissing')}</option>
             <option value="EXPECTATION_FAILED">{t('reasonExpectationFailed')}</option>
             <option value="ITEM_FAKE">{t('reasonFake')}</option>
@@ -175,11 +189,20 @@ export function ReturnRequestModal({
           />
         </div>
 
+        <EvidencePicker
+          key={order.order_sn}
+          orderSn={order.order_sn}
+          value={evidence}
+          onChange={setEvidence}
+          disabled={submitting}
+          onBusyChange={setEvidenceBusy}
+        />
+
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
             {t('cancel')}
           </Button>
-          <Button type="submit" loading={submitting}>
+          <Button type="submit" loading={submitting} disabled={evidenceBusy}>
             {t('submit')}
           </Button>
         </div>

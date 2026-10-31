@@ -1,8 +1,8 @@
 'use client';
 
 import type { BuyerOrder, OrderStatus, OrderTracking } from '@huspee/sdk';
-import { useLang, useT } from '@/i18n';
-import { formatDateTime } from '@/lib/format';
+import { useLang, useT } from '@huspee/web-ui/i18n';
+import { formatDateTime } from '@huspee/web-ui/lib/format';
 import { messages } from './messages';
 
 export function OrderStatusStepper({ status, order }: { status?: OrderStatus; order?: BuyerOrder }) {

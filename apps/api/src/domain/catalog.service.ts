@@ -34,7 +34,11 @@ export interface ModelPrice {
 }
 
 export function mediaUrl(pathOrUrl: string): string {
-  return pathOrUrl.startsWith('/') ? `${loadConfig().PUBLIC_BASE_URL}${pathOrUrl}` : pathOrUrl;
+  const config = loadConfig();
+  if (config.BROWSER_PROXY_ENABLED && pathOrUrl.startsWith(`${config.PUBLIC_BASE_URL}/media/`)) {
+    return pathOrUrl.slice(config.PUBLIC_BASE_URL.length);
+  }
+  return pathOrUrl.startsWith('/') && !config.BROWSER_PROXY_ENABLED ? `${config.PUBLIC_BASE_URL}${pathOrUrl}` : pathOrUrl;
 }
 
 export function mediaPath(imageId: string): string {
@@ -68,9 +72,47 @@ export function modelName(item: { tierVariation: Prisma.JsonValue }, tierIndex: 
     .join(', ');
 }
 
+/** Selected variant media is authoritative; unillustrated variants retain the product hero. */
+export function modelImage(item: { tierVariation: Prisma.JsonValue; images: ReadonlyArray<{ url: string }> }, tierIndex: number[] = []): string | null {
+  const options = tierVariations(item).map((tier, index) => ({
+    name: tier.name,
+    imageId: tier.option_list?.[tierIndex[index] ?? -1]?.image_id,
+  }));
+  const color = options.find((option) => /màu|colou?r/i.test(option.name) && option.imageId);
+  const imageId = color?.imageId ?? options.find((option) => option.imageId)?.imageId;
+  return imageId ? mediaUrl(mediaPath(imageId)) : item.images[0] ? mediaUrl(item.images[0].url) : null;
+}
+
 /** Sellable models: the default model for items without variations, otherwise the real variants. */
 export function sellableModels(item: ItemWithRelations): ModelWithDiscounts[] {
   return item.models.filter((m) => (item.hasModel ? !m.isDefault : m.isDefault));
+}
+
+/**
+ * Every attribute of the item's category, in definition order: `value` is null when the shop has not
+ * filled it in, so buyers and the assistant see "not provided" instead of the row silently missing.
+ */
+export function describeAttributes(
+  item: { attributes: Prisma.JsonValue },
+  definitions: ReadonlyArray<{ id: number; displayName: string; values: Prisma.JsonValue }>,
+): Array<{ name: string; value: string | null }> {
+  const filled = (Array.isArray(item.attributes) ? item.attributes : []) as Array<{
+    attribute_id?: number;
+    attribute_value_list?: Array<{ value_id?: number; original_value_name?: string; value_unit?: string }>;
+  }>;
+  return [...definitions]
+    .sort((a, b) => a.id - b.id)
+    .map((def) => {
+      const known = (Array.isArray(def.values) ? def.values : []) as Array<{ value_id: number; name: string; display_name?: string }>;
+      const value = (filled.find((a) => a.attribute_id === def.id)?.attribute_value_list ?? [])
+        .map((part) => {
+          const match = known.find((entry) => entry.value_id === part.value_id);
+          return (match?.display_name ?? match?.name ?? part.original_value_name ?? '') + (part.value_unit ? ` ${part.value_unit}` : '');
+        })
+        .filter(Boolean)
+        .join(', ');
+      return { name: def.displayName, value: value || null };
+    });
 }
 
 /** Shopee exposes model_id 0 for an item without variations. */

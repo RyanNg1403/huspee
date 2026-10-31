@@ -2,7 +2,7 @@ import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { AssistantEvents } from '../assistant.events';
 import { VoiceCatalogRegistry } from '../voice-catalog';
 import { ConversationService } from '../conversation.service';
-import { actionText, AssistantToolRegistry } from '../tools/assistant-tool.registry';
+import { actionReadback, actionText, AssistantToolRegistry } from '../tools/assistant-tool.registry';
 import { voiceEnabled } from './voice-enabled';
 import { VoiceRuntime } from './voice-runtime';
 
@@ -23,9 +23,8 @@ export class VoiceService implements OnModuleInit, OnModuleDestroy {
         conversations.appendMessage(ctx.conversationId, role === 'user' ? 'USER' : 'ASSISTANT', text),
       (ctx) => conversations.end(ctx.conversationId),
     );
-    this.runtime.onSpeechCheck = (ctx, log) => void conversations.logSpeechCheck(ctx.conversationId, log).catch(() => undefined);
-    this.unsubscribe = events.onAction(({ conversationId, action, replaces }) =>
-      this.runtime.action(conversationId, action, replaces ? actionText(action) : undefined),
+    this.unsubscribe = events.onAction(({ conversationId, action, replaces, initiatedBy }) =>
+      this.runtime.action(conversationId, action, replaces ? { text: actionText(action), readback: actionReadback(action) } : undefined, initiatedBy),
     );
   }
   onModuleInit(): void {

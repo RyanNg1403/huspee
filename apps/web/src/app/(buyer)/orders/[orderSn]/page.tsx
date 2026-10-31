@@ -5,15 +5,17 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useParams } from 'next/navigation';
 import type { BuyerOrder, OrderTracking } from '@huspee/sdk';
-import { RequireRole } from '@/components/session';
-import { Button, Icon, QueryState, useToast } from '@/components/ui';
-import { useLang, useT } from '@/i18n';
-import { common } from '@/i18n/common';
-import { getApiClient } from '@/lib/api';
-import { formatDateTime, formatVnd } from '@/lib/format';
-import { useApi } from '@/lib/use-api';
+import { RequireRole } from '@huspee/web-ui/components/session';
+import { VoiceWidget } from '@/components/assistant/VoiceWidget';
+import { Button, Icon, QueryState, useToast } from '@huspee/web-ui/components/ui';
+import { useLang, useT } from '@huspee/web-ui/i18n';
+import { common } from '@huspee/web-ui/i18n/common';
+import { getApiClient } from '@huspee/web-ui/lib/api';
+import { formatDateTime, formatVnd } from '@huspee/web-ui/lib/format';
+import { useApi } from '@huspee/web-ui/lib/use-api';
 import { CancelOrderModal } from '../../_orders/CancelOrderModal';
 import { messages } from '../../_orders/messages';
+import { formatDayMonthTime, formatFullDate } from '../../_orders/order-view';
 import { ReturnRequestModal } from '../../_orders/ReturnRequestModal';
 import { ReviewModal } from '../../_orders/ReviewModal';
 import { formatPaymentMethod, getErrorMessage, OrderStatusBadge, panel } from '../../_orders/shared';
@@ -73,6 +75,7 @@ function OrderDetailView() {
 
   return (
     <div className="space-y-4 pb-12">
+      <VoiceWidget shopId={order.shop.shop_id} order={{ order_sn: order.order_sn, status: order.status, image: order.items[0]?.image_url ?? undefined }} />
       {/* Top Bar with Back and Status */}
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-white p-4 shadow-card">
         <div className="flex items-center gap-3">
@@ -88,6 +91,11 @@ function OrderDetailView() {
           </span>
         </div>
         <div className="flex items-center gap-3">
+          {order.placed_via_assistant && (
+            <span className="text-[13px] text-muted">
+              {t('placedViaAssistant', { time: formatDayMonthTime(order.placed_via_assistant.placed_at) })}
+            </span>
+          )}
           <OrderStatusBadge status={order.status} />
         </div>
       </div>
@@ -265,6 +273,11 @@ function OrderDetailView() {
 
       {/* Actions Bar */}
       <div className="flex flex-wrap items-center justify-end gap-3 rounded-2xl border border-line bg-white p-4 shadow-card">
+        {order.actions.can_request_return && order.actions.return_request_due_date && (
+          <span className="mr-auto text-[13px] text-muted">
+            {t('returnDeadline', { date: formatFullDate(order.actions.return_request_due_date) })}
+          </span>
+        )}
         {order.actions.can_cancel && (
           <Button variant="outline" onClick={() => setCancelModalOpen(true)}>
             {t('cancelOrder')}

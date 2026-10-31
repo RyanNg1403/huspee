@@ -1,6 +1,6 @@
 import Link from 'next/link';
-import { common } from '@/i18n/common';
-import { getT } from '@/i18n/server';
+import { common } from '@huspee/web-ui/i18n/common';
+import { getT } from '@huspee/web-ui/i18n/server';
 
 export default async function NotFound() {
   const t = await getT(common);

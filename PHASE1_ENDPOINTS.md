@@ -20,8 +20,8 @@
 | `partner` | Shopee partner-level signature: `sign = HMAC-SHA256(partner_key, partner_id + path + timestamp)`; no access token |
 | `shop` | Shopee shop-level signature: `partner_id + path + timestamp + access_token + shop_id`, plus opaque token → partner/shop/active-grant validation |
 | `public` | No authentication (public catalog data only) |
-| `session` | `huspee_sid` HttpOnly cookie; state-changing requests also need `X-Requested-With` |
-| `session:buyer` / `session:seller` | Session with the given role; resources are additionally ownership/membership checked |
+| `session` | `huspee_sid` by default; `huspee_seller_sid` with `X-Huspee-Surface: seller`; state-changing requests also need `X-Requested-With` |
+| `session:buyer` / `session:seller` | Session with the given role; buyer-only routes also require buyer surface. Seller-role routes retain legacy default-surface access. Resources are ownership/membership checked |
 
 **SDK columns.** Upstream methods are those of `@congminh1254/shopee-sdk@2.12.0` (`sdk.<manager>.<method>`), inherited unchanged by `HuspeeShopeeSDK` in `@huspee/sdk/server`. Huspee methods live on `HuspeeClient` (`@huspee/sdk`, browser-safe) or `HuspeeShopeeSDK.custom` (server-only).
 
@@ -251,7 +251,7 @@ All of the following are covered by `tests/e2e/flows.test.ts` (plus the upstream
 
 ## Phase 2 assistant (project-defined custom routes)
 
-These `/api/v1` routes use platform sessions unless marked public, and the browser-safe `@huspee/sdk` methods named below; they are not Shopee endpoints. Voice routes are supplied by the voice module. Automated coverage is in `tests/extensions/assistant.test.ts`, `messages.test.ts`, `voice.test.ts`, `codex-connection.test.ts`, and `codex-setup.test.ts`.
+These `/api/v1` routes use platform sessions unless marked public, and the browser-safe `@huspee/sdk` methods named below; they are not Shopee endpoints. Voice routes are supplied by the voice module. Dynamic tool contracts include read-only `check_voucher`, explicit `set_response_language`, and conversation-scoped `cancel_action`; `confirm_action` requires an exact action ID, and quantities use integer arguments. These are internal agent tools, not new HTTP routes; tool coverage is in `tests/extensions/agent-tools.test.ts`. Automated coverage is in `tests/extensions/assistant.test.ts`, `messages.test.ts`, `voice.test.ts`, `codex-connection.test.ts`, and `codex-setup.test.ts`.
 
 | Method | Path | Auth | SDK | Status / coverage |
 |---|---|---|---|---|
@@ -260,15 +260,19 @@ These `/api/v1` routes use platform sessions unless marked public, and the brows
 | GET | `/assistant/connection` | public; pending code requires browser setup cookie | `assistant.connection.get` | custom; public `/setup/codex` page; codex-setup tests |
 | POST | `/assistant/connection/login` | public + CSRF header; issues browser setup cookie | `assistant.connection.login` | custom; starts shared Codex device login without marketplace sign-in; codex-setup tests |
 | POST | `/assistant/connection/login/cancel` | public + CSRF header + owning setup cookie | `assistant.connection.cancel` | custom; cancels only that browser's pending login, never disconnects an account; codex-setup tests |
-| POST | `/assistant/text/sessions` | buyer session | `assistant.text.start` | custom text thread; optional `resume_conversation_id` (own conversation); voice tests |
+| POST | `/assistant/text/sessions` | buyer session | `assistant.text.start` | custom text thread; optional `item_id` (public product in this shop) and `resume_conversation_id` (own conversation); voice tests |
 | GET | `/assistant/shops/:shopId/conversations` | buyer session | `assistant.conversations.list` | buyer's own past sessions with the shop; assistant tests |
 | GET | `/assistant/conversations/:conversationId` | buyer session | `assistant.conversations.get` | own transcript plus cards from stored tool results; assistant tests |
-| POST | `/assistant/voice/sessions` | buyer session | `assistant.voice.start` | voice module; optional `resume_conversation_id`; voice tests |
-| GET | `/assistant/voice/sessions/:conversationId/events` | buyer session | `assistant.voice.eventsUrl` | voice module; SSE (transcripts, tools, cards, actions); voice tests |
+| POST | `/assistant/voice/sessions` | buyer session | `assistant.voice.start` | voice module; optional `item_id` (public product in this shop) and `resume_conversation_id`; voice tests |
+| GET | `/assistant/voice/sessions/:conversationId/events` | buyer session | `assistant.voice.eventsUrl` | voice module; SSE (transcripts, tools, cards with text/voice source, actions); voice tests |
+| GET | `/assistant/voice/sessions/:conversationId/poll` | buyer session | `assistant.voice.poll` | custom; cursor-based JSON fallback for tunnels without SSE; voice tests |
+| POST | `/assistant/voice/sessions/:conversationId/call` | buyer session | `assistant.voice.startCall` | custom; attach WebRTC to the existing conversation/thread, returns `call_id`; voice and continuity tests |
+| POST | `/assistant/voice/sessions/:conversationId/call/stop` | buyer session | `assistant.voice.stopCall` | custom; optional `call_id` targets a call; detach audio and retain chat/history; voice and continuity tests |
+| PATCH | `/assistant/voice/sessions/:conversationId/context` | buyer session | `assistant.voice.setContext` | custom; update/clear viewed product for own active session; verifies shop and visibility; voice tests |
 | POST | `/assistant/voice/sessions/:conversationId/text` | buyer session | `assistant.voice.text` | voice module; voice tests |
-| POST | `/assistant/voice/sessions/:conversationId/stop` | buyer session | `assistant.voice.stop` | voice module; voice tests |
-| GET | `/assistant/actions/:actionId/options` | buyer session | `assistant.actions.options` | custom; pending cart, order or return edit options; assistant tests |
-| PATCH | `/assistant/actions/:actionId` | buyer session | `assistant.actions.edit` | custom; replaces pending cart, order or return action; assistant tests |
+| POST | `/assistant/voice/sessions/:conversationId/stop` | buyer session | `assistant.voice.stop` | ends the entire conversation; voice tests |
+| GET | `/assistant/actions/:actionId/options` | buyer session | `assistant.actions.options` | custom; pending single/batch cart, order or return edit options; assistant and batch-cart tests |
+| PATCH | `/assistant/actions/:actionId` | buyer session | `assistant.actions.edit` | custom; replaces pending single/batch cart, order or return action; assistant and batch-cart tests |
 | POST | `/assistant/actions/:actionId/confirm` | buyer session | `assistant.actions.confirm` | implemented; assistant tests |
 | POST | `/assistant/actions/:actionId/cancel` | buyer session | `assistant.actions.cancel` | implemented; assistant tests |
 | GET | `/buyer/messages`, `/buyer/messages/unread-count`, `/buyer/messages/:ticketId` | buyer session | `buyer.messages.list`, `.unreadCount`, `.get` | implemented; messages tests |
@@ -283,3 +287,33 @@ These `/api/v1` routes use platform sessions unless marked public, and the brows
 | POST | `/assistant/_debug/tools/:name` | buyer session; `ASSISTANT_TOOL_DEBUG=true` | low-level test transport only | test-only; disabled by default |
 | GET | `/seller/shops/:shopId/assistant/insights` | seller membership | `seller.assistant.insights` | custom; insights tests |
 | POST | `/seller/shops/:shopId/assistant/conversations/:id/summary` | seller membership | `seller.assistant.summarize` | custom; insights tests |
+
+## Browser session surfaces (U1)
+
+No new API routes. Existing custom login/signup accept optional `surface: 'buyer' | 'seller'`,
+which must match the `X-Huspee-Surface` header (both default to buyer). The browser SDK adds
+both when constructed with `{ surface: 'seller' }`; default SDK calls retain their original behavior.
+The backend creates `huspee_seller_sid` only for SELLER accounts on seller surface, stores the
+surface on each session, and rejects token substitution across cookies. `RequireRole('BUYER')`
+routes reject seller sessions even when the account also holds BUYER role. Logout affects only
+the selected surface. Cookie attributes and ownership checks remain unchanged.
+
+Consent HTML and callback prefer a valid seller session, with legacy buyer-session fallback;
+consent-form login creates a seller session. Callback redirects to `SELLER_APP_URL/shops/:id`.
+Both configured web origins are allowed by CORS. Frontend proxies preserve cookies and headers;
+only navigation URLs are localized for tunnels. Shopee signing/token contracts are unchanged.
+Coverage: `tests/extensions/session-surfaces.test.ts`, `tests/web/proxy.test.ts`, dual-session UI smoke.
+
+### Private refund evidence extensions (custom, session-authenticated)
+
+| Method | Path | Auth | SDK | Coverage |
+|---|---|---|---|---|
+| POST | /api/v1/buyer/orders/:orderSn/return-evidence | owning buyer, CSRF | buyer.returnEvidence.upload | normalization, limits, private ownership |
+| GET | /api/v1/buyer/orders/:orderSn/return-evidence | owning buyer | buyer.returnEvidence.list | draft metadata only |
+| DELETE | /api/v1/buyer/return-evidence/:id | owning buyer, unattached only, CSRF | buyer.returnEvidence.remove | delete/attach race, stale consent |
+| GET | /api/v1/buyer/return-evidence/:id/content | owning buyer | buyer.returnEvidence.content | private WebP Blob |
+| GET / PUT | /api/v1/assistant/conversations/:id/return-evidence | owning buyer, active shop conversation, CSRF on PUT | assistant.returnEvidence.getSelection/setSelection | exact selection and pending-action invalidation |
+| GET | /api/v1/seller/shops/:shopId/returns/:returnSn/evidence | seller membership, submitted request only | seller.returnEvidence.list | draft and cross-shop rejection |
+| GET | /api/v1/seller/shops/:shopId/returns/:returnSn/evidence/:id/content | seller membership, exact submitted request | seller.returnEvidence.content | surface-bound private Blob, both cookies |
+
+Buyer return creation additionally accepts evidence_ids; action editing permits photo-only replacement for OPEN_RETURN. Refund quote/status and tap-only cancellation/offer-acceptance are internal assistant tools using these shared domain contracts. Tests: tests/extensions/refund-evidence.test.ts and tests/ui/refund-evidence.mjs. No private evidence is added to Shopee-compatible responses.

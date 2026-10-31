@@ -1,7 +1,7 @@
 'use client';
 
-import { Badge } from '@/components/ui';
-import { useT } from '@/i18n';
+import { Badge } from '@huspee/web-ui/components/ui';
+import { useT } from '@huspee/web-ui/i18n';
 import { messages } from '../messages';
 
 export function StatusBadge({ status }: { status: 'OPEN' | 'ANSWERED' | 'CLOSED' }) {

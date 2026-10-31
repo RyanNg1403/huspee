@@ -6,18 +6,18 @@ import { randomToken, sha256Hex } from '../common/crypto';
 import { PrismaService } from '../common/prisma.service';
 import { addSeconds } from '../common/time';
 
-export const SESSION_COOKIE = 'huspee_sid';
+import { dbSurface, requestSurface, sessionCookie, type SessionSurface } from './session-surface';
 
 @Injectable()
 export class SessionService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(userId: number, res: Response): Promise<void> {
+  async create(userId: number, res: Response, surface: SessionSurface = 'buyer'): Promise<void> {
     const cfg = loadConfig();
     const token = randomToken(32);
     const expiresAt = addSeconds(new Date(), cfg.SESSION_TTL_SECONDS);
-    await this.prisma.webSession.create({ data: { id: sha256Hex(token), userId, expiresAt } });
-    res.cookie(SESSION_COOKIE, token, {
+    await this.prisma.webSession.create({ data: { id: sha256Hex(token), userId, expiresAt, surface: dbSurface(surface) } });
+    res.cookie(sessionCookie(surface), token, {
       httpOnly: true,
       secure: cfg.COOKIE_SECURE,
       sameSite: 'lax',
@@ -26,19 +26,28 @@ export class SessionService {
     });
   }
 
-  async resolve(req: Request): Promise<User | null> {
-    const token = req.cookies?.[SESSION_COOKIE];
+  async resolve(req: Request, surface: SessionSurface = requestSurface(req)): Promise<User | null> {
+    const token = req.cookies?.[sessionCookie(surface)];
     if (typeof token !== 'string' || token.length === 0) return null;
     const session = await this.prisma.webSession.findUnique({ where: { id: sha256Hex(token) }, include: { user: true } });
-    if (!session || session.revokedAt || session.expiresAt <= new Date()) return null;
+    if (!session || session.surface !== dbSurface(surface) || session.revokedAt || session.expiresAt <= new Date()) return null;
     return session.user;
   }
 
-  async destroy(req: Request, res: Response): Promise<void> {
-    const token = req.cookies?.[SESSION_COOKIE];
-    if (typeof token === 'string' && token.length > 0) {
-      await this.prisma.webSession.updateMany({ where: { id: sha256Hex(token), revokedAt: null }, data: { revokedAt: new Date() } });
+  /** HTML navigation has no surface header; bind consent and its CSRF token to the same session. */
+  async resolvePartner(req: Request): Promise<{ user: User; surface: SessionSurface } | null> {
+    for (const surface of ['seller', 'buyer'] as const) {
+      const user = await this.resolve(req, surface);
+      if (user) return { user, surface };
     }
-    res.clearCookie(SESSION_COOKIE, { path: '/', httpOnly: true, secure: loadConfig().COOKIE_SECURE, sameSite: 'lax' });
+    return null;
+  }
+
+  async destroy(req: Request, res: Response, surface: SessionSurface = requestSurface(req)): Promise<void> {
+    const token = req.cookies?.[sessionCookie(surface)];
+    if (typeof token === 'string' && token.length > 0) {
+      await this.prisma.webSession.updateMany({ where: { id: sha256Hex(token), surface: dbSurface(surface), revokedAt: null }, data: { revokedAt: new Date() } });
+    }
+    res.clearCookie(sessionCookie(surface), { path: '/', httpOnly: true, secure: loadConfig().COOKIE_SECURE, sameSite: 'lax' });
   }
 }

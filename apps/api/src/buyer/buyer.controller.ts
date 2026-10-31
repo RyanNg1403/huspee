@@ -7,9 +7,9 @@ import { PrismaService } from '../common/prisma.service';
 import { unix } from '../common/time';
 import { paging, parseInput, q, splitList } from '../common/validation';
 import { CurrentUser, RequireRole, SessionGuard } from '../auth/session.guard';
-import { mediaUrl, modelName, resolveModelPrice } from '../domain/catalog.service';
+import { modelImage, modelName, resolveModelPrice } from '../domain/catalog.service';
 import { orderInclude, OrderService, PAYMENT_METHODS } from '../domain/order.service';
-import { RETURN_REASONS, ReturnService } from '../domain/return.service';
+import { RETURN_REASONS, ReturnService, returnInclude } from '../domain/return.service';
 import { pageInfo } from './marketplace.controller';
 
 const MAX_LINE_QUANTITY = 999;
@@ -227,12 +227,14 @@ export class BuyerController {
     const input = parseInput(
       z.object({
         status: z.preprocess(splitList, z.array(z.nativeEnum(OrderStatus)).min(1)).optional(),
+        shop_id: q.int().positive().optional(),
         ...paging,
       }),
       query,
     );
     const where: Prisma.OrderWhereInput = {
       buyerId: user.id,
+      ...(input.shop_id ? { shopId: input.shop_id } : {}),
       ...(input.status?.length
         ? input.status.length === 1
           ? { status: input.status[0] }
@@ -249,15 +251,32 @@ export class BuyerController {
       }),
       this.prisma.order.count({ where }),
     ]);
-    const windows = await this.returnWindows(rows.map((o) => o.shopId));
-    return { data: rows.map((o) => this.orders.presentForBuyer(o, windows.get(o.shopId))), page: pageInfo(input.page, input.page_size, total) };
+    const [windows, viaAssistant] = await Promise.all([
+      this.returnWindows(rows.map((o) => o.shopId)),
+      this.assistantOrders(user.id, rows.map((o) => o.orderSn)),
+    ]);
+    return {
+      data: rows.map((o) => this.orders.presentForBuyer(o, windows.get(o.shopId), viaAssistant.get(o.orderSn) ?? null)),
+      page: pageInfo(input.page, input.page_size, total),
+    };
+  }
+
+  /** Order counts per status for the order tabs, plus the buyer's return requests. */
+  @Get('buyer/orders/counts')
+  async orderCounts(@CurrentUser() user: User) {
+    const [groups, returns] = await Promise.all([
+      this.prisma.order.groupBy({ by: ['status'], where: { buyerId: user.id }, _count: { _all: true } }),
+      this.prisma.returnRequest.count({ where: { buyerId: user.id } }),
+    ]);
+    const by_status = Object.fromEntries(groups.map((g) => [g.status, g._count._all]));
+    return { data: { total: groups.reduce((sum, g) => sum + g._count._all, 0), by_status, returns } };
   }
 
   @Get('buyer/orders/:orderSn')
   async getOrder(@CurrentUser() user: User, @Param('orderSn') orderSn: string) {
     const order = await this.orders.getForBuyer(user.id, orderSn);
-    const windows = await this.returnWindows([order.shopId]);
-    return { data: this.orders.presentForBuyer(order, windows.get(order.shopId)) };
+    const [windows, viaAssistant] = await Promise.all([this.returnWindows([order.shopId]), this.assistantOrders(user.id, [order.orderSn])]);
+    return { data: this.orders.presentForBuyer(order, windows.get(order.shopId), viaAssistant.get(order.orderSn) ?? null) };
   }
 
   @Post('buyer/orders/:orderSn/cancel')
@@ -342,6 +361,7 @@ export class BuyerController {
         solution: z.enum(['RETURN_REFUND', 'REFUND_ONLY']).default('RETURN_REFUND'),
         items: z.array(z.object({ item_id: z.number().int(), model_id: z.number().int(), quantity: z.number().int().min(1) })).min(1).optional(),
         image_urls: z.array(z.string().url()).max(8).optional(),
+        evidence_ids: z.array(z.string().uuid()).max(8).optional(),
       }),
       body,
     );
@@ -357,7 +377,7 @@ export class BuyerController {
     const [rows, total] = await Promise.all([
       this.prisma.returnRequest.findMany({
         where,
-        include: { buyer: { select: { name: true, email: true } } },
+        include: returnInclude,
         orderBy: { createdAt: 'desc' },
         skip: (input.page - 1) * input.page_size,
         take: input.page_size,
@@ -413,6 +433,22 @@ export class BuyerController {
     return new Map(policies.map((p) => [p.shopId, p.returnWindowDays]));
   }
 
+  /** Orders placed by tapping an assistant quote, keyed by order_sn: the executed PLACE_ORDER action records it. */
+  private async assistantOrders(buyerId: number, orderSns: string[]) {
+    if (!orderSns.length) return new Map<string, { conversationId: string; at: Date }>();
+    const placed = await this.prisma.pendingAction.findMany({
+      where: { buyerId, type: 'PLACE_ORDER', status: 'EXECUTED' },
+      select: { conversationId: true, result: true, updatedAt: true },
+    });
+    const wanted = new Set(orderSns);
+    const map = new Map<string, { conversationId: string; at: Date }>();
+    for (const action of placed) {
+      const sn = (action.result as { order_sn?: unknown } | null)?.order_sn;
+      if (typeof sn === 'string' && wanted.has(sn)) map.set(sn, { conversationId: action.conversationId, at: action.updatedAt });
+    }
+    return map;
+  }
+
   private async cart(userId: number) {
     const lines = await this.prisma.cartItem.findMany({
       where: { userId },
@@ -443,7 +479,7 @@ export class BuyerController {
         model_id: model.id,
         item_name: item.name,
         model_name: modelName(item, model.tierIndex),
-        image_url: item.images[0] ? mediaUrl(item.images[0].url) : null,
+        image_url: modelImage(item, model.tierIndex),
         quantity: line.quantity,
         unit_price: price.currentPrice,
         original_price: price.originalPrice,

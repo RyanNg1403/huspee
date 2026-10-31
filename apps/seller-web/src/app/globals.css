@@ -1,0 +1,8 @@
+@import 'tailwindcss';
+@import '@huspee/web-ui/styles.css';
+@source '../../../../packages/web-ui/src';
+
+/* Seller Centre page background differs slightly from the storefront. */
+:root {
+  --color-page: #f6f6f6;
+}

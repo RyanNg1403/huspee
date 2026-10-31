@@ -37,14 +37,18 @@ describe('seeded shop reads (TechZone)', () => {
 
   it('product.get_item_list paginates with offset/has_next_page', async () => {
     const page1 = await sdk.product.getItemList({ offset: 0, page_size: 4, item_status: ['NORMAL'] as never });
-    expect(page1.response.total_count).toBe(6);
+    expect(page1.response.total_count).toBe(20);
     expect(page1.response.item).toHaveLength(4);
     expect(page1.response.has_next_page).toBe(true);
     expect(page1.response.next_offset).toBe(4);
     expect(page1.response.item![0]!.update_time).toBeInstanceOf(Date); // SDK timestampPaths conversion
     const page2 = await sdk.product.getItemList({ offset: 4, page_size: 4, item_status: ['NORMAL'] as never });
-    expect(page2.response.item).toHaveLength(2);
-    expect(page2.response.has_next_page).toBe(false);
+    expect(page2.response.item).toHaveLength(4);
+    expect(page2.response.has_next_page).toBe(true);
+    expect(page2.response.next_offset).toBe(8);
+    const last = await sdk.product.getItemList({ offset: 16, page_size: 4, item_status: ['NORMAL'] as never });
+    expect(last.response.item).toHaveLength(4);
+    expect(last.response.has_next_page).toBe(false);
   });
 
   it('product.search_item is shop-scoped', async () => {
@@ -76,7 +80,9 @@ describe('seeded shop reads (TechZone)', () => {
 
   it('product.get_model_list exposes variant price and stock', async () => {
     const res = await sdk.product.getModelList({ item_id: SEED.items.iphone.itemId });
-    expect(res.response.tier_variation).toEqual([{ name: 'Màu sắc', option_list: [{ option: 'Đen' }, { option: 'Hồng' }, { option: 'Xanh dương' }] }]);
+    expect(res.response.tier_variation).toMatchObject([{ name: 'Màu sắc', option_list: [{ option: 'Đen' }, { option: 'Hồng' }, { option: 'Xanh dương' }] }]);
+    for (const option of res.response.tier_variation[0]!.option_list)
+      expect(option.image?.image_url).toMatch(/^http:\/\/localhost:\d+\/media\/generated-2000101-/);
     const black = res.response.model.find((m) => m.model_id === SEED.items.iphone.blackModel)!;
     expect(black.tier_index).toEqual([0]);
     expect(black.price_info[0]).toMatchObject({ original_price: 19990000, current_price: 18490000 });
@@ -105,7 +111,7 @@ describe('seeded shop reads (TechZone)', () => {
     const phones = cats.response.category_list!.find((c) => c.category_id === 100010)!;
     expect(phones).toMatchObject({ parent_category_id: 100001, display_category_name: 'Điện thoại', has_children: false });
     const tree = await sdk.product.getAttributeTree({ category_id_list: [100010] });
-    expect(tree.response.list![0]!.attribute_tree!.map((a) => a.attribute_id)).toEqual([200101, 200102]);
+    expect(tree.response.list![0]!.attribute_tree!.map((a) => a.attribute_id)).toEqual([200101, 200102, 200103, 200104, 200105, 200106, 200107, 200108]);
     const brands = await sdk.product.getBrandList({ offset: 0, page_size: 50, category_id: 100010, status: 1 });
     expect(brands.response.brand_list!.map((b) => b.original_brand_name)).toEqual(expect.arrayContaining(['Apple', 'Samsung', 'Xiaomi']));
     expect(brands.response.brand_list!.map((b) => b.original_brand_name)).not.toContain('Cocoon');

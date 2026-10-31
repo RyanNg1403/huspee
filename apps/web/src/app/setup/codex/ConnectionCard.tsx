@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import type { AssistantSetupConnection } from '@huspee/sdk';
-import { Badge, Button, Card, Spinner, useToast } from '@/components/ui';
-import { defineMessages, useT } from '@/i18n';
-import { getApiClient } from '@/lib/api';
-import { useApi } from '@/lib/use-api';
+import { Badge, Button, Card, Spinner, useToast } from '@huspee/web-ui/components/ui';
+import { defineMessages, useT } from '@huspee/web-ui/i18n';
+import { getApiClient } from '@huspee/web-ui/lib/api';
+import { useApi } from '@huspee/web-ui/lib/use-api';
 
 const messages = defineMessages({
   vi: {

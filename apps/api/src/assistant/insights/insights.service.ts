@@ -28,6 +28,16 @@ function walk(
     walk(v, visit);
   }
 }
+/** Lowercase, accent-folded, punctuation-free wording, so "Pin bao lâu?" and "pin bao lau" group together. */
+export function normalizeQuestion(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
 function parsed(value: unknown): unknown {
   if (typeof value !== "string") return value;
   try {
@@ -41,7 +51,7 @@ export class InsightsService {
   constructor(private readonly prisma: PrismaService) {}
   async get(shopId: number, from: number, to: number) {
     const dates = { gte: new Date(from * 1000), lt: new Date((to + 1) * 1000) };
-    const [conversations, calls, tickets, actions] = await Promise.all([
+    const [conversations, calls, tickets, actions, started] = await Promise.all([
       this.prisma.conversation.findMany({
         where: { shopId, startedAt: dates },
         orderBy: { startedAt: "desc" },
@@ -74,6 +84,11 @@ export class InsightsService {
           type: { in: ["PLACE_ORDER", "OPEN_RETURN"] },
           updatedAt: dates,
         },
+      }),
+      // Every action prepared in the period, executed or not, for the funnel's quote and cart steps.
+      this.prisma.pendingAction.findMany({
+        where: { shopId, createdAt: dates },
+        select: { conversationId: true, type: true, status: true },
       }),
     ]);
     const total = totals();
@@ -116,25 +131,17 @@ export class InsightsService {
       const before = call.conversation.messages.filter(
         (m) => m.createdAt <= call.createdAt,
       );
-      // A variant lookup can land a turn after the question; prefer the recent message naming the value.
-      const missValue = (result?.missing as { value?: string } | undefined)
-        ?.value;
-      const question =
-        (missValue &&
-          before
-            .slice(-5)
-            .reverse()
-            .find((m) => plain(m.text ?? "").includes(plain(missValue)))
-            ?.text) ||
-        (before.at(-1)?.text ?? "");
+      const question = before.at(-1)?.text ?? "";
       const row = {
         conversation_id: call.conversationId,
         question,
         tool: call.tool,
         created_at: sec(call.createdAt),
       };
+      const emptySearch = call.tool === 'search_products' && body && typeof body === 'object' && 'items' in body && Array.isArray(body.items) && body.items.length === 0;
+      const validationMiss = Boolean(result?.validation_miss);
       if (
-        !call.success ||
+        !call.success || emptySearch || validationMiss ||
         body == null ||
         body === "" ||
         (Array.isArray(body) && body.length === 0)
@@ -160,12 +167,12 @@ export class InsightsService {
         walk(body, inspect);
         walk(card, inspect);
         for (const id of ids) products.set(id, (products.get(id) ?? 0) + 1);
-        if (structuredMiss || zero || (call.success && Array.isArray(body) && body.length === 0))
+        if (!validationMiss && (structuredMiss || zero))
           missing.push(row);
       }
       if (
-        ["add_to_cart", "update_cart_item"].includes(call.tool) &&
-        (structuredMiss || (!call.success && body === "Product variation not found"))
+        ["add_to_cart", "add_cart_items", "update_cart_item"].includes(call.tool) &&
+        !validationMiss && (structuredMiss || (!call.success && body === "Product variation not found"))
       )
         missing.push(row);
       if (["get_vouchers", "place_order"].includes(call.tool)) {
@@ -197,10 +204,64 @@ export class InsightsService {
           campaigns.set(code, (campaigns.get(code) ?? 0) + 1);
       }
     }
-    const items = await this.prisma.item.findMany({
-      where: { shopId, id: { in: [...products.keys()] } },
-      select: { id: true, name: true },
-    });
+    const orderSns = actions
+      .filter((a) => a.type === "PLACE_ORDER")
+      .map((a) => (a.result as { order_sn?: unknown } | null)?.order_sn)
+      .filter((sn): sn is string => typeof sn === "string");
+    const [items, orders] = await Promise.all([
+      this.prisma.item.findMany({
+        where: { shopId, id: { in: [...products.keys()] } },
+        select: { id: true, name: true },
+      }),
+      this.prisma.order.findMany({
+        where: { shopId, orderSn: { in: orderSns } },
+        select: { totalAmount: true },
+      }),
+    ]);
+    const inConversations = new Set(conversations.map((c) => c.id));
+    const reached = (test: (conversationId: string) => boolean) =>
+      [...inConversations].filter(test).length;
+    const asked = new Set(
+      calls
+        .filter((c) =>
+          ["get_product_details", "get_viewed_product", "compare_products"].includes(c.tool),
+        )
+        .map((c) => c.conversationId),
+    );
+    const step = (type: string, executed: boolean) =>
+      new Set(
+        started
+          .filter(
+            (a) =>
+              (type === "CART"
+                ? a.type === "ADD_TO_CART" || a.type === "UPDATE_CART_ITEM"
+                : a.type === type) && (!executed || a.status === "EXECUTED"),
+          )
+          .map((a) => a.conversationId),
+      );
+    const quoted = step("PLACE_ORDER", false);
+    const carted = step("CART", true);
+    const ordered = step("PLACE_ORDER", true);
+    // Unanswered questions grouped by their normalized wording; handoffs are counted separately.
+    const groups = new Map<
+      string,
+      { question: string; count: number; buyers: Set<number>; last_at: number; conversation_ids: Set<string> }
+    >();
+    const buyerOf = new Map(conversations.map((c) => [c.id, c.buyerId]));
+    for (const row of unanswered) {
+      if (row.tool === "handoff_to_seller" || !row.question.trim()) continue;
+      const key = normalizeQuestion(row.question);
+      const group = groups.get(key) ?? { question: row.question, count: 0, buyers: new Set<number>(), last_at: 0, conversation_ids: new Set<string>() };
+      group.count++;
+      const buyer = buyerOf.get(row.conversation_id);
+      if (buyer !== undefined) group.buyers.add(buyer);
+      if (row.created_at >= group.last_at) {
+        group.last_at = row.created_at;
+        group.question = row.question;
+      }
+      group.conversation_ids.add(row.conversation_id);
+      groups.set(key, group);
+    }
     const top_products = items
       .map((i) => ({ item_id: i.id, name: i.name, count: products.get(i.id)! }))
       .sort((a, b) => b.count - a.count || a.item_id - b.item_id);
@@ -209,6 +270,24 @@ export class InsightsService {
       from,
       to,
       totals: total,
+      unique_buyers: new Set(conversations.map((c) => c.buyerId)).size,
+      orders_revenue: orders.reduce((sum, o) => sum + Number(o.totalAmount), 0),
+      funnel: {
+        conversations: inConversations.size,
+        asked_product: reached((id) => asked.has(id)),
+        quoted: reached((id) => quoted.has(id)),
+        cart_confirmed: reached((id) => carted.has(id)),
+        ordered: reached((id) => ordered.has(id)),
+      },
+      unanswered_groups: [...groups.values()]
+        .map((g) => ({
+          question: g.question,
+          count: g.count,
+          buyers: g.buyers.size,
+          last_at: g.last_at,
+          conversation_ids: [...g.conversation_ids],
+        }))
+        .sort((a, b) => b.count - a.count || b.last_at - a.last_at),
       top_products,
       missing_requests: missing,
       unanswered_questions: unanswered,
@@ -227,14 +306,4 @@ export class InsightsService {
         })),
     };
   }
-}
-
-function plain(value: string): string {
-  return value
-    .toLocaleLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/đ/g, "d")
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
 }

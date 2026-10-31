@@ -11,6 +11,7 @@
     "db:migrate": "prisma migrate deploy",
     "db:reset": "prisma migrate reset --force",
     "db:seed": "prisma db seed",
+    "db:catalog:sync": "tsx --env-file-if-exists=.env prisma/sync-catalog.ts",
     "eval:assistant": "tsx --env-file=.env src/assistant/eval/runner.ts"
   },
   "prisma": {
@@ -25,6 +26,7 @@
     "multer": "2.4.0",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",
+    "sharp": "0.35.5",
     "zod": "3.25.76"
   },
   "devDependencies": {

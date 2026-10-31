@@ -85,7 +85,7 @@ export class AssistantController {
   @RequireRole('BUYER')
   @Patch('assistant/actions/:actionId')
   async editAction(@CurrentUser() user: User, @Param('actionId') actionId: string, @Body() body: unknown) {
-    const input = parseInput(z.object({ quantity: z.number().int().min(1).max(999), model_id: z.number().int().nonnegative(), line_index: z.number().int().nonnegative().optional() }).strict(), body);
+    const input = parseInput(z.object({ quantity: z.number().int().min(1).max(999).optional(), model_id: z.number().int().nonnegative().optional(), line_index: z.number().int().nonnegative().optional(), evidence_ids: z.array(z.string().uuid()).max(8).optional() }).strict().refine((value) => (value.quantity !== undefined && value.model_id !== undefined) || (value.quantity === undefined && value.model_id === undefined && value.evidence_ids !== undefined)), body);
     return { data: { action: await this.actions.edit(actionId, user.id, input) } };
   }
 
@@ -242,6 +242,7 @@ export class AssistantController {
       z.object({
         ...paging,
         status: z.enum(['ACTIVE', 'ENDED']).optional(),
+        channel: z.enum(['VOICE', 'TEXT']).optional(),
         has_handoff: q.bool().optional(),
         from: q.int().optional(),
         to: q.int().optional(),
@@ -251,6 +252,7 @@ export class AssistantController {
     const where = {
       shopId,
       ...(input.status ? { status: input.status } : {}),
+      ...(input.channel ? { channel: input.channel } : {}),
       ...(input.has_handoff === undefined ? {} : { tickets: input.has_handoff ? { some: {} } : { none: {} } }),
       ...(input.from !== undefined || input.to !== undefined
         ? {
@@ -264,6 +266,7 @@ export class AssistantController {
     const [rows, total] = await Promise.all([
       this.prisma.conversation.findMany({
         where,
+        include: { buyer: { select: { name: true } } },
         orderBy: [{ startedAt: 'desc' }, { id: 'desc' }],
         skip: (input.page - 1) * input.page_size,
         take: input.page_size,
@@ -283,11 +286,13 @@ export class AssistantController {
     endedAt: Date | null;
     language: string | null;
     summary: unknown;
+    buyer: { name: string };
   }) {
     return {
       conversation_id: row.id,
       shop_id: row.shopId,
       buyer_id: row.buyerId,
+      buyer_name: row.buyer.name,
       channel: row.channel,
       status: row.status,
       started_at: unix(row.startedAt),
@@ -303,9 +308,25 @@ export class AssistantController {
     await this.member(user, shopId);
     const row = await this.prisma.conversation.findFirst({
       where: { id, shopId },
-      include: { messages: { orderBy: { createdAt: 'asc' } }, toolCalls: { orderBy: { createdAt: 'asc' } } },
+      include: {
+        buyer: { select: { name: true } },
+        messages: { orderBy: { createdAt: 'asc' } },
+        toolCalls: { orderBy: { createdAt: 'asc' } },
+        actions: { select: { id: true, status: true, result: true } },
+      },
     });
     if (!row) throw notFound('Conversation');
+    // A buyer's tap confirms an order or return outside the tool log; show each action card's current state.
+    const live = new Map(row.actions.map((a) => [a.id, a]));
+    const current = (result: unknown) => {
+      const card = (result as { card?: { kind?: string; action?: { action_id?: string } } } | null)?.card;
+      const action = card?.kind === 'action' && card.action?.action_id ? live.get(card.action.action_id) : undefined;
+      if (!action || !card) return result;
+      return {
+        ...(result as object),
+        card: { ...card, action: { ...card.action, status: action.status, ...(action.result ? { result: action.result } : {}) } },
+      };
+    };
     return {
       data: {
         ...this.presentConversation(row),
@@ -314,7 +335,7 @@ export class AssistantController {
           id: t.id,
           tool: t.tool,
           args: t.args,
-          result: t.result,
+          result: current(t.result),
           success: t.success,
           error: t.error,
           latency_ms: t.latencyMs,

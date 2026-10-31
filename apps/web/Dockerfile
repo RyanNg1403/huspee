@@ -6,14 +6,13 @@ RUN corepack enable && corepack prepare pnpm@10.0.0 --activate
 WORKDIR /app
 
 FROM base AS build
-ARG NEXT_PUBLIC_API_URL=http://localhost:3000
-ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 ENV NODE_ENV=production
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
 COPY packages/sdk/package.json packages/sdk/
+COPY packages/web-ui/package.json packages/web-ui/
 COPY tests/package.json tests/
 
 RUN pnpm install --frozen-lockfile --filter @huspee/web...
@@ -21,6 +20,7 @@ RUN pnpm install --frozen-lockfile --filter @huspee/web...
 COPY packages/sdk packages/sdk
 RUN pnpm --filter @huspee/sdk build
 
+COPY packages/web-ui packages/web-ui
 COPY apps/web apps/web
 RUN pnpm --filter @huspee/web build
 

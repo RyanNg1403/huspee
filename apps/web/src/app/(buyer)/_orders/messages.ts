@@ -1,4 +1,4 @@
-import { defineMessages } from '@/i18n';
+import { defineMessages } from '@huspee/web-ui/i18n';
 
 export const messages = defineMessages({
   vi: {
@@ -145,7 +145,8 @@ export const messages = defineMessages({
     refundAmount: 'Số tiền hoàn lại',
     solution: 'Phương án yêu cầu',
     solutionReturnRefund: 'Trả hàng và Hoàn tiền',
-    solutionRefundOnly: 'Hoàn tiền ngay (không cần trả hàng)',
+    solutionRefundOnly: 'Chỉ hoàn tiền (không cần trả hàng)',
+    cancelReturnConfirm: 'Hủy yêu cầu và đề nghị hiện tại của shop? Người bán vẫn xem được các ảnh đã gửi sau khi hủy.',
     returnReason: 'Lý do trả hàng',
     returnReasonSelect: 'Chọn lý do trả hàng / hoàn tiền',
     reasonNotReceipt: 'Chưa nhận được kiện hàng',
@@ -217,6 +218,14 @@ export const messages = defineMessages({
     voucherNoEligibleItems: 'Không có sản phẩm nào phù hợp với voucher',
     voucherMinSpend: 'Chưa đạt giá trị đơn hàng tối thiểu {amount}',
     onlyLeft: 'Chỉ còn {count} sản phẩm',
+    placedViaAssistant: 'Đặt qua trợ lý · {time}',
+    deliveredOn: 'Giao thành công {date}',
+    returnDeadline: 'Có thể yêu cầu trả hàng đến hết {date}',
+    reasonPhysicalDamage: 'Sản phẩm bị bể vỡ, móp méo',
+    reasonFunctionalDamage: 'Sản phẩm lỗi, không hoạt động',
+    voucherCode: 'Mã {code}',
+    shippingVia: 'Vận chuyển {carrier}',
+    deliverTo: 'Giao tới',
   },
   en: {
     // Common
@@ -363,6 +372,7 @@ export const messages = defineMessages({
     solution: 'Requested Solution',
     solutionReturnRefund: 'Return & Refund',
     solutionRefundOnly: 'Refund Only (No return)',
+    cancelReturnConfirm: 'Cancel this request and any current seller offer? Submitted photos remain available to the seller after cancellation.',
     returnReason: 'Return Reason',
     returnReasonSelect: 'Select return / refund reason',
     reasonNotReceipt: 'Did not receive item',
@@ -434,5 +444,13 @@ export const messages = defineMessages({
     voucherNoEligibleItems: 'No eligible items for this voucher',
     voucherMinSpend: 'Minimum spend of {amount} not reached',
     onlyLeft: 'Only {count} left',
+    placedViaAssistant: 'Placed via assistant · {time}',
+    deliveredOn: 'Delivered {date}',
+    returnDeadline: 'Return requests accepted until {date}',
+    reasonPhysicalDamage: 'Item physically damaged',
+    reasonFunctionalDamage: 'Item does not work',
+    voucherCode: 'Code {code}',
+    shippingVia: 'Shipping {carrier}',
+    deliverTo: 'Deliver to',
   },
 });

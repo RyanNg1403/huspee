@@ -4,7 +4,11 @@
  * Never signs requests with Partner credentials.
  */
 
+export type HuspeeSurface = 'buyer' | 'seller';
+
 export interface HuspeeClientOptions {
+  /** Explicit browser surface; omitted preserves the original buyer/default contract. */
+  surface?: HuspeeSurface;
   /** API origin, e.g. `http://localhost:3000` (no trailing /api/v1). */
   baseUrl: string;
   /** Custom fetch implementation (defaults to globalThis.fetch). */
@@ -53,6 +57,10 @@ export class HttpTransport {
     this.fetchImpl = f.bind(globalThis);
   }
 
+  get surface(): HuspeeSurface | undefined {
+    return this.options.surface;
+  }
+
   get baseUrl(): string {
     return this.options.baseUrl.replace(/\/+$/, '');
   }
@@ -77,6 +85,7 @@ export class HttpTransport {
   async raw(url: string, init: RequestInit = {}): Promise<Response> {
     const headers = new Headers(init.headers);
     for (const [k, v] of Object.entries(this.options.headers ?? {})) if (!headers.has(k)) headers.set(k, v);
+    if (this.options.surface) headers.set('X-Huspee-Surface', this.options.surface);
     const cookie = this.cookieHeader();
     if (cookie && !headers.has('cookie')) headers.set('cookie', cookie);
     const res = await this.fetchImpl(url, { credentials: 'include', ...init, headers });
@@ -108,6 +117,16 @@ export class HttpTransport {
     }
     if (opts.raw || opts.allowError) return json as T;
     return (json as { data: T }).data;
+  }
+
+  /** Private image bytes: preserve the normal session and surface transport. */
+  async blob(path: string): Promise<Blob> {
+    const res = await this.raw(this.url(path), { headers: { Accept: 'image/webp' } });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({})) as { error?: { code?: string; message?: string } };
+      throw new HuspeeApiError(res.status, body.error?.code ?? 'EVIDENCE_UNAVAILABLE', body.error?.message ?? 'Evidence is unavailable');
+    }
+    return res.blob();
   }
 
   private capture(res: Response): void {

@@ -9,8 +9,12 @@ import { paging, parseInput } from '../common/validation';
 import { pageInfo } from '../buyer/marketplace.controller';
 
 const replySchema = z.object({ body: z.string().trim().min(1).max(4000) }).strict();
-const listSchema = z.object({ ...paging, status: z.enum(['OPEN', 'ANSWERED', 'CLOSED']).optional() });
-const include = { shop: { select: { name: true, logoUrl: true } }, messages: { orderBy: { createdAt: 'asc' as const } } };
+const listSchema = z.object({ ...paging, status: z.enum(['OPEN', 'ANSWERED', 'CLOSED']).optional(), q: z.string().trim().max(200).optional() });
+const include = {
+  shop: { select: { name: true, logoUrl: true } },
+  buyer: { select: { name: true } },
+  messages: { orderBy: { createdAt: 'asc' as const } },
+};
 type Ticket = Prisma.HandoffTicketGetPayload<{ include: typeof include }>;
 
 @Controller('api/v1')
@@ -26,6 +30,7 @@ export class MessagesController {
       shop_id: t.shopId,
       shop_name: t.shop.name,
       logo_url: t.shop.logoUrl,
+      buyer_name: t.buyer.name,
       subject: t.subject,
       status: t.status,
       buyer_unread: t.buyerUnread,
@@ -45,7 +50,20 @@ export class MessagesController {
   }
   private async list(where: Prisma.HandoffTicketWhereInput, query: unknown) {
     const input = parseInput(listSchema, query);
-    const filtered = { ...where, ...(input.status ? { status: input.status } : {}) };
+    const filtered: Prisma.HandoffTicketWhereInput = {
+      ...where,
+      ...(input.status ? { status: input.status } : {}),
+      // Search the question and the other party's name (buyer for sellers, shop for buyers).
+      ...(input.q
+        ? {
+            OR: [
+              { subject: { contains: input.q, mode: 'insensitive' } },
+              { buyer: { name: { contains: input.q, mode: 'insensitive' } } },
+              { shop: { name: { contains: input.q, mode: 'insensitive' } } },
+            ],
+          }
+        : {}),
+    };
     const [tickets, total] = await Promise.all([
       this.prisma.handoffTicket.findMany({
         where: filtered,

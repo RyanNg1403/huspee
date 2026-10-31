@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>B9.3 · Điền yêu cầu trả hàng</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#d9381a;text-decoration:none}
+button,input,textarea{font-family:inherit}
+button{cursor:pointer}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: #f5f5f5; font-family: 'Be Vietnam Pro', system-ui, sans-serif; color: #222222; font-size: 14px; line-height: 1.45; font-variant-numeric: tabular-nums;">
+
+  <header style="height: 48px; background: #ffffff; border-bottom: 1px solid #ebebeb; display: flex; align-items: center; padding: 0 4px;">
+    <a href="m-B9-1.dc.html" aria-label="Quay lại" style="width: 44px; height: 44px; color: #222222; display: flex; align-items: center; justify-content: center;"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 6-6 6 6 6"></path></svg></a>
+    <h1 style="margin: 0; font-size: 16px; font-weight: 600;">Yêu cầu trả hàng</h1>
+  </header>
+
+  <section style="background: #ffffff; padding: 12px; display: flex; gap: 10px;">
+    <img src="/_blob/fb656fc944dc63c0108bc7d580349618" alt="Redmi Buds 5" style="width: 56px; height: 56px; border-radius: 2px; object-fit: cover;">
+    <div style="flex: 1; min-width: 0; font-size: 13px;">
+      <div>Tai nghe Bluetooth Xiaomi Redmi Buds 5</div>
+      <div style="color: #595959;">Đơn 261028K7Q1A2 · × 1 · 790.000₫</div>
+    </div>
+  </section>
+
+  <fieldset style="margin: 8px 0 0; padding: 4px 12px 8px; border: 0; background: #ffffff;">
+    <legend style="float: left; width: 100%; padding: 8px 0 4px; font-size: 14px; font-weight: 600;">Lý do trả hàng</legend>
+    <label style="clear: both; min-height: 40px; display: flex; align-items: center; gap: 10px; font-size: 13px;"><input type="radio" name="reason" checked="" style="width: 18px; height: 18px; margin: 0; accent-color: #d9381a;">Hàng lỗi, không hoạt động</label>
+    <label style="min-height: 40px; display: flex; align-items: center; gap: 10px; font-size: 13px;"><input type="radio" name="reason" style="width: 18px; height: 18px; margin: 0; accent-color: #d9381a;">Thiếu hàng hoặc thiếu phụ kiện</label>
+    <label style="min-height: 40px; display: flex; align-items: center; gap: 10px; font-size: 13px;"><input type="radio" name="reason" style="width: 18px; height: 18px; margin: 0; accent-color: #d9381a;">Giao sai sản phẩm</label>
+  </fieldset>
+
+  <section style="margin-top: 8px; background: #ffffff; padding: 12px;">
+    <label for="desc" style="display: block; font-size: 14px; font-weight: 600; margin-bottom: 6px;">Mô tả</label>
+    <textarea id="desc" rows="2" style="width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid #e0e0e0; border-radius: 2px; font-size: 13px; resize: none;">Tai nghe bên trái bị rè</textarea>
+    <div style="text-align: right; font-size: 12px; color: #757575;">23/500</div>
+    <div style="font-size: 14px; font-weight: 600; margin: 4px 0 8px;">Ảnh / video</div>
+    <div style="display: flex; gap: 8px;">
+      <img src="/_blob/fb656fc944dc63c0108bc7d580349618" alt="Ảnh 1 của tai nghe" style="width: 72px; height: 72px; border-radius: 2px; object-fit: cover;">
+      <img src="/_blob/fb656fc944dc63c0108bc7d580349618" alt="Ảnh 2 của tai nghe" style="width: 72px; height: 72px; border-radius: 2px; object-fit: cover; object-position: 20% 70%;">
+      <button type="button" aria-label="Thêm ảnh hoặc video" style="width: 72px; height: 72px; border: 1px dashed #d9381a; border-radius: 2px; background: #ffffff; color: #d9381a; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 11px;"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"></path><circle cx="12" cy="13" r="3.2"></circle></svg>Thêm</button>
+    </div>
+  </section>
+
+  <section style="margin-top: 8px; background: #ffffff; padding: 0 12px; min-height: 48px; display: flex; align-items: center; justify-content: space-between; font-size: 13px;">
+    <span>Số tiền hoàn <span style="color: #757575;">(mô phỏng)</span></span>
+    <strong style="font-size: 15px; font-weight: 600; color: #d9381a;">790.000₫</strong>
+  </section>
+
+  <div style="position: absolute; left: 0; right: 0; bottom: 0; background: #ffffff; border-top: 1px solid #ebebeb; padding: 10px 12px 14px; display: flex; flex-direction: column; gap: 8px;">
+    <div style="display: flex; justify-content: space-between; font-size: 12px; color: #595959;">
+      <span>Redmi Buds 5 × 1 · Hàng lỗi · hoàn 790.000₫</span>
+      <span>Hạn 04/11</span>
+    </div>
+    <a href="m-B9-4.dc.html" style="height: 46px; border-radius: 4px; background: #d9381a; color: #ffffff; font-size: 15px; font-weight: 600; display: flex; align-items: center; justify-content: center;">Chạm để gửi yêu cầu trả hàng</a>
+    <span style="font-size: 12px; color: #595959; text-align: center;">Yêu cầu chỉ được gửi khi bạn chạm nút này.</span>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

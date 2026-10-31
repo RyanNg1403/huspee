@@ -1,0 +1,1 @@
+export { useSelectedShop } from './SelectedShop';
