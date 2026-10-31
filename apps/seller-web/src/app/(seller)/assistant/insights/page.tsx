@@ -6,7 +6,6 @@ import { Button, Card, ErrorState, Spinner } from '@huspee/web-ui/components/ui'
 import { useT } from '@huspee/web-ui/i18n';
 import { getApiClient } from '@huspee/web-ui/lib/api';
 import { useApi } from '@huspee/web-ui/lib/use-api';
-import { AssistantNav } from '../_components/AssistantNav';
 import { AssistantShopGuard } from '../_components/AssistantShopGuard';
 import { assistantMessages } from '../messages';
 import { CampaignsCard } from './_components/CampaignsCard';
@@ -98,7 +97,6 @@ function InsightsContent({ shopId }: { shopId: number }) {
       </div>
 
       {/* Sub Nav */}
-      <AssistantNav />
 
       {/* Assistant Disabled Alert */}
       {isAssistantDisabled && (

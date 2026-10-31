@@ -36,8 +36,10 @@ try {
   await seller.goto(sellerUrl + '/', { waitUntil: 'networkidle' });
   const blocked = await seller.evaluate(async () => (await fetch('/api/v1/cart', { headers: { 'X-Huspee-Surface': 'seller' } })).status);
   check(blocked === 403, 'seller cannot use buyer cart');
-  await seller.getByRole('link', { name: /View storefront|Xem trang mua sắm/ }).click();
-  await seller.waitForURL(buyerUrl + '/');
+  // The sidebar opens the shop on the buyer origin in a new tab.
+  const storefront = await seller.getByRole('link', { name: /View shop on Huspee|Xem shop trên Huspee/ }).getAttribute('href');
+  check(storefront === buyerUrl + '/shops/880001', 'storefront link points at the shop on the buyer origin');
+  await seller.goto(storefront, { waitUntil: 'networkidle' });
   check((await identity(seller, 'buyer')).status === 200, 'storefront link changes app and retains buyer session');
   await seller.goto(sellerUrl + '/orders', { waitUntil: 'networkidle' });
   check((await identity(seller, 'seller')).status === 200, 'seller navigation retains seller session');

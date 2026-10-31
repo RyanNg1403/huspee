@@ -6,7 +6,10 @@ import { SessionProvider } from '@huspee/web-ui/components/session';
 import { ToastProvider } from '@huspee/web-ui/components/ui';
 import './globals.css';
 const font = Be_Vietnam_Pro({ subsets: ['latin', 'vietnamese'], weight: ['400', '500', '600', '700'] });
-export const metadata: Metadata = { title: 'Huspee Kênh Người Bán', description: 'Huspee marketplace simulation' };
+export const metadata: Metadata = {
+  title: 'Huspee Kênh Người Bán',
+  description: 'Huspee marketplace simulation',
+};
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
