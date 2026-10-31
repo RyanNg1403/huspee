@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import { chromium, webkit, devices } from 'playwright-core';
+import { openSheet, pollingEventSource, say, signIn } from './assistant-helpers.mjs';
 
 const url = process.env.WEB_URL;
-assert.ok(url && new URL(url).hostname.endsWith('.trycloudflare.com'), 'Use the Cloudflare URL with a mock assistant');
+assert.ok(url, 'Set WEB_URL to the buyer web app; every assistant route is mocked');
 const engine = process.env.BROWSER || 'chromium';
 const browser = await ({ chromium, webkit }[engine]).launch({ headless: true, executablePath: process.env.BROWSER_BIN });
 const out = '.token/chat-layout';
@@ -11,6 +12,7 @@ await fs.mkdir(out, { recursive: true });
 try {
   const context = await browser.newContext({ ...devices[engine === 'webkit' ? 'iPhone 13' : 'Pixel 5'], viewport: { width: 375, height: 812 } });
   await context.addCookies([{ name: 'huspee_lang', value: 'en', url }]);
+  await context.addInitScript(pollingEventSource);
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
@@ -28,11 +30,7 @@ try {
       : target.pathname.endsWith('/context') ? route.request().postDataJSON() : { ok: true };
     return route.fulfill({ json: { data } });
   });
-  await page.goto(`${url}/login?next=%2Fproducts%2F2000201`);
-  await page.locator('input[name="email"]').fill('an.nguyen@example.com');
-  await page.locator('input[name="password"]').fill('Password123!');
-  await page.locator('button[type="submit"]').click();
-  await page.waitForURL((target) => target.pathname === '/products/2000201');
+  await signIn(page, url, '/products/2000201');
   await page.locator('h1').waitFor();
   await page.evaluate(() => {
     // Reproduce a scrolled product page and a layout ancestor that traps position:fixed children.
@@ -41,21 +39,26 @@ try {
   });
   const originalScroll = await page.evaluate(() => scrollY);
   assert.ok(originalScroll > 0);
-  await page.getByRole('button', { name: 'Shop assistant', exact: true }).click();
+  await openSheet(page);
   const panel = page.locator('.assistant-panel');
   const transcript = page.getByTestId('chat-transcript');
   const composer = page.getByTestId('chat-composer');
+  /** The sheet sits on the bottom edge at full width; a short (keyboard) viewport gives it all the height. */
   async function checkLayout(width, height) {
     const box = await panel.boundingBox(), footer = await composer.boundingBox(), messages = await transcript.boundingBox();
-    assert.ok(box && Math.abs(box.x) < 1 && Math.abs(box.y) < 1 && Math.abs(box.width - width) < 1 && Math.abs(box.height - height) < 1, `Chat must fill the phone viewport: ${JSON.stringify(box)}`);
+    assert.ok(box && Math.abs(box.x) < 1 && Math.abs(box.width - width) < 1 && Math.abs(box.y + box.height - height) < 1 && box.y >= 0, `Sheet must sit on the bottom edge: ${JSON.stringify(box)}`);
+    if (height < 520) assert.ok(Math.abs(box.y) < 1, `A short viewport gives the sheet all the height: ${JSON.stringify(box)}`);
+    else assert.ok(box.y > 0 && box.height >= height * 0.6 - 1, `The sheet leaves the page visible above it: ${JSON.stringify(box)}`);
     assert.ok(footer && footer.y + footer.height <= height + 1 && footer.y >= 0, 'Composer must stay on screen');
     assert.ok(messages && messages.height > 30 && messages.y + messages.height <= footer.y + 1, 'Transcript must own the remaining scroll area');
     assert.equal(await page.evaluate(() => document.querySelector('.assistant-dock').parentElement === document.body), true, 'Chat must escape layout ancestors');
     assert.equal(await page.evaluate(() => getComputedStyle(document.body).position), 'fixed');
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'No horizontal overflow');
   }
-  await panel.getByRole('button', { name: 'Type', exact: true }).click();
+  await say(page, 'Hello', { echo: false });
   await page.getByTestId('conversation-products').waitFor();
   await checkLayout(375, 812);
+  assert.equal(await panel.getAttribute('role'), 'dialog');
   await page.screenshot({ path: `${out}/${engine}-phone.png` });
   const scrollBefore = await page.evaluate(() => scrollY);
   await page.evaluate(() => window.scrollTo(0, 4000));
@@ -83,7 +86,7 @@ try {
     await checkLayout(375, 812);
     assert.equal(await page.evaluate(() => scrollY), scrollBefore);
   }
-  await panel.getByPlaceholder('Type a question…').focus();
+  await panel.getByRole('textbox', { name: 'Message the assistant' }).focus();
   await page.setViewportSize({ width: 375, height: 420 });
   await page.waitForTimeout(150);
   await checkLayout(375, 420);
@@ -94,19 +97,26 @@ try {
     await checkLayout(size.width, size.height);
   }
   await page.setViewportSize({ width: 375, height: 812 });
-  await panel.getByRole('button', { name: 'Close', exact: true }).click();
+  await page.waitForTimeout(150);
+  await panel.getByRole('button', { name: 'Minimize assistant', exact: true }).click();
   await page.waitForFunction(() => getComputedStyle(document.body).position !== 'fixed');
   assert.ok(Math.abs((await page.evaluate(() => scrollY)) - originalScroll) < 2, 'Closing must restore the original page position');
-  await page.getByRole('button', { name: 'Shop assistant', exact: true }).click();
+  await openSheet(page);
   await checkLayout(375, 812);
+  await page.keyboard.press('Escape');
+  await page.getByTestId('assistant-launcher').waitFor();
+  assert.equal(await page.evaluate(() => document.activeElement?.dataset.testid), 'assistant-launcher', 'Escape returns focus to the launcher');
+  await openSheet(page);
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.waitForFunction(() => getComputedStyle(document.body).position !== 'fixed');
   const desktop = await panel.boundingBox();
-  assert.ok(desktop.width <= 401 && desktop.x > 800, 'Desktop keeps its floating panel');
+  assert.ok(desktop.width <= 401 && desktop.x > 800 && desktop.y + desktop.height <= 901, `Desktop pins the panel to the right: ${JSON.stringify(desktop)}`);
+  const pageRight = await page.evaluate(() => document.querySelector('main').getBoundingClientRect().right);
+  assert.ok(pageRight <= desktop.x + 1, 'The pinned panel must not cover the page');
   await page.screenshot({ path: `${out}/${engine}-desktop.png` });
   await panel.getByRole('button', { name: 'End chat', exact: true }).click();
   assert.deepEqual(errors, []);
-  console.log(`${engine}: scrolled page, transformed ancestor, scroll isolation, keyboard, portrait/landscape, restoration and desktop passed${engine === 'chromium' ? ' (wheel + touch gestures)' : ''}`);
+  console.log(`${engine}: scrolled page, transformed ancestor, scroll isolation, keyboard, portrait/landscape, restoration, focus and pinned desktop passed${engine === 'chromium' ? ' (wheel + touch gestures)' : ''}`);
 } finally {
   await browser.close();
 }

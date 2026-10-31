@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import { chromium, webkit, devices } from 'playwright-core';
+import { openSheet, pollingEventSource } from './assistant-helpers.mjs';
 
 const url = process.env.WEB_URL;
-assert.ok(url && new URL(url).hostname.endsWith('.trycloudflare.com'), 'Use the Cloudflare URL with the mock assistant');
+assert.ok(url, 'Set WEB_URL to the buyer web app; the assistant, microphone and WebRTC are mocked');
 const engine = process.env.BROWSER || 'chromium';
 const browser = await ({ chromium, webkit }[engine]).launch({ headless: true, executablePath: process.env.BROWSER_BIN });
 const out = '.token/microphone-meter';
@@ -23,6 +24,7 @@ try {
   await noScript.close();
   const context = await browser.newContext({ ...devices[engine === 'webkit' ? 'iPhone 13' : 'Pixel 5'], viewport: { width: 375, height: 812 } });
   await context.addCookies([{ name: 'huspee_lang', value: 'en', url }]);
+  await context.addInitScript(pollingEventSource);
   await context.addInitScript(() => {
     window.mockMic = { amplitude: 0, remote: 0, reads: 0, paused: false, unavailable: false, stopped: 0 };
     Object.defineProperty(navigator, 'mediaDevices', { value: { getUserMedia: async () => {
@@ -101,9 +103,8 @@ try {
   const staleSession = page.waitForResponse((response) => response.url().endsWith('/api/v1/auth/me') && response.status() === 401);
   releaseInitialSession();
   await staleSession;
-  await page.getByRole('button', { name: 'Shop assistant', exact: true }).click();
+  await openSheet(page);
   const panel = page.locator('.assistant-panel');
-  await panel.getByRole('button', { name: 'Type', exact: true }).click();
   const meter = page.getByTestId('microphone-meter');
   const level = page.getByRole('meter', { name: 'Microphone input level' });
   async function waitState(state) { await page.locator(`[data-testid="microphone-meter"][data-state="${state}"]`).waitFor(); }

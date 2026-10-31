@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import { chromium, webkit, devices } from 'playwright-core';
+import { say } from './assistant-helpers.mjs';
 
 const url = process.env.WEB_URL || 'http://127.0.0.1:3001';
 const engine = process.env.BROWSER || 'chromium';
@@ -28,6 +29,34 @@ try {
   await page.locator('button[type="submit"]').click();
   await page.waitForURL((target) => !target.pathname.includes('/login'));
 
+  // Mobile browse: tab bar, search sheet, filter drawer, then a product from the filtered results.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`${url}/`, { waitUntil: 'networkidle' });
+  const tabs = page.getByRole('navigation', { name: 'Main navigation' });
+  assert.equal(await tabs.getByRole('link', { name: 'Home' }).getAttribute('aria-current'), 'page');
+  await page.getByRole('button', { name: 'Search Huspee' }).click();
+  const sheet = page.getByRole('dialog', { name: 'Search' });
+  await sheet.getByRole('searchbox').fill('iphone');
+  await sheet.getByRole('searchbox').press('Enter');
+  await page.waitForURL((target) => target.pathname === '/search' && target.searchParams.get('q') === 'iphone');
+  assert.equal(await tabs.count(), 0, 'Search results have no tab bar');
+  await page.getByRole('button', { name: 'Filter', exact: true }).click();
+  const drawer = page.getByRole('dialog', { name: 'Search filters' });
+  await drawer.getByRole('button', { name: 'On sale' }).click();
+  await drawer.getByRole('button', { name: 'Apply' }).click();
+  await page.waitForURL((target) => target.searchParams.get('has_promotion') === 'true');
+  const results = page.getByRole('region', { name: 'Search results' }).locator('a[href^="/products/"]');
+  await results.first().waitFor();
+  const total = await page.evaluate(
+    async () => (await (await fetch('/api/v1/marketplace/products?q=iphone&has_promotion=true')).json()).page.total,
+  );
+  assert.equal(await results.count(), total, 'Filtered mobile results follow the API');
+  await page.screenshot({ path: `${out}/${engine}-390-search-filtered.png` });
+  const product = await results.first().getAttribute('href');
+  await results.first().click();
+  await page.waitForURL((target) => target.pathname === product);
+  console.log(`${engine}: mobile tab bar, search sheet, filter drawer and product link passed`);
+
   for (const width of [320, 375, 390, 430]) {
     await page.setViewportSize({ width, height: 812 });
     for (const path of ['/', '/search?q=Redmi', '/products/2000103', '/shops/880001', '/cart', '/orders', '/messages']) {
@@ -38,7 +67,7 @@ try {
       assert.deepEqual(broken, [], `${path}: broken images`);
     }
     await page.goto(`${url}/shops/880001`);
-    await page.getByRole('button', { name: 'Shop assistant', exact: true }).click();
+    await page.getByTestId('assistant-launcher').click();
     const panel = page.locator('.assistant-panel');
     await panel.waitFor({ state: 'visible' });
     let box = await panel.boundingBox();
@@ -49,13 +78,13 @@ try {
     await page.waitForTimeout(150);
     box = await panel.boundingBox();
     assert.ok(box.y + box.height <= 421, `${width}px: assistant clipped after keyboard resize`);
-    await panel.getByRole('button', { name: 'Close', exact: true }).click();
+    await panel.getByRole('button', { name: 'Minimize assistant', exact: true }).click();
     await page.setViewportSize({ width, height: 812 });
     console.log(`${engine}: ${width}px pages, images, assistant and keyboard resize passed`);
   }
 
   await page.setViewportSize({ width: 812, height: 375 });
-  await page.getByRole('button', { name: 'Shop assistant', exact: true }).click();
+  await page.getByTestId('assistant-launcher').click();
   const landscape = await page.locator('.assistant-panel').boundingBox();
   assert.ok(landscape.y >= 0 && landscape.y + landscape.height <= 375, 'Landscape assistant clipped');
   await page.setViewportSize({ width: 375, height: 812 });
@@ -97,8 +126,8 @@ try {
       return route.fulfill({ json: { data: { ok: true } } });
     });
     await page.goto(`${url}/shops/880001`);
-    await page.getByRole('button', { name: 'Shop assistant', exact: true }).click();
-    await page.getByRole('button', { name: 'Type', exact: true }).click();
+    await page.getByTestId('assistant-launcher').click();
+    await say(page, 'Polling check', { echo: false });
     await page.getByText('Tunnel polling check', { exact: true }).waitFor();
     await page.waitForTimeout(800);
     assert.deepEqual(cursors.slice(0, 3), [0, 0, 1], 'Polling should retry the cursor and advance after delivery');

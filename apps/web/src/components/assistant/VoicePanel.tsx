@@ -7,15 +7,31 @@ import { useLang, useT } from '@huspee/web-ui/i18n';
 import { formatDateTime } from '@huspee/web-ui/lib/format';
 import { useSession } from '@huspee/web-ui/components/session';
 import { AssistantCard, type Action, type Card, type EditOptions } from '@huspee/web-ui/components/assistant/cards';
-import { messages } from '@huspee/web-ui/components/assistant/messages';
+import { messages, type AssistantMessageKey } from '@huspee/web-ui/components/assistant/messages';
+import { AssistantBubble, ToolLine, UserBubble } from './Bubbles';
+import { ContextRow } from './ContextRow';
 import { ConversationProducts } from './ConversationProducts';
-import { MicrophoneMeter } from './MicrophoneMeter';
 import { collectConversationProducts, type ConversationProduct } from './conversation-products';
-import type { ViewedProduct } from './product-context';
-import { upsertCard } from './card-state';
+import { HistoryView, PastConversation, type HistoryDetail, type HistoryItem } from './HistoryView';
+import { ClockGlyph, MicOffGlyph } from './icons';
+import { upsertTimed } from './card-state';
 import { BargeInGate, InterruptionDetector } from './interruption';
-import { startVoiceActivity, type VoiceActivity } from './voice-activity';
+import { LauncherBar, PanelRail } from './Launchers';
 import { setMicrophoneEnabled } from './microphone';
+import { OPEN_ASSISTANT_EVENT } from './open-assistant';
+import { CallControls, PanelFooter } from './PanelFooter';
+import { PanelHeader } from './PanelHeader';
+import { failureOf, panelStatus } from './panel-status';
+import type { ViewedOrder, ViewedProduct } from './product-context';
+import { StateBlock } from './StateBlock';
+import {
+  applyToolEvent,
+  awaitingConfirmation,
+  buildTimeline,
+  settleTools,
+  type TimedCard,
+  type ToolRun,
+} from './timeline';
 import {
   appendFinalTranscript,
   applyChannelEvent,
@@ -23,6 +39,9 @@ import {
   type TranscriptEntry,
   scopeCallEvent,
 } from './transcript';
+import { useFocusTrap } from './use-focus-trap';
+import { SHEET_QUERY, useMediaQuery } from './use-media-query';
+import { startVoiceActivity, type VoiceActivity } from './voice-activity';
 
 type LiveEvent =
   | { type: 'transcript'; role: 'user' | 'assistant'; text: string; final: boolean; item_id?: string; source?: 'text' | 'voice' }
@@ -32,19 +51,7 @@ type LiveEvent =
   | { type: 'closed'; reason: string | null }
   | { type: 'error'; message: string }
   | { type: 'call'; state: 'active' | 'ended'; call_id: string; reason?: string | null };
-type HistoryItem = {
-  conversation_id: string;
-  channel: 'VOICE' | 'TEXT';
-  status: 'ACTIVE' | 'ENDED';
-  started_at: number;
-  preview: string | null;
-  message_count: number;
-};
-type HistoryDetail = HistoryItem & {
-  messages: Array<{ role: 'user' | 'assistant'; text: string; created_at: number }>;
-  cards: Array<{ card: Record<string, unknown>; created_at: number }>;
-};
-type Adapter = {
+export type Adapter = {
   start: (input: {
     shop_id: number;
     sdp_offer: string;
@@ -75,137 +82,56 @@ type Adapter = {
   ) => Promise<{ action: Action }>;
   cancel: (id: string) => Promise<{ action: Action }>;
 };
+export type Profile = { shop_name: string; connected?: boolean; greeting: { vi: string; en: string } };
+/** The page the panel is opened from; without it (a cart page, say) the live chat just continues. */
+export type PanelPage = { product?: ViewedProduct; order?: ViewedOrder };
 
-type TimedCard = { card: Card; at: number };
-/** Cards keep the time they first appeared so they sit in the conversation where they arrived. */
-function upsertTimed(previous: TimedCard[], incoming: Card, now = Date.now()): TimedCard[] {
-  const next = upsertCard(
-    previous.map((item) => item.card),
-    incoming,
-  );
-  return next.map((card, i) => ({ card, at: previous[i]?.at ?? now }));
+/** Arrival stamps that never repeat, so items that land in the same millisecond keep their order. */
+function createClock() {
+  let last = 0;
+  return () => (last = Math.max(Date.now(), last + 1));
 }
-type Profile = { shop_name: string; connected?: boolean; greeting: { vi: string; en: string } };
 const subscribeToDocument = () => () => {};
 const getDocumentBody = () => document.body;
 const getServerBody = () => null;
 
-function MicGlyph({ className = '' }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      aria-hidden="true"
-    >
-      <path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Zm7 9a7 7 0 0 1-14 0m7 7v3" />
-    </svg>
-  );
-}
-function ClockGlyph({ className = '' }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      aria-hidden="true"
-    >
-      <path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l3 2" />
-    </svg>
-  );
-}
-
-/** A stored conversation, read-only: its transcript and the cards its tool results produced. */
-function PastConversation({ detail, getOptions }: { detail: HistoryDetail; getOptions: Adapter['options'] }) {
-  const items = [
-    ...detail.messages.map((message, index) => ({ at: message.created_at, order: index * 2, message })),
-    ...detail.cards
-      .reduce<TimedCard[]>((cards, entry) => upsertTimed(cards, entry.card as Card, entry.created_at), [])
-      .map((entry, index) => ({ at: entry.at, order: index * 2 + 1, card: entry.card })),
-  ].sort((a, b) => a.at - b.at || a.order - b.order);
-  return (
-    <>
-      {items.map((item, index) =>
-        'message' in item ? (
-          <div key={index} className={`flex ${item.message.role === 'user' ? 'justify-end' : 'gap-2'}`}>
-            {item.message.role === 'assistant' && (
-              <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary">
-                <MicGlyph className="h-3.5 w-3.5" />
-              </span>
-            )}
-            <p
-              className={`max-w-[85%] px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
-                item.message.role === 'user'
-                  ? 'rounded-2xl rounded-tr-md bg-primary/85 text-white'
-                  : 'rounded-2xl rounded-tl-md bg-white text-gray-700 ring-1 ring-line'
-              }`}
-            >
-              {item.message.text}
-            </p>
-          </div>
-        ) : (
-          <div key={index} className="pl-9">
-            <AssistantCard
-              card={item.card}
-              pending
-              onAction={() => undefined}
-              getOptions={getOptions}
-              onEdit={async () => undefined}
-            />
-          </div>
-        ),
-      )}
-    </>
-  );
-}
-
-function MicOffGlyph({ className = '' }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      aria-hidden="true"
-    >
-      <path d="M15 9.3V6a3 3 0 0 0-5.7-1.3M9 9v3a3 3 0 0 0 4.9 2.3M19 12a7 7 0 0 1-1.2 3.9M5 12a7 7 0 0 0 11 5.7M12 19v3M3 3l18 18" />
-    </svg>
-  );
-}
-
 export function VoicePanel({
   visible = true,
   shopId,
-  product,
+  page,
   adapter,
   profile,
+  logo,
+  pinned,
+  sheet,
+  onPinnedChange,
+  onSheetChange,
   onActiveChange,
-  onOpenChange,
 }: {
   visible?: boolean;
   shopId: number;
-  product?: ViewedProduct;
+  page?: PanelPage;
   adapter: Adapter;
   profile?: Profile;
+  logo?: string | null;
+  /** Wide screens: the panel is pinned open (otherwise a rail). */
+  pinned: boolean;
+  /** Phones: the bottom sheet is open (otherwise a launcher bar). */
+  sheet: boolean;
+  onPinnedChange: (open: boolean) => void;
+  onSheetChange: (open: boolean) => void;
   onActiveChange?: (active: boolean) => void;
-  onOpenChange?: (open: boolean) => void;
 }) {
   const t = useT(messages);
   const portalTarget = useSyncExternalStore(subscribeToDocument, getDocumentBody, getServerBody);
   const pathname = usePathname();
   const { lang } = useLang();
   const session = useSession();
-  const [open, setOpen] = useState(false);
+  const phone = useMediaQuery(SHEET_QUERY);
+  const product = page?.product;
+  const order = page?.order;
   const [state, setState] = useState<'idle' | 'connecting' | 'active'>('idle');
-  const [error, setError] = useState('');
+  const [error, setError] = useState<AssistantMessageKey | ''>('');
   const [callState, setCallState] = useState<'idle' | 'connecting' | 'active' | 'ending'>('idle');
   const callGeneration = useRef(0);
   const [muted, setMuted] = useState(false);
@@ -214,17 +140,20 @@ export function VoicePanel({
   const [microphone, setMicrophone] = useState<{ stream: MediaStream; analyser?: AnalyserNode; audioContext?: AudioContext } | null>(null);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
-  const [checking, setChecking] = useState(false);
   const [entries, setEntries] = useState<TranscriptEntry[]>([]);
   const [cards, setCards] = useState<TimedCard[]>([]);
+  const [tools, setTools] = useState<ToolRun[]>([]);
   const [contextProducts, setContextProducts] = useState<ConversationProduct[]>([]);
   const [speaking, setSpeaking] = useState(false);
+  const [typing, setTyping] = useState(false);
   const [view, setView] = useState<'chat' | 'history'>('chat');
   const [historyList, setHistoryList] = useState<HistoryItem[] | null>(null);
   const [viewing, setViewing] = useState<HistoryDetail | null>(null);
   const [historyError, setHistoryError] = useState(false);
   const [earlier, setEarlier] = useState<HistoryDetail | null>(null);
   const [liveId, setLiveId] = useState<string | undefined>(undefined);
+  const [dismissed, setDismissed] = useState<string | null>(null);
+  const [now, setNow] = useState(0);
   const resources = useRef<{
     pc?: RTCPeerConnection;
     stream?: MediaStream;
@@ -239,15 +168,27 @@ export function VoicePanel({
     analyserTimer?: number;
     voiceActivity?: VoiceActivity;
   }>({});
+  const contextKey = product ? `product:${product.item_id}` : order ? `order:${order.order_sn}` : null;
+  const contextDismissed = contextKey !== null && dismissed === contextKey;
   const [appliedItemId, setAppliedItemId] = useState<number | null>(null);
-  const desiredItemId = useRef<number | null>(product?.item_id ?? null);
-  desiredItemId.current = product?.item_id ?? null;
+  const desiredItemId = useRef<number | null>(null);
+  const desired = contextDismissed ? null : (product?.item_id ?? null);
+  // Declared before the effect that sends it, so that effect reads this render's product.
+  useEffect(() => {
+    desiredItemId.current = desired;
+  }, [desired]);
   const contextQueue = useRef<Promise<void>>(Promise.resolve());
   const scrollArea = useRef<HTMLDivElement>(null);
   const dock = useRef<HTMLDivElement>(null);
+  const panel = useRef<HTMLElement>(null);
+  const input = useRef<HTMLInputElement>(null);
+  const launcher = useRef<HTMLButtonElement>(null);
+  const lastStartTextOnly = useRef(true);
+  // Messages, tool lines and cards are ordered by arrival; equal timestamps would lose that order.
+  const [tick] = useState(createClock);
   useEffect(() => {
     const viewport = window.visualViewport;
-    if (!open || !viewport) return;
+    if (!sheet || !viewport) return;
     const resize = () => {
       dock.current?.style.setProperty('--assistant-height', `${viewport.height}px`);
       dock.current?.style.setProperty('--assistant-top', `${viewport.offsetTop}px`);
@@ -262,14 +203,30 @@ export function VoicePanel({
       viewport.removeEventListener('resize', resize);
       viewport.removeEventListener('scroll', resize);
     };
-  }, [open]);
+  }, [sheet]);
+  const expiring = cards.some((item) => item.card.kind === 'action' && item.card.action.status === 'PENDING');
+  useEffect(() => {
+    if (!expiring) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [expiring]);
+  useFocusTrap(panel, visible && phone && sheet, () => onSheetChange(false), launcher);
+  useEffect(() => {
+    const focusInput = () => {
+      if (!window.matchMedia(SHEET_QUERY).matches) window.requestAnimationFrame(() => input.current?.focus());
+    };
+    window.addEventListener(OPEN_ASSISTANT_EVENT, focusInput);
+    return () => window.removeEventListener(OPEN_ASSISTANT_EVENT, focusInput);
+  }, []);
   const followConversation = useRef(true);
   const sequence = useRef(0);
   const channelOpened = useRef(false);
   const actionKeys = useRef(new Map<string, string>());
   const generation = useRef(0);
   const stopRef = useRef(adapter.stop);
-  stopRef.current = adapter.stop;
+  useEffect(() => {
+    stopRef.current = adapter.stop;
+  }, [adapter]);
   function releaseAudio() {
     callGeneration.current++;
     const current = resources.current;
@@ -303,7 +260,7 @@ export function VoicePanel({
     current.events?.close();
     if (current.pollTimer !== undefined) window.clearTimeout(current.pollTimer);
     if (sendStop && current.conversationId) void stopRef.current(current.conversationId).catch(() => undefined);
-    setChecking(false);
+    setTools(settleTools);
     setState('idle');
   }
   async function endCall() {
@@ -314,7 +271,7 @@ export function VoicePanel({
     if (!id) return;
     setCallState('ending');
     try { await adapter.stopCall(id, callId); }
-    catch { if (generation.current === token) setError(t('callEndError')); }
+    catch { if (generation.current === token) setError('callEndError'); }
     finally { if (generation.current === token) setCallState('idle'); }
   }
   const synchronizeProduct = useCallback(() => {
@@ -333,21 +290,19 @@ export function VoicePanel({
     return work;
   }, [adapter]);
   const contextFailure = useRef(() => {});
-  contextFailure.current = () => { cleanup(true); setError(t('contextError')); };
+  useEffect(() => {
+    contextFailure.current = () => { cleanup(true); setError('contextError'); };
+  });
   useEffect(() => {
     if (state !== 'active') return;
     const token = generation.current;
     void synchronizeProduct().catch(() => {
       if (generation.current === token) contextFailure.current();
     });
-  }, [state, product?.item_id, synchronizeProduct]);
+  }, [state, desired, synchronizeProduct]);
   useEffect(() => {
     onActiveChange?.(state !== 'idle');
   }, [state, onActiveChange]);
-  useEffect(() => {
-    onOpenChange?.(open);
-    return () => onOpenChange?.(false);
-  }, [open, onOpenChange]);
   async function openHistory() {
     setView('history');
     setViewing(null);
@@ -379,7 +334,7 @@ export function VoicePanel({
   useEffect(() => {
     const area = scrollArea.current;
     if (area && followConversation.current) area.scrollTop = area.scrollHeight;
-  }, [entries, cards, checking]);
+  }, [entries, cards, tools, error]);
   useEffect(
     () => () => {
       generation.current++;
@@ -403,26 +358,33 @@ export function VoicePanel({
   function onEvent(event: LiveEvent) {
     if (event.type === 'call' && event.state === 'ended' && event.call_id === resources.current.callId) {
       releaseAudio();
-      if (event.reason) setError(t('callDropped'));
+      if (event.reason) setError('callDropped');
     }
     if (event.type === 'transcript' && (event.source === 'text' || !channelOpened.current)) {
       const id = sequence.current++;
-      const now = Date.now();
+      const now = tick();
       setEntries((previous) =>
         appendFinalTranscript(previous, event, id).map((entry) =>
           entry.createdAt === undefined ? { ...entry, id: event.source === 'voice' ? `call-fallback-${callGeneration.current}-${entry.id}` : entry.id, createdAt: now } : entry,
         ),
       );
     }
-    if (event.type === 'tool') setChecking(event.status === 'started');
+    if (event.type === 'tool') {
+      const now = tick();
+      const id = sequence.current++;
+      setTools((previous) => applyToolEvent(previous, event, now, id));
+    }
     if (event.type === 'card') {
-      setCards((previous) => upsertTimed(previous, event.card));
+      const now = tick();
+      setCards((previous) => upsertTimed(previous, event.card, now));
       setContextProducts((previous) => collectConversationProducts(previous, event.card, event.source));
     }
-    if (event.type === 'action')
-      setCards((previous) => upsertTimed(previous, { kind: 'action', action: event.action }));
+    if (event.type === 'action') {
+      const now = tick();
+      setCards((previous) => upsertTimed(previous, { kind: 'action', action: event.action }, now));
+    }
     if (event.type === 'closed') cleanup(false);
-    if (event.type === 'error') setError(t('error'));
+    if (event.type === 'error') setError('error');
   }
   function connectEvents(id: string) {
     // Cloudflare Quick Tunnels buffer SSE; use finite, cursor-based JSON requests there.
@@ -444,7 +406,7 @@ export function VoicePanel({
         } catch {
           if (generation.current !== token) return;
           if (++failures >= 3) {
-            setError(t('unavailable'));
+            setError('unavailable');
             cleanup(true);
             return;
           }
@@ -460,11 +422,11 @@ export function VoicePanel({
       try {
         onEvent(JSON.parse(e.data) as LiveEvent);
       } catch {
-        setError(t('error'));
+        setError('error');
       }
     };
     events.onerror = () => {
-      setError(t('unavailable'));
+      setError('unavailable');
       cleanup(false);
     };
   }
@@ -473,12 +435,14 @@ export function VoicePanel({
       if (!textOnly) await startCall();
       return;
     }
+    lastStartTextOnly.current = textOnly;
     if (!resumeId) setEarlier(null);
     followConversation.current = true;
     setError('');
     setState('connecting');
     setEntries([]);
     setCards([]);
+    setTools([]);
     setContextProducts([]);
     channelOpened.current = false;
     const token = ++generation.current;
@@ -496,9 +460,10 @@ export function VoicePanel({
       connectEvents(result.conversation_id);
       setState('active');
       if (!textOnly) await startCall();
-    } catch {
+    } catch (e) {
       if (generation.current !== token) return;
-      setError(t('unavailable'));
+      const code = typeof e === 'object' && e && 'code' in e ? String(e.code).toLowerCase() : '';
+      setError(code === 'assistant_busy' ? 'busy' : 'unavailable');
       cleanup(true);
     }
   }
@@ -534,7 +499,7 @@ export function VoicePanel({
           callGeneration.current === token &&
           (pc.connectionState === 'failed' || pc.connectionState === 'disconnected')
         ) {
-          setError(t('callDropped'));
+          setError('callDropped');
           void endCall();
         }
       };
@@ -608,7 +573,7 @@ export function VoicePanel({
         if (callGeneration.current !== token || typeof event.data !== 'string') return;
         try {
           const payload = scopeCallEvent(JSON.parse(event.data) as ChannelEvent, String(token));
-          const now = Date.now();
+          const now = tick();
           const role = 'turn' in payload ? (payload.turn as { role?: string } | undefined)?.role : undefined;
           if (
             (payload.type === 'turn.created' || payload.type === 'turn.done') &&
@@ -645,7 +610,7 @@ export function VoicePanel({
             remoteAnalyser = undefined;
           }
         }
-        void audio.play().catch(() => setError(t('error')));
+        void audio.play().catch(() => setError('error'));
       };
       await pc.setLocalDescription(await pc.createOffer());
       await new Promise<void>((resolve) => {
@@ -676,589 +641,350 @@ export function VoicePanel({
         (e instanceof DOMException &&
           ['NotAllowedError', 'NotFoundError', 'NotReadableError'].includes(e.name)) ||
         (e instanceof Error && e.message === 'microphone');
-      setError(
-        e instanceof Error && e.message === 'secureContext'
-          ? t('secureContext')
-          : microphone
-            ? t('microphone')
-            : code === 'assistant_busy'
-              ? t('busy')
-              : t('unavailable'),
-      );
+      const secure = e instanceof Error && e.message === 'secureContext';
+      setError(secure ? 'secureContext' : microphone ? 'microphone' : code === 'assistant_busy' ? 'busy' : 'unavailable');
+      // Typing keeps working when the microphone does not.
+      if (secure || microphone) setTyping(true);
       releaseAudio();
       if (joinedCallId) await adapter.stopCall(id, joinedCallId).catch(() => undefined);
     }
   }
-  async function send(override?: string) {
-    const text = (override ?? message).trim();
+  async function send(text: string): Promise<boolean> {
     const id = resources.current.conversationId;
-    if (!text || !id || busy || callState === 'connecting' || callState === 'ending') return;
+    if (!text || !id || busy || callState === 'connecting' || callState === 'ending') return false;
     setBusy(true);
     try {
       await synchronizeProduct();
-      if (resources.current.conversationId !== id) return;
+      if (resources.current.conversationId !== id) return false;
       await adapter.text(id, text);
-      if (override === undefined) setMessage('');
+      return true;
     } catch {
-      setError(t('error'));
+      setError('error');
+      return false;
     } finally {
       setBusy(false);
     }
   }
-  async function ask(text: string) {
+  async function ask(text: string): Promise<boolean> {
+    if (state === 'connecting') return false;
     if (state === 'idle') await start(true);
-    await send(text);
+    return send(text);
   }
-  async function action(action: Action, confirm: boolean) {
+  async function submitMessage() {
+    const text = message.trim();
+    if (!text) return;
+    if (await ask(text)) setMessage((current) => (current.trim() === text ? '' : current));
+  }
+  async function action(target: Action, confirm: boolean) {
     setBusy(true);
     setError('');
     try {
-      const key = actionKeys.current.get(action.action_id) ?? crypto.randomUUID();
-      actionKeys.current.set(action.action_id, key);
+      const key = actionKeys.current.get(target.action_id) ?? crypto.randomUUID();
+      actionKeys.current.set(target.action_id, key);
       const result = confirm
-        ? await adapter.confirm(action.action_id, key)
-        : await adapter.cancel(action.action_id);
-      setCards((previous) => upsertTimed(previous, { kind: 'action', action: result.action }));
+        ? await adapter.confirm(target.action_id, key)
+        : await adapter.cancel(target.action_id);
+      setCards((previous) => upsertTimed(previous, { kind: 'action', action: result.action }, tick()));
       window.dispatchEvent(new Event('huspee:cart-changed'));
     } catch {
-      setError(t('error'));
+      setError('error');
     } finally {
       setBusy(false);
     }
   }
-  const shopName = profile?.shop_name ?? t('open');
-  const greeting = (lang === 'en' ? profile?.greeting.en : profile?.greeting.vi) || t('greetingFallback');
-  const voiceActive = callState === 'active';
+  async function edit(target: Action, change: { quantity: number; model_id: number; line_index?: number }) {
+    setBusy(true);
+    try {
+      const result = await adapter.edit(target.action_id, change);
+      setCards((previous) => upsertTimed(previous, { kind: 'action', action: result.action }, tick()));
+    } catch {
+      setError('error');
+    } finally {
+      setBusy(false);
+    }
+  }
   function holdMicrophone(enabled: boolean) {
     setMicrophoneEnabled(resources.current.stream, enabled);
     setHoldingToTalk(enabled);
   }
-  const status =
+  function toggleCall() {
+    setTyping(false);
+    if (state === 'idle') void start(false);
+    else if (callState === 'idle') void startCall();
+    else void endCall();
+  }
+  function showTyping() {
+    setTyping(true);
+    window.requestAnimationFrame(() => input.current?.focus());
+  }
+
+  const shopName = profile?.shop_name ?? t('open');
+  const greeting = (lang === 'en' ? profile?.greeting.en : profile?.greeting.vi) || t('greetingFallback');
+  const voiceActive = callState === 'active';
+  const checking = tools.some((tool) => tool.status === 'running');
+  const awaiting = awaitingConfirmation(cards, now);
+  const failure = failureOf(error);
+  const connected = profile?.connected !== false;
+  const status = panelStatus({
+    connected,
+    session: state,
+    call: callState,
+    checking,
+    speaking,
+    muted,
+    pushToTalk,
+    holding: holdingToTalk,
+    awaiting,
+    failure,
+  });
+  const caption =
     callState === 'connecting'
       ? t('calling')
-      : state === 'connecting'
-      ? t('connecting')
-      : state !== 'active'
-        ? t('subtitle')
-        : checking
-          ? t('checking')
-          : speaking
-            ? t('speaking')
-            : voiceActive
-              ? (pushToTalk ? !holdingToTalk : muted)
-                ? t('muted')
-                : t('listening')
-              : t('online');
-  const timeline: Array<
-    { kind: 'entry'; entry: TranscriptEntry } | { kind: 'card'; card: Card; index: number }
-  > = [];
-  {
-    let c = 0;
-    for (const entry of entries) {
-      while (c < cards.length && entry.createdAt !== undefined && cards[c]!.at < entry.createdAt) {
-        timeline.push({ kind: 'card', card: cards[c]!.card, index: c });
-        c++;
-      }
-      timeline.push({ kind: 'entry', entry });
-    }
-    for (; c < cards.length; c++) timeline.push({ kind: 'card', card: cards[c]!.card, index: c });
-  }
-  const suggestions = [t('suggest1'), t('suggest2'), t('suggest3'), t('suggest4')];
-  const compactPageContext = state === 'active' && contextProducts.length > 0;
+      : callState !== 'active'
+        ? t('captionTap')
+        : speaking
+          ? t('captionSpeaking')
+          : awaiting === 'yes'
+            ? t('captionYes')
+            : t('captionListening');
+  const timeline = buildTimeline(entries, cards, tools);
   const canChat = session.status === 'authenticated';
-  const roundButton =
-    'flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-line bg-white text-gray-700 transition hover:bg-gray-50 disabled:opacity-40';
-  return visible && portalTarget ? createPortal(
-    <div
-      ref={dock}
-      className={`assistant-dock fixed right-4 bottom-4 z-50 flex flex-col items-end sm:right-6 sm:bottom-6 ${open ? 'assistant-dock-open' : ''}`}
-    >
-      {open && (
-        <section
-          className="assistant-panel mb-3 flex min-h-0 h-[min(78dvh,42rem,calc(100dvh-7rem))] w-[min(calc(100vw-2rem),25rem)] flex-col overflow-hidden rounded-3xl border border-line bg-white shadow-panel"
-          aria-label={t('open')}
+  const buyer = session.status !== 'authenticated' || !!session.user?.roles.includes('buyer');
+  const startFailed =
+    state === 'idle' && (failure === 'busy' || failure === 'unavailable') && entries.length === 0 && cards.length === 0;
+  const suggestions = order
+    ? [t('suggestOrderStatus', { sn: order.order_sn }), t('suggestOrderReturn', { sn: order.order_sn }), t('suggestShipping')]
+    : product
+      ? [t('suggestProductStock'), t('suggestShopVouchers'), t('suggestShipping'), t('suggestReturnPolicy')]
+      : [t('suggestShopVouchers'), t('suggestShopBest'), t('suggestShipping'), t('suggestMyOrder')];
+  const showSuggestions = canChat && view === 'chat' && state !== 'connecting' && !busy && !checking && !awaiting;
+  const subject = product
+    ? { name: product.name, detail: product.variant }
+    : order
+      ? { name: t('viewingOrder', { sn: order.order_sn }) }
+      : undefined;
+  const live = state !== 'idle';
+  const showChat = session.status !== 'anonymous' && buyer && !(profile?.connected === false && state === 'idle');
+
+  const body =
+    session.status === 'anonymous' ? (
+      <div className="flex flex-1 flex-col items-center gap-4 px-6 pt-10 text-center">
+        <p className="text-sm text-ink">{t('signIn')}</p>
+        <Link
+          className="flex min-h-10 items-center rounded-sm bg-primary px-6 text-sm font-semibold text-white hover:bg-primary-hover"
+          href={`/login?next=${encodeURIComponent(pathname)}`}
         >
-          <header className="assistant-header flex shrink-0 items-center gap-3 border-b border-line bg-white px-4 py-3">
-            <button type="button" className="assistant-back h-11 w-11 shrink-0 items-center justify-center text-primary" onClick={() => setOpen(false)} aria-label={t('close')}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-6 w-6" aria-hidden="true"><path d="m14 5-7 7 7 7" /></svg>
-            </button>
-            <span className="assistant-avatar relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-white">
-              <MicGlyph className="h-5 w-5" />
-              <span
-                className={`absolute -right-0.5 -bottom-0.5 h-3 w-3 rounded-full ring-2 ring-white ${state === 'active' ? 'bg-emerald-500' : state === 'connecting' ? 'bg-amber-400' : 'bg-gray-300'}`}
-              />
-            </span>
-            <div className="min-w-0 flex-1">
-              <strong className="block truncate text-sm font-semibold text-ink">{shopName}</strong>
-              <span className="flex items-center gap-1.5 text-xs text-gray-500" aria-live="polite">
-                {state === 'active' && (checking || speaking) && (
-                  <span className="flex h-3 items-end gap-[2px]" aria-hidden="true">
-                    {[0, 1, 2].map((bar) => (
-                      <span
-                        key={bar}
-                        className="w-[3px] animate-pulse rounded-full bg-primary"
-                        style={{ height: `${[60, 100, 40][bar]}%`, animationDelay: `${bar * 150}ms` }}
-                      />
-                    ))}
-                  </span>
-                )}
-                <span className="truncate">{status}</span>
-              </span>
-            </div>
-            {state === 'active' && (
-              <button
-                onClick={() => cleanup(true)}
-                aria-label={t('stop')}
-                title={t('stop')}
-                className="assistant-end-chat rounded-full px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50"
-              >
-                <span>{t('stop')}</span>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className="h-5 w-5" aria-hidden="true"><path d="M20 13V5a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v15l4-4h5m3 1 5 5m0-5-5 5" /></svg>
-              </button>
-            )}
-            {session.status === 'authenticated' && (
-              <button
-                onClick={() => (view === 'history' ? setView('chat') : void openHistory())}
-                aria-label={view === 'history' ? t('back') : t('history')}
-                aria-pressed={view === 'history'}
-                title={t('history')}
-                className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition hover:bg-gray-100 ${view === 'history' ? 'bg-primary-soft text-primary' : 'text-gray-500 hover:text-gray-700'}`}
-              >
-                <ClockGlyph className="h-5 w-5" />
-              </button>
-            )}
-            {/* Closing only hides the panel; the conversation keeps running until Stop. */}
-            <button
-              onClick={() => setOpen(false)}
-              aria-label={t('close')}
-              className="assistant-desktop-close flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
-            >
-              <svg
-                viewBox="0 0 24 24"
-                className="h-5 w-5"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                aria-hidden="true"
-              >
-                <path d="M6 6l12 12M18 6 6 18" />
-              </svg>
-            </button>
-          </header>
-          {view === 'chat' && product && (
-            <div role="status" aria-live="polite" className={`flex shrink-0 items-center gap-3 border-b border-line bg-primary-soft px-4 ${compactPageContext ? 'py-2' : 'py-3'}`} data-testid="product-context-notice">
-              {product.image && !compactPageContext && (
-                // Product media shares the storefront's image handling.
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={product.image} alt="" className="h-10 w-10 shrink-0 rounded-lg border border-line bg-surface object-cover" />
-              )}
-              <div className={`min-w-0 ${compactPageContext ? 'flex flex-1 items-center gap-2' : ''}`}>
-                <p className="shrink-0 text-xs font-medium text-primary">{state === 'idle' ? t('contextReady') : appliedItemId === product.item_id ? t(compactPageContext ? 'contextViewing' : 'contextUsing') : t('contextUpdating')}</p>
-                <Link href={`/products/${product.item_id}`} className={`block truncate font-semibold text-ink hover:text-primary ${compactPageContext ? 'min-w-0 text-xs' : 'mt-0.5 text-sm'}`} title={product.name}>{product.name}</Link>
-              </div>
-            </div>
-          )}
-          {view === 'chat' && state === 'active' && <ConversationProducts products={contextProducts} />}
-          {session.status === 'anonymous' ? (
-            <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
-              <span className="flex h-16 w-16 items-center justify-center rounded-full bg-primary-soft text-primary">
-                <MicGlyph className="h-7 w-7" />
-              </span>
-              <p className="text-sm text-gray-600">{t('signIn')}</p>
-              <Link
-                className="rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-hover"
-                href={`/login?next=${encodeURIComponent(pathname)}`}
-              >
-                {t('login')}
-              </Link>
-            </div>
-          ) : session.status === 'authenticated' && !session.user?.roles.includes('buyer') ? (
-            <p className="flex flex-1 items-center justify-center p-8 text-center text-sm text-gray-600">
-              {t('buyerOnly')}
-            </p>
-          ) : profile?.connected === false && state === 'idle' && view === 'chat' ? (
-            <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
-              <span className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 text-gray-400">
-                <MicOffGlyph className="h-7 w-7" />
-              </span>
-              <strong className="text-sm font-semibold text-ink">{t('notConnectedTitle')}</strong>
-              <p className="text-sm text-gray-600">{t('notConnected')}</p>
-            </div>
-          ) : view === 'history' ? (
-            <div className="assistant-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain bg-gray-50/60 px-4 py-4">
-              {viewing ? (
-                <div className="space-y-3">
-                  <button
-                    onClick={() => setViewing(null)}
-                    className="text-xs font-semibold text-gray-600 hover:text-primary"
-                  >
-                    ← {t('back')}
-                  </button>
-                  <p className="text-xs text-gray-500">{formatDateTime(viewing.started_at, lang)}</p>
-                  <PastConversation detail={viewing} getOptions={adapter.options} />
-                  {state === 'idle' && (
-                    <button
-                      disabled={!canChat}
-                      onClick={() => continueConversation(viewing)}
-                      className="flex h-11 w-full items-center justify-center gap-2 rounded-full bg-primary text-sm font-semibold text-white transition hover:bg-primary-hover disabled:opacity-50"
-                    >
-                      <MicGlyph className="h-4 w-4" />
-                      {t('continueChat')}
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <h3 className="text-sm font-semibold text-ink">{t('history')}</h3>
-                  {historyError && (
-                    <button onClick={() => void openHistory()} className="text-sm text-red-600">
-                      {t('loadFailed')}
-                    </button>
-                  )}
-                  {!historyError && historyList === null && (
-                    <span className="block h-5 w-5 animate-spin rounded-full border-2 border-primary border-r-transparent" />
-                  )}
-                  {historyList?.length === 0 && <p className="text-sm text-gray-500">{t('noHistory')}</p>}
-                  {historyList?.map((item) => (
-                    <button
-                      key={item.conversation_id}
-                      onClick={() => void openConversation(item.conversation_id)}
-                      className="block w-full rounded-2xl bg-white p-3 text-left shadow-card ring-1 ring-line transition hover:ring-primary/40"
-                    >
-                      <span className="flex items-center justify-between gap-2 text-xs text-gray-500">
-                        <span>{formatDateTime(item.started_at, lang)}</span>
-                        <span>
-                          {item.conversation_id === liveId && state !== 'idle'
-                            ? t('ongoing')
-                            : item.channel === 'VOICE'
-                              ? t('voiceChannel')
-                              : t('textChannel')}
-                          {' · '}
-                          {t('messagesCount', { n: item.message_count })}
-                        </span>
-                      </span>
-                      <span className="mt-1 line-clamp-2 block text-sm text-gray-800">
-                        {item.preview ?? '…'}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          ) : (
+          {t('login')}
+        </Link>
+      </div>
+    ) : !buyer ? (
+      <p className="flex flex-1 justify-center px-6 pt-10 text-center text-sm text-muted">{t('buyerOnly')}</p>
+    ) : !showChat ? (
+      <StateBlock icon={<ClockGlyph className="h-6 w-6" />} title={t('notConnectedTitle')} />
+    ) : view === 'history' ? (
+      <div className="assistant-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3.5">
+        <HistoryView
+          list={historyList}
+          failed={historyError}
+          viewing={viewing}
+          liveId={liveId}
+          live={live}
+          canContinue={canChat && state === 'idle'}
+          getOptions={adapter.options}
+          onRetry={() => void openHistory()}
+          onOpen={(id) => void openConversation(id)}
+          onBack={() => setViewing(null)}
+          onContinue={continueConversation}
+        />
+      </div>
+    ) : startFailed ? (
+      <StateBlock icon={<ClockGlyph className="h-6 w-6" />} title={failure === 'busy' ? t('busyTitle') : t('unavailableTitle')}>
+        <button
+          type="button"
+          onClick={() => void start(lastStartTextOnly.current)}
+          className="min-h-11 flex-1 rounded-sm bg-primary text-sm font-semibold text-white hover:bg-primary-hover"
+        >
+          {t('retry')}
+        </button>
+      </StateBlock>
+    ) : (
+      <>
+        {!contextDismissed && (product || order || page) && (
+          <ContextRow
+            product={product}
+            order={order}
+            shopName={shopName}
+            logo={logo}
+            updating={state === 'active' && !!product && appliedItemId !== product.item_id}
+            onRemove={contextKey ? () => setDismissed(contextKey) : undefined}
+          />
+        )}
+        {state === 'active' && <ConversationProducts products={contextProducts} />}
+        <div
+          ref={scrollArea}
+          onScroll={(event) => {
+            const area = event.currentTarget;
+            followConversation.current = area.scrollHeight - area.scrollTop - area.clientHeight < 48;
+          }}
+          className="assistant-scroll flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto overscroll-contain px-4 py-3.5 text-sm *:shrink-0"
+          data-testid="chat-transcript"
+          aria-live="polite"
+        >
+          <AssistantBubble text={greeting} />
+          {earlier && (
             <>
-              <div
-                ref={scrollArea}
-                onScroll={(event) => {
-                  const area = event.currentTarget;
-                  followConversation.current = area.scrollHeight - area.scrollTop - area.clientHeight < 48;
-                }}
-                className="assistant-scroll min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain bg-gray-50/60 px-4 py-4"
-                data-testid="chat-transcript"
-                aria-live="polite"
-              >
-                <div className="flex gap-2">
-                  <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary">
-                    <MicGlyph className="h-3.5 w-3.5" />
-                  </span>
-                  <p className="max-w-[85%] rounded-2xl rounded-tl-md bg-white px-3.5 py-2.5 text-sm leading-relaxed text-gray-800 shadow-card ring-1 ring-line">
-                    {greeting}
-                  </p>
-                </div>
-                {earlier && (
-                  <>
-                    <p className="text-center text-[11px] font-medium tracking-wide text-gray-400 uppercase">
-                      {t('earlier')} · {formatDateTime(earlier.started_at, lang)}
-                    </p>
-                    <div className="space-y-3 opacity-75">
-                      <PastConversation detail={earlier} getOptions={adapter.options} />
-                    </div>
-                    <hr className="border-line" />
-                  </>
-                )}
-                {state === 'idle' && entries.length === 0 && cards.length === 0 && (
-                  <div className="flex flex-col items-center gap-3 pt-6 pb-2">
-                    <button
-                      onClick={() => void start()}
-                      disabled={!canChat}
-                      className="group relative flex h-20 w-20 items-center justify-center rounded-full bg-primary text-white shadow-lift transition hover:bg-primary-hover active:scale-95 disabled:opacity-50"
-                    >
-                      <span className="absolute inset-0 animate-ping rounded-full bg-primary/25 [animation-duration:2.2s]" />
-                      <MicGlyph className="relative h-8 w-8" />
-                      <span className="sr-only">{t('start')}</span>
-                    </button>
-                    <span className="text-sm font-medium text-gray-700">{t('tapToTalk')}</span>
-                    <p className="mt-3 text-xs font-medium tracking-wide text-gray-400 uppercase">
-                      {t('orAsk')}
-                    </p>
-                    <div className="flex flex-wrap justify-center gap-2">
-                      {suggestions.map((text) => (
-                        <button
-                          key={text}
-                          disabled={!canChat || busy}
-                          onClick={() => void ask(text)}
-                          className="rounded-full border border-line bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:border-primary/40 hover:text-primary disabled:opacity-50"
-                        >
-                          {text}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {timeline.map((item) =>
-                  item.kind === 'entry' ? (
-                    <div
-                      key={`e-${item.entry.id}`}
-                      className={`flex ${item.entry.role === 'user' ? 'justify-end' : 'gap-2'}`}
-                    >
-                      {item.entry.role === 'assistant' && (
-                        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary">
-                          <MicGlyph className="h-3.5 w-3.5" />
-                        </span>
-                      )}
-                      <p
-                        className={`max-w-[85%] px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
-                          item.entry.role === 'user'
-                            ? 'rounded-2xl rounded-tr-md bg-primary text-white'
-                            : 'rounded-2xl rounded-tl-md bg-white text-gray-800 shadow-card ring-1 ring-line'
-                        } ${item.entry.final ? '' : 'opacity-70'}`}
-                      >
-                        {item.entry.text}
-                        {item.entry.cutOff && (
-                          <span className={item.entry.role === 'user' ? 'text-white/70' : 'text-gray-400'}>
-                            {' '}
-                            ({t('cutOff')})
-                          </span>
-                        )}
-                      </p>
-                    </div>
-                  ) : (
-                    <div key={`c-${item.index}`} className="pl-9">
-                      <AssistantCard
-                        card={item.card}
-                        pending={busy}
-                        onAction={(target, confirm) => void action(target, confirm)}
-                        getOptions={adapter.options}
-                        onEdit={async (target, input) => {
-                          setBusy(true);
-                          try {
-                            const result = await adapter.edit(target.action_id, input);
-                            setCards((previous) =>
-                              upsertTimed(previous, { kind: 'action', action: result.action }),
-                            );
-                          } catch {
-                            setError(t('error'));
-                          } finally {
-                            setBusy(false);
-                          }
-                        }}
-                      />
-                    </div>
-                  ),
-                )}
-                {checking && (
-                  <div className="flex items-center gap-2 pl-9 text-xs text-gray-500">
-                    <span className="flex gap-1" aria-hidden="true">
-                      {[0, 1, 2].map((dotIndex) => (
-                        <span
-                          key={dotIndex}
-                          className="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400"
-                          style={{ animationDelay: `${dotIndex * 120}ms` }}
-                        />
-                      ))}
-                    </span>
-                    {t('checking')}
-                  </div>
-                )}
-                {error && (
-                  <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">
-                    {error}
-                  </p>
-                )}
-              </div>
-              <div className="assistant-composer shrink-0 border-t border-line bg-white p-3" data-testid="chat-composer">
-                {state === 'idle' && (entries.length > 0 || cards.length > 0) && (
-                  <div className="flex gap-2">
-                    <button
-                      className="flex h-11 flex-1 items-center justify-center gap-2 rounded-full bg-primary text-sm font-semibold text-white transition hover:bg-primary-hover disabled:opacity-50"
-                      disabled={!canChat}
-                      onClick={() => void start()}
-                    >
-                      <MicGlyph className="h-4 w-4" />
-                      {t('start')}
-                    </button>
-                    <button
-                      className="h-11 rounded-full border border-line px-4 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
-                      disabled={!canChat}
-                      onClick={() => void start(true)}
-                    >
-                      {t('type')}
-                    </button>
-                  </div>
-                )}
-                {state === 'idle' && entries.length === 0 && cards.length === 0 && (
-                  <button
-                    className="h-10 w-full rounded-full text-sm font-semibold text-gray-600 transition hover:bg-gray-50 disabled:opacity-50"
-                    disabled={!canChat}
-                    onClick={() => void start(true)}
-                  >
-                    {t('type')}
-                  </button>
-                )}
-                {state === 'connecting' && (
-                  <p className="flex h-11 items-center justify-center gap-2 text-sm text-gray-500">
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-r-transparent" />
-                    {t('connecting')}
-                  </p>
-                )}
-                {state === 'active' && (
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-3">
-                      {microphone && (voiceActive || callState === 'connecting') ? (
-                        <MicrophoneMeter stream={microphone.stream} analyser={microphone.analyser} audioContext={microphone.audioContext} pushToTalk={pushToTalk} />
-                      ) : <p className="min-w-0 flex-1 text-xs text-muted">{t('sharedChat')}</p>}
-                      <button
-                        type="button"
-                        className={`flex h-11 shrink-0 items-center gap-2 rounded-full border border-line px-3 text-sm font-semibold transition disabled:opacity-50 ${callState === 'idle' ? 'text-primary hover:bg-primary-soft' : 'text-red-600 hover:bg-red-50'}`}
-                        disabled={callState === 'ending' || busy}
-                        onClick={() => void (callState === 'idle' ? startCall() : endCall())}
-                      >
-                        {callState === 'idle' ? <MicGlyph className="h-4 w-4" /> : <MicOffGlyph className="h-4 w-4" />}
-                        {callState === 'idle' ? t('call') : callState === 'connecting' ? t('cancelCall') : callState === 'ending' ? t('endingCall') : t('endCall')}
-                      </button>
-                    </div>
-                    <form
-                      className="flex items-center gap-2"
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        void send();
-                      }}
-                    >
-                      {resources.current.stream && !pushToTalk && (
-                        <button
-                          type="button"
-                          className={`${roundButton} ${muted ? 'border-red-200 bg-red-50 text-red-600' : ''}`}
-                          aria-label={muted ? t('unmute') : t('mute')}
-                          aria-pressed={muted}
-                          onClick={() => {
-                            const next = !muted;
-                            setMicrophoneEnabled(resources.current.stream, !next);
-                            setMuted(next);
-                          }}
-                        >
-                          {muted ? <MicOffGlyph className="h-5 w-5" /> : <MicGlyph className="h-5 w-5" />}
-                        </button>
-                      )}
-                      {resources.current.stream && pushToTalk && (
-                        <button
-                          type="button"
-                          className={`${roundButton} touch-none select-none border-primary bg-primary-soft text-primary active:bg-primary active:text-white`}
-                          aria-label={t('holdToTalk')}
-                          onPointerDown={(event) => {
-                            event.currentTarget.setPointerCapture(event.pointerId);
-                            holdMicrophone(true);
-                          }}
-                          onPointerUp={() => holdMicrophone(false)}
-                          onPointerCancel={() => holdMicrophone(false)}
-                          onLostPointerCapture={() => holdMicrophone(false)}
-                          onKeyDown={(event) => {
-                            if (event.key === ' ' || event.key === 'Enter') {
-                              event.preventDefault();
-                              holdMicrophone(true);
-                            }
-                          }}
-                          onKeyUp={(event) => {
-                            if (event.key === ' ' || event.key === 'Enter') {
-                              event.preventDefault();
-                              holdMicrophone(false);
-                            }
-                          }}
-                          onBlur={() => holdMicrophone(false)}
-                        >
-                          <MicGlyph className="h-5 w-5" />
-                        </button>
-                      )}
-                      <div className="relative min-w-0 flex-1">
-                        <input
-                          className="h-11 w-full rounded-full border border-transparent bg-gray-100 pr-12 pl-4 text-sm transition placeholder:text-gray-500 focus:border-primary/40 focus:bg-white focus:ring-4 focus:ring-primary/10 focus:outline-none"
-                          value={message}
-                          onChange={(e) => setMessage(e.target.value)}
-                          placeholder={t('placeholder')}
-                          aria-label={t('placeholder')}
-                        />
-                        <button
-                          disabled={busy || !message.trim() || callState === 'connecting' || callState === 'ending'}
-                          aria-label={t('send')}
-                          className="absolute top-1/2 right-1.5 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-primary text-white transition hover:bg-primary-hover disabled:bg-gray-300"
-                        >
-                          <svg
-                            viewBox="0 0 24 24"
-                            className="h-4 w-4"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2.2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            aria-hidden="true"
-                          >
-                            <path d="M5 12h14M13 6l6 6-6 6" />
-                          </svg>
-                        </button>
-                      </div>
-                    </form>
-                    {resources.current.stream && (
-                      <label className="flex cursor-pointer items-center justify-center gap-2 text-xs text-gray-500">
-                        <input
-                          type="checkbox"
-                          className="accent-primary"
-                          checked={pushToTalk}
-                          onChange={() => {
-                            const next = !pushToTalk;
-                            setMicrophoneEnabled(resources.current.stream, !next && !muted);
-                            setHoldingToTalk(false);
-                            setPushToTalk(next);
-                          }}
-                        />
-                        {t('pushToTalk')}
-                        {pushToTalk && <span className="text-gray-400">· {t('holdToTalk')}</span>}
-                      </label>
-                    )}
-                  </div>
-                )}
-              </div>
+              <p className="text-center text-[11px] text-subtle">
+                {t('earlier')} · {formatDateTime(earlier.started_at, lang)}
+              </p>
+              <PastConversation detail={earlier} getOptions={adapter.options} />
+              <hr className="border-line" />
             </>
           )}
-        </section>
-      )}
-      <button
-        className={`flex h-14 items-center gap-2.5 rounded-full bg-primary pr-5 pl-4 text-sm font-semibold text-white shadow-lift transition hover:bg-primary-hover active:scale-95 ${open ? 'pr-4' : ''}`}
-        onClick={() => setOpen(!open)}
-        aria-expanded={open}
-        aria-label={t('open')}
-      >
-        {open ? (
-          <svg
-            viewBox="0 0 24 24"
-            className="h-5 w-5"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.2"
-            aria-hidden="true"
+          {timeline.map((item) =>
+            item.kind === 'entry' ? (
+              item.entry.role === 'user' ? (
+                <UserBubble
+                  key={`e-${item.entry.id}`}
+                  text={item.entry.text}
+                  at={item.entry.createdAt}
+                  voice={item.entry.id.startsWith('call-')}
+                  final={item.entry.final}
+                />
+              ) : (
+                <AssistantBubble
+                  key={`e-${item.entry.id}`}
+                  text={item.entry.text}
+                  speaking={!item.entry.final && speaking}
+                  cutOff={item.entry.cutOff}
+                />
+              )
+            ) : item.kind === 'tool' ? (
+              <ToolLine key={`t-${item.tool.id}`} tool={item.tool} />
+            ) : (
+              <AssistantCard
+                key={`c-${item.index}`}
+                card={item.card}
+                checkedAt={item.at}
+                spoken={voiceActive}
+                pending={busy}
+                onAction={(target, confirm) => void action(target, confirm)}
+                getOptions={adapter.options}
+                onEdit={edit}
+              />
+            ),
+          )}
+          {(failure === 'microphone' || failure === 'secureContext') && (
+            <StateBlock framed tone="alert" icon={<MicOffGlyph className="h-6 w-6" />} title={t('micBlockedTitle')}>
+              <button
+                type="button"
+                onClick={() => void (state === 'idle' ? start(false) : startCall())}
+                className="min-h-10 flex-1 rounded-sm border border-primary text-sm text-primary hover:bg-primary-soft"
+              >
+                {t('retry')}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setError('');
+                  showTyping();
+                }}
+                className="min-h-10 flex-1 rounded-sm bg-primary text-sm font-semibold text-white hover:bg-primary-hover"
+              >
+                {t('typeInstead')}
+              </button>
+            </StateBlock>
+          )}
+          {failure === 'secureContext' && <p className="text-xs text-muted">{t('secureContext')}</p>}
+          {error && failure !== 'microphone' && failure !== 'secureContext' && (
+            <p role="alert" className="rounded-sm bg-primary-soft px-3 py-2 text-[13px] text-ink">
+              {t(error === 'busy' ? 'busyTitle' : error === 'unavailable' ? 'unavailableTitle' : error)}
+            </p>
+          )}
+          {showSuggestions && (
+            <div className="assistant-suggestions flex flex-wrap gap-1.5 pt-1">
+              {suggestions.map((text) => (
+                <button
+                  key={text}
+                  type="button"
+                  onClick={() => void ask(text)}
+                  className="min-h-8 rounded-full border border-line-strong bg-white px-3 text-[13px] text-ink hover:border-primary hover:text-primary"
+                >
+                  {text}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        <PanelFooter
+          typing={typing}
+          call={callState}
+          micDisabled={!canChat || state === 'connecting' || busy}
+          onMic={toggleCall}
+          caption={caption}
+          onType={showTyping}
+          live={live}
+          onEnd={() => (live ? cleanup(true) : onSheetChange(false))}
+          message={message}
+          onMessage={setMessage}
+          onSubmit={() => void submitMessage()}
+          sendDisabled={!canChat || busy || !message.trim() || state === 'connecting' || callState === 'connecting' || callState === 'ending'}
+          inputRef={input}
+          callControls={
+            microphone && (voiceActive || callState === 'connecting') ? (
+              <CallControls
+                stream={microphone.stream}
+                analyser={microphone.analyser}
+                audioContext={microphone.audioContext}
+                muted={muted}
+                pushToTalk={pushToTalk}
+                onMute={() => {
+                  const next = !muted;
+                  setMicrophoneEnabled(resources.current.stream, !next);
+                  setMuted(next);
+                }}
+                onHold={holdMicrophone}
+                onPushToTalk={() => {
+                  const next = !pushToTalk;
+                  setMicrophoneEnabled(resources.current.stream, !next && !muted);
+                  setHoldingToTalk(false);
+                  setPushToTalk(next);
+                }}
+              />
+            ) : undefined
+          }
+        />
+      </>
+    );
+
+  return visible && portalTarget
+    ? createPortal(
+        <div ref={dock} className={`assistant-dock ${sheet ? 'assistant-dock-open' : ''}`}>
+          {!pinned && <PanelRail shopName={shopName} live={live} onOpen={() => onPinnedChange(true)} />}
+          <LauncherBar buttonRef={launcher} hidden={sheet} subject={subject} live={live} onOpen={() => onSheetChange(true)} />
+          {sheet && <div aria-hidden="true" className="assistant-scrim lg:hidden" onClick={() => onSheetChange(false)} />}
+          <section
+            ref={panel}
+            tabIndex={-1}
+            role={phone && sheet ? 'dialog' : 'complementary'}
+            aria-modal={phone && sheet ? true : undefined}
+            aria-label={t('title', { shop: shopName })}
+            className={`assistant-panel flex-col bg-white text-ink outline-none ${pinned ? 'lg:flex' : 'lg:hidden'} ${sheet ? 'max-lg:flex' : 'max-lg:hidden'}`}
           >
-            <path d="M6 9l6 6 6-6" />
-          </svg>
-        ) : (
-          <>
-            <span className="relative flex h-8 w-8 items-center justify-center rounded-full bg-white/20">
-              <MicGlyph className="h-4 w-4" />
-              {state === 'active' && (
-                <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-400 ring-2 ring-primary" />
-              )}
-            </span>
-            {t('launcher')}
-          </>
-        )}
-      </button>
-    </div>, portalTarget,
-  ) : null;
+            <span aria-hidden="true" className="mx-auto mt-2 h-1 w-9 shrink-0 rounded-full bg-gray-300 lg:hidden" />
+            <PanelHeader
+              shopName={shopName}
+              logo={logo}
+              status={status}
+              historyAvailable={canChat}
+              historyOpen={view === 'history'}
+              onHistory={() => (view === 'history' ? setView('chat') : void openHistory())}
+              onCollapse={() => onPinnedChange(false)}
+              onMinimize={() => onSheetChange(false)}
+            />
+            {body}
+          </section>
+        </div>,
+        portalTarget,
+      )
+    : null;
 }

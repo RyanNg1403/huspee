@@ -20,6 +20,7 @@
     "smoke:ui": "node tests/ui/smoke.mjs",
     "smoke:mobile": "node tests/ui/mobile.mjs",
     "smoke:product-context": "node tests/ui/product-context.mjs",
+    "smoke:catalog": "node tests/ui/catalog.mjs",
     "smoke:chat-continuity": "node tests/ui/chat-continuity.mjs",
     "smoke:microphone-meter": "node tests/ui/microphone-meter.mjs",
     "smoke:chat-layout": "node tests/ui/chat-layout.mjs",
@@ -30,7 +31,8 @@
     "smoke:single-origin": "node tests/ui/single-origin.mjs",
     "smoke:seller-shell": "node tests/ui/seller-shell.mjs",
     "smoke:seller-inbox": "node tests/ui/seller-inbox.mjs",
-    "smoke:seller-commerce": "node tests/ui/seller-commerce.mjs"
+    "smoke:seller-commerce": "node tests/ui/seller-commerce.mjs",
+    "smoke:order-assistant": "node tests/ui/order-assistant.mjs"
   },
   "engines": {
     "node": ">=22"

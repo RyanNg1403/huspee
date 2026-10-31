@@ -8,6 +8,8 @@
     "./components/assistant/product-details": "./src/components/assistant/product-details.tsx",
     "./components/assistant/messages": "./src/components/assistant/messages.ts",
     "./components/assistant/cards": "./src/components/assistant/cards.tsx",
+    "./components/assistant/summary": "./src/components/assistant/summary.ts",
+    "./components/assistant/time": "./src/components/assistant/time.ts",
     "./components/ui/Pagination": "./src/components/ui/Pagination.tsx",
     "./components/ui/Tabs": "./src/components/ui/Tabs.tsx",
     "./components/ui/Card": "./src/components/ui/Card.tsx",
