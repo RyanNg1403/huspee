@@ -4,7 +4,11 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useLang, useT } from '@huspee/web-ui/i18n';
 import { formatDateTime, formatVnd } from '@huspee/web-ui/lib/format';
-import { messages, orderStatusKey, type AssistantMessageKey } from '@huspee/web-ui/components/assistant/messages';
+import {
+  messages,
+  orderStatusKey,
+  type AssistantMessageKey,
+} from '@huspee/web-ui/components/assistant/messages';
 import { ProductDetails, ProductDetailsLoader } from '@huspee/web-ui/components/assistant/product-details';
 import { pickLanguage, summaryRows } from '@huspee/web-ui/components/assistant/summary';
 import { formatClock, formatCountdown, secondsLeft } from '@huspee/web-ui/components/assistant/time';
@@ -37,11 +41,19 @@ type EditHandler = (
 
 const frame = 'overflow-hidden rounded-lg border bg-white text-sm break-words';
 const header = 'flex items-center justify-between gap-3 border-b border-line-soft bg-gray-50 px-3 py-2';
-const footerLink = 'block border-t border-line-soft px-3 py-2 text-xs font-medium text-primary hover:bg-gray-50';
+const footerLink =
+  'block border-t border-line-soft px-3 py-2 text-xs font-medium text-primary hover:bg-gray-50';
 
 function Thumb({ src, size = 'h-14 w-14' }: { src: string | null; size?: string }) {
   return src ? (
-    <Image src={src} alt="" width={144} height={144} unoptimized className={`${size} shrink-0 rounded object-cover`} />
+    <Image
+      src={src}
+      alt=""
+      width={144}
+      height={144}
+      unoptimized
+      className={`${size} shrink-0 rounded object-cover`}
+    />
   ) : (
     <span className={`${size} shrink-0 rounded bg-gray-100`} />
   );
@@ -49,7 +61,16 @@ function Thumb({ src, size = 'h-14 w-14' }: { src: string | null; size?: string 
 
 function CheckMark() {
   return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-success" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      viewBox="0 0 24 24"
+      className="h-4 w-4 shrink-0 text-success"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <path d="M20 6 9 17l-5-5" />
     </svg>
   );
@@ -118,7 +139,10 @@ export function AssistantCard({
         <ul className="divide-y divide-line-soft">
           {card.lines.map((line) => (
             <li key={`${line.item_id}-${line.model_id}`} className="flex justify-between gap-3 px-3 py-2">
-              <Link href={`/products/${line.item_id}`} className="min-w-0 text-[13px] text-ink hover:text-primary">
+              <Link
+                href={`/products/${line.item_id}`}
+                className="min-w-0 text-[13px] text-ink hover:text-primary"
+              >
                 <span className="line-clamp-2">{line.name}</span>
                 <span className="text-xs text-muted">× {line.quantity}</span>
               </Link>
@@ -142,18 +166,27 @@ export function AssistantCard({
       <div className={`${frame} border-line`}>
         <div className={header}>
           <strong className="text-[13px] font-semibold">{t('orderTitle', { sn: card.order_sn })}</strong>
-          <span className={`flex items-center gap-1.5 text-xs font-medium ${SETTLED_ORDER.has(card.status) ? 'text-success' : 'text-muted'}`}>
-            <span className={`h-1.5 w-1.5 rounded-full ${SETTLED_ORDER.has(card.status) ? 'bg-success-dot' : 'bg-gray-400'}`} aria-hidden="true" />
+          <span
+            className={`flex items-center gap-1.5 text-xs font-medium ${SETTLED_ORDER.has(card.status) ? 'text-success' : 'text-muted'}`}
+          >
+            <span
+              className={`h-1.5 w-1.5 rounded-full ${SETTLED_ORDER.has(card.status) ? 'bg-success-dot' : 'bg-gray-400'}`}
+              aria-hidden="true"
+            />
             {status ? t(status) : card.status}
           </span>
         </div>
         {card.items && card.items.length > 0 && (
           <ul className="divide-y divide-line-soft">
             {card.items.map((line) => (
-              <li key={`${line.item_id}-${line.model_id}`} className="flex justify-between gap-3 px-3 py-2 text-[13px]">
+              <li
+                key={`${line.item_id}-${line.model_id}`}
+                className="flex justify-between gap-3 px-3 py-2 text-[13px]"
+              >
                 <span className="min-w-0">
                   {line.name}
-                  {line.variant ? ` · ${line.variant}` : ''} <span className="text-muted">× {line.quantity}</span>
+                  {line.variant ? ` · ${line.variant}` : ''}{' '}
+                  <span className="text-muted">× {line.quantity}</span>
                 </span>
                 <span className="shrink-0">{formatVnd(line.price)}</span>
               </li>
@@ -187,22 +220,27 @@ export function AssistantCard({
   );
 }
 
-function ProductsCard({ card, time, t }: { card: Extract<Card, { kind: 'products' }>; time?: string; t: Translate }) {
+function ProductsCard({
+  card,
+  time,
+  t,
+}: {
+  card: Extract<Card, { kind: 'products' }>;
+  time?: string;
+  t: Translate;
+}) {
   const [opened, setOpened] = useState<number | null>(null);
   return (
     <div className={`${frame} border-line`}>
-      {card.resolution && card.resolution.resolved_from !== card.resolution.resolved_to && (
-        <p className="border-b border-line-soft px-3 py-2 text-xs text-muted">
-          {t('heard')}: <span className="line-through">{card.resolution.resolved_from}</span> →{' '}
-          <span className="font-medium text-ink">{card.resolution.resolved_to}</span>
-        </p>
-      )}
       {card.items.length === 0 && <p className="px-3 py-2.5 text-muted">{t('noProducts')}</p>}
       <ul className="divide-y divide-line-soft">
         {card.items.map((item) => (
           <li key={item.item_id}>
             <div className="flex items-start gap-1">
-              <Link href={`/products/${item.item_id}`} className="flex min-w-0 flex-1 gap-2.5 p-2.5 hover:bg-gray-50">
+              <Link
+                href={`/products/${item.item_id}`}
+                className="flex min-w-0 flex-1 gap-2.5 p-2.5 hover:bg-gray-50"
+              >
                 <Thumb src={item.image} size="h-[60px] w-[60px]" />
                 <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <span className="line-clamp-2 text-[13px] leading-snug text-ink">{item.name}</span>
@@ -238,7 +276,15 @@ function ProductsCard({ card, time, t }: { card: Extract<Card, { kind: 'products
   );
 }
 
-function CompareCard({ card, time, t }: { card: Extract<Card, { kind: 'compare' }>; time?: string; t: Translate }) {
+function CompareCard({
+  card,
+  time,
+  t,
+}: {
+  card: Extract<Card, { kind: 'compare' }>;
+  time?: string;
+  t: Translate;
+}) {
   const keys = [...new Set(card.items.flatMap((item) => Object.keys(item.rows)))].sort((a, b) =>
     a === 'stock' ? -1 : b === 'stock' ? 1 : a === 'description' ? 1 : b === 'description' ? -1 : 0,
   );
@@ -263,7 +309,10 @@ function CompareCard({ card, time, t }: { card: Extract<Card, { kind: 'compare' 
                 </th>
                 {card.items.map((item) => (
                   <th key={item.item_id} scope="col" className={`${cell} w-[120px] text-left font-semibold`}>
-                    <Link href={`/products/${item.item_id}`} className="flex flex-col gap-1 hover:text-primary">
+                    <Link
+                      href={`/products/${item.item_id}`}
+                      className="flex flex-col gap-1 hover:text-primary"
+                    >
                       <Thumb src={item.image} size="h-10 w-10" />
                       <span className="line-clamp-2 leading-snug">{item.name}</span>
                     </Link>
@@ -289,7 +338,9 @@ function CompareCard({ card, time, t }: { card: Extract<Card, { kind: 'compare' 
                   </th>
                   {card.items.map((item) => (
                     <td key={item.item_id} className={cell}>
-                      <span className={key === 'description' ? 'line-clamp-4' : ''}>{item.rows[key] ?? ''}</span>
+                      <span className={key === 'description' ? 'line-clamp-4' : ''}>
+                        {item.rows[key] ?? ''}
+                      </span>
                     </td>
                   ))}
                 </tr>
@@ -310,7 +361,11 @@ function Countdown({ expiresAt }: { expiresAt: number }) {
     return () => window.clearInterval(timer);
   }, []);
   const left = secondsLeft(expiresAt, now) ?? 0;
-  return <span className="text-xs text-muted">{left > 0 ? t('expiresIn', { time: formatCountdown(left) }) : t('expired')}</span>;
+  return (
+    <span className="text-xs text-muted">
+      {left > 0 ? t('expiresIn', { time: formatCountdown(left) }) : t('expired')}
+    </span>
+  );
 }
 
 function ActionCard({
@@ -364,15 +419,24 @@ function ActionCard({
   const editable =
     open &&
     !readOnly &&
-    (action.type === 'ADD_TO_CART' || action.type === 'UPDATE_CART_ITEM' || action.type === 'OPEN_RETURN' || order);
+    (action.type === 'ADD_TO_CART' ||
+      action.type === 'UPDATE_CART_ITEM' ||
+      action.type === 'OPEN_RETURN' ||
+      order);
   return (
     <div className={`${frame} ${open ? 'border-primary' : 'border-line'}`} data-action-status={action.status}>
-      <div className={`flex items-center justify-between gap-3 px-3 py-2 ${open ? 'bg-primary-soft' : 'border-b border-line-soft bg-gray-50'}`}>
-        <strong className={`flex items-center gap-1.5 text-[13px] font-semibold ${open ? 'text-primary' : done ? 'text-success' : 'text-muted'}`}>
+      <div
+        className={`flex items-center justify-between gap-3 px-3 py-2 ${open ? 'bg-primary-soft' : 'border-b border-line-soft bg-gray-50'}`}
+      >
+        <strong
+          className={`flex items-center gap-1.5 text-[13px] font-semibold ${open ? 'text-primary' : done ? 'text-success' : 'text-muted'}`}
+        >
           {done && <CheckMark />}
           {title}
         </strong>
-        {open && !readOnly && action.requires_tap && action.expires_at !== undefined && <Countdown expiresAt={action.expires_at} />}
+        {open && !readOnly && action.requires_tap && action.expires_at !== undefined && (
+          <Countdown expiresAt={action.expires_at} />
+        )}
         {open && !action.requires_tap && <span className="text-xs text-muted">{t('cartUnchanged')}</span>}
         {state && <span className="text-xs text-muted">{state}</span>}
       </div>
@@ -381,7 +445,9 @@ function ActionCard({
         {rows.map((row, i) => (
           <div key={`${row.label}-${i}`} className="flex justify-between gap-3">
             <dt className="max-w-[55%] shrink-0 text-muted">{row.label}</dt>
-            <dd className={`min-w-0 flex-1 text-right ${row.heard ? 'text-muted' : 'text-ink'}`}>{row.value}</dd>
+            <dd className={`min-w-0 flex-1 text-right ${row.heard ? 'text-muted' : 'text-ink'}`}>
+              {row.value}
+            </dd>
           </div>
         ))}
         {action.summary.total !== undefined && (
@@ -408,7 +474,13 @@ function ActionCard({
       )}
       {editable && (
         <div className="px-3 pb-2">
-          <EditAction key={action.action_id} action={action} pending={pending} getOptions={getOptions} onEdit={onEdit} />
+          <EditAction
+            key={action.action_id}
+            action={action}
+            pending={pending}
+            getOptions={getOptions}
+            onEdit={onEdit}
+          />
         </div>
       )}
       {open && !readOnly && action.requires_tap && (
@@ -441,7 +513,15 @@ function ActionCard({
         <div className="flex items-center justify-between gap-3 border-t border-line-soft px-3 py-2">
           <span className="flex items-center gap-1.5 text-[13px] text-ink">
             {spoken && (
-              <svg viewBox="0 0 24 24" className="h-4 w-4 text-primary" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+              <svg
+                viewBox="0 0 24 24"
+                className="h-4 w-4 text-primary"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                aria-hidden="true"
+              >
                 <path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Zm7 9a7 7 0 0 1-14 0m7 7v3" />
               </svg>
             )}
@@ -556,7 +636,9 @@ function EditAction({
       </label>
       <button
         className="min-h-8 rounded-sm bg-ink px-3 font-semibold text-white disabled:opacity-50"
-        disabled={pending || !Number.isInteger(options.quantity) || options.quantity < 1 || options.quantity > 999}
+        disabled={
+          pending || !Number.isInteger(options.quantity) || options.quantity < 1 || options.quantity > 999
+        }
       >
         {t('saveAction')}
       </button>

@@ -7,11 +7,13 @@ import {
 } from "../../domain/catalog.service";
 import type { EvalCase } from "./cases";
 import { LogisticsService } from "../../domain/logistics.service";
+import { voucherRedemption } from "../../domain/voucher.service";
 
 export type FactField =
   | "price"
   | "stock"
   | "voucher_code"
+  | "voucher_redemption_status"
   | "discount"
   | "min_spend"
   | "shipping"
@@ -42,6 +44,7 @@ export async function loadFacts(
   db: PrismaClient,
   test: EvalCase,
 ): Promise<Fact[]> {
+  const at = new Date();
   const [items, vouchers, policy, faqs, channels, orders] = await Promise.all([
     db.item.findMany({
       where: {
@@ -54,8 +57,7 @@ export async function loadFacts(
     db.voucher.findMany({
       where: {
         shopId: test.shop,
-        startTime: { lte: new Date() },
-        endTime: { gt: new Date() },
+        endTime: { gt: at },
         displayChannels: { has: 1 },
       },
     }),
@@ -115,9 +117,8 @@ export async function loadFacts(
       });
     }
   }
-  for (const voucher of vouchers.filter(
-    (v) => v.currentUsage < v.usageQuantity && !usedIds.has(v.id),
-  )) {
+  for (const voucher of vouchers) {
+    facts.push({ field: "voucher_redemption_status", entity: voucher.code, value: voucherRedemption(voucher, usedIds.has(voucher.id), at).buyer_redemption_status });
     facts.push({
       field: "voucher_code",
       entity: voucher.code,

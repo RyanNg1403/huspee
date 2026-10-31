@@ -21,9 +21,12 @@ const AUTHORIZATION_URL_PATH = /^\/api\/v1\/seller\/shops\/\d+\/authorization-ur
  * Fixed upstream only: browsers use their app origin for API, cookies, media and SSE.
  * `appOrigin` is read per request so standalone deployments can change it without rebuilding.
  */
-export function createApiProxy(appOrigin: () => string) {
+export function createApiProxy(appOrigin: () => string, basePath = '') {
   return async function proxyApi(request: Request): Promise<Response> {
     const incoming = new URL(request.url);
+    if (basePath && incoming.pathname.startsWith(`${basePath}/`)) {
+      incoming.pathname = incoming.pathname.slice(basePath.length);
+    }
     if (
       !incoming.pathname.startsWith('/api/') &&
       !incoming.pathname.startsWith('/media/') &&

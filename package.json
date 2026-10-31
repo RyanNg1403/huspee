@@ -28,7 +28,8 @@
     "dev:seller-web": "pnpm --filter @huspee/seller-web dev",
     "build:seller-web": "pnpm --filter @huspee/sdk build && pnpm --filter @huspee/seller-web build",
     "smoke:dual-session": "node tests/ui/dual-session.mjs",
-    "smoke:order-assistant": "node tests/ui/order-assistant.mjs"
+    "smoke:order-assistant": "node tests/ui/order-assistant.mjs",
+    "smoke:single-origin": "node tests/ui/single-origin.mjs"
   },
   "engines": {
     "node": ">=22"

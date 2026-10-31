@@ -17,9 +17,10 @@ import { newBuyer } from '../helpers/fixtures.js';
 const prisma = new PrismaService({ datasourceUrl: DATABASE_URL });
 const logistics = new LogisticsService(prisma);
 const push = new PushService(prisma);
-const orders = new OrderService(prisma, logistics, new VoucherService(prisma), push);
+const vouchers = new VoucherService(prisma);
+const orders = new OrderService(prisma, logistics, vouchers, push);
 const actions = new ActionsService(prisma, new AssistantEvents(), orders, new ReturnService(prisma, push));
-const tools = new AssistantToolRegistry(prisma, new CatalogService(prisma), actions, logistics);
+const tools = new AssistantToolRegistry(prisma, new CatalogService(prisma), actions, logistics, vouchers);
 afterAll(() => prisma.$disconnect());
 
 function actionCard(output: ToolOutput) {
@@ -39,22 +40,21 @@ describe('actions with product-page context', () => {
     try {
       const add = actionCard(await run('add_to_cart', {
         item_id: 2000301, model_id: 3000306, quantity: 1,
-        requested_attributes: { color: 'đen', size: 'XL' },
+        requested_attributes: { 'Màu sắc': 'Đen', Size: 'XL' },
       }));
       expect(add).toMatchObject({ type: 'ADD_TO_CART', status: 'PENDING', requires_tap: false });
       expect((await buyer.client.cart.get()).item_count).toBe(0);
-      expect(await actions.latestPendingId(ctx)).toBe(add.action_id);
-      expect(await run('confirm_action')).toMatchObject({ success: true });
+      expect(await run('confirm_action', { action_id: add.action_id })).toMatchObject({ success: true });
       expect((await buyer.client.cart.get()).shops[0]!.items[0]).toMatchObject({ model_id: 3000306, quantity: 1 });
 
       const update = actionCard(await run('update_cart_item', { model_id: 3000306, quantity: 2 }));
       expect(update.type).toBe('UPDATE_CART_ITEM');
-      expect(await run('confirm_action')).toMatchObject({ success: true });
+      expect(await run('confirm_action', { action_id: update.action_id })).toMatchObject({ success: true });
       expect((await buyer.client.cart.get()).shops[0]!.items[0]!.quantity).toBe(2);
 
       const checkout = actionCard(await run('place_order', { address_id: buyer.addressId }));
       expect(checkout).toMatchObject({ type: 'PLACE_ORDER', status: 'PENDING', requires_tap: true });
-      expect(await run('confirm_action')).toMatchObject({ success: false, text: expect.stringMatching(/tap/i) });
+      expect(await run('confirm_action')).toMatchObject({ success: false });
       expect(await run('confirm_action', { action_id: checkout.action_id })).toMatchObject({ success: false, text: expect.stringMatching(/tap/i) });
       expect(await prisma.order.count({ where: { buyerId: user.id } })).toBe(0);
 
@@ -81,7 +81,7 @@ describe('actions with product-page context', () => {
         reason: 'ITEM_DAMAGED', solution: 'RETURN_REFUND',
       }, ctx));
       expect(prepared).toMatchObject({ type: 'OPEN_RETURN', status: 'PENDING', requires_tap: true });
-      expect(await tools.run('confirm_action', {}, ctx)).toMatchObject({ success: false, text: expect.stringMatching(/tap/i) });
+      expect(await tools.run('confirm_action', {}, ctx)).toMatchObject({ success: false });
       expect(await tools.run('confirm_action', { action_id: prepared.action_id }, ctx)).toMatchObject({ success: false, text: expect.stringMatching(/tap/i) });
       expect(await prisma.returnRequest.count({ where: { buyerId: ctx.buyerId } })).toBe(before);
     } finally {

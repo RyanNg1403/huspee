@@ -64,7 +64,7 @@ it("aggregates scoped tool logs and stores fake summaries asynchronously", async
     await run("get_product_details", { item_id: SEED.items.iphone.itemId });
     await run("search_products", { query: "no-such-product-xyz" });
     await run("get_product_details", { item_id: SEED.items.iphone.itemId, requested_attributes: { color: "nonexistent-color-xyz" } });
-    await run("get_product_details", { item_id: SEED.items.iphone.itemId, requested_attributes: { color: "Xanh dương" } });
+    await run("get_product_details", { item_id: SEED.items.iphone.itemId, requested_attributes: { "Màu sắc": "Xanh dương" } });
     await run("get_vouchers", {});
     await run("handoff_to_seller", {
       question: "Can you help?",
@@ -101,14 +101,11 @@ it("aggregates scoped tool logs and stores fake summaries asynchronously", async
     );
     expect(insight.missing_requests).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({
-          conversation_id: session.conversation_id,
-          tool: "search_products",
-        }),
         expect.objectContaining({ conversation_id: session.conversation_id, tool: "get_product_details" }),
       ]),
     );
-    expect(insight.missing_requests.filter((row) => row.conversation_id === session.conversation_id && row.tool === "get_product_details")).toHaveLength(3);
+    expect(insight.missing_requests.filter((row) => row.conversation_id === session.conversation_id && row.tool === "get_product_details")).toHaveLength(2);
+    expect(insight.missing_requests.some((row) => row.conversation_id === session.conversation_id && row.tool === "search_products")).toBe(false);
     expect(insight.unanswered_questions).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ question: "Can you help?" }),

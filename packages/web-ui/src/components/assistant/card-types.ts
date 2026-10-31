@@ -40,11 +40,6 @@ export type Action = {
 export type Card =
   | {
       kind: 'products';
-      resolution?: {
-        resolved_from: string;
-        resolved_to: string;
-        confidence: number;
-      };
       items: Array<{
         item_id: number;
         name: string;

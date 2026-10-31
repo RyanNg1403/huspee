@@ -13,7 +13,7 @@ async function bootstrap() {
   app.set('query parser', 'simple');
   app.use(cookieParser());
   app.enableCors({
-    origin: [cfg.WEB_APP_URL, cfg.SELLER_APP_URL],
+    origin: [...new Set([cfg.WEB_APP_URL, cfg.SELLER_APP_URL].map((url) => new URL(url).origin))],
     credentials: true,
     allowedHeaders: ['Content-Type', 'X-Requested-With', 'Idempotency-Key', 'X-Huspee-Surface'],
   });

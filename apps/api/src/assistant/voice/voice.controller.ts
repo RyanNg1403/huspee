@@ -153,6 +153,7 @@ export class VoiceController {
           greetingVi: config.greetingVi,
           greetingEn: config.greetingEn,
           voice: config.voice,
+          language: input.lang,
           history,
         },
         input.sdp_offer,
@@ -181,7 +182,7 @@ export class VoiceController {
     const history = await this.history(user.id, input.shop_id, input.resume_conversation_id);
     const conversation = await this.conversations.start({ shopId: input.shop_id, buyerId: user.id, channel: 'TEXT', language: input.lang });
     try {
-      await this.voice.runtime.startText({ conversationId: conversation.id, buyerId: user.id, shopId: input.shop_id, viewedItemId }, { shopName: shop.name, ...config, history });
+      await this.voice.runtime.startText({ conversationId: conversation.id, buyerId: user.id, shopId: input.shop_id, viewedItemId }, { shopName: shop.name, ...config, language: input.lang, history });
       return res.status(201).json({ data: { conversation_id: conversation.id } });
     } catch (error) {
       await this.conversations.end(conversation.id);

@@ -80,24 +80,26 @@ describe('assistant platform extensions', () => {
     await expect(client.seller.assistant.faqs.update(newShop, faq.id, { answer: 'No' })).rejects.toMatchObject({ status: 404 });
   });
 
-  it('orders equal-time pending actions by id and records requested variant misses', async () => {
+  it('requires an exact pending action and uses catalog variant strings without aliases', async () => {
     const { client, email } = await newBuyer();
     const buyer = await db().query<{ id: number }>('SELECT id FROM users WHERE email = $1', [email]);
     const conversationId = randomUUID();
     await db().query('INSERT INTO conversations (id, shop_id, buyer_id, channel, status, started_at) VALUES ($1, $2, $3, $4, $5, NOW())', [conversationId, shopId, buyer.rows[0]!.id, 'TEXT', 'ACTIVE']);
     const run = <T>(name: string, args: unknown) => client.http.request<T>('POST', `/api/v1/assistant/_debug/tools/${name}`, { body: { conversation_id: conversationId, args } });
-    const missing = await run<{ missing: { attribute: string; value: string } }>('get_product_details', { item_id: SEED.items.iphone.itemId, requested_attributes: { color: 'nonexistent-color-xyz' } });
-    expect(missing.missing).toEqual({ attribute: 'color', value: 'nonexistent-color-xyz' });
-    const translated = await run<{ missing?: unknown }>('get_product_details', { item_id: SEED.items.iphone.itemId, requested_attributes: { color: ' BLACK ' } });
-    expect(translated.missing).toBeUndefined();
-    const capacity = await run<{ missing?: unknown }>('get_product_details', { item_id: 2000102, requested_attributes: { 'dung luong': '128 GB' } });
-    expect(capacity.missing).toBeUndefined();
-    const variant = await db().query<{ tier_variation: Array<{ option_list: Array<{ option: string }> }>; tier_index: number[]; stock: number }>('SELECT i.tier_variation, m.tier_index, m.stock FROM items i JOIN models m ON m.item_id = i.id WHERE m.id = $1', [SEED.items.iphone.blackModel]);
+    const missing = await run<{ validation_miss: { attribute: string; value: string } }>('get_product_details', { item_id: SEED.items.iphone.itemId, requested_attributes: { color: 'nonexistent-color-xyz' } });
+    expect(missing.validation_miss).toEqual({ attribute: 'color', value: 'nonexistent-color-xyz' });
+    const translated = await run<{ validation_miss?: unknown }>('get_product_details', { item_id: SEED.items.iphone.itemId, requested_attributes: { color: ' BLACK ' } });
+    expect(translated.validation_miss).toEqual({ attribute: 'color', value: 'BLACK' });
+    const exact = await run<{ validation_miss?: unknown }>('get_product_details', { item_id: SEED.items.iphone.itemId, requested_attributes: { 'Màu sắc': 'Đen' } });
+    expect(exact.validation_miss).toBeUndefined();
+    const capacity = await run<{ validation_miss?: unknown }>('get_product_details', { item_id: 2000102, requested_attributes: { 'Dung lượng': '128GB' } });
+    expect(capacity.validation_miss).toBeUndefined();
+    const variant = await db().query<{ tier_variation: Array<{ name: string; option_list: Array<{ option: string }> }>; tier_index: number[]; stock: number }>('SELECT i.tier_variation, m.tier_index, m.stock FROM items i JOIN models m ON m.item_id = i.id WHERE m.id = $1', [SEED.items.iphone.blackModel]);
     const row = variant.rows[0]!;
     const option = row.tier_variation[0]!.option_list[row.tier_index[0]!]!.option;
     try {
       await db().query('UPDATE models SET stock = 0 WHERE id = $1', [SEED.items.iphone.blackModel]);
-      const unavailable = await run<{ out_of_stock?: boolean }>('get_product_details', { item_id: SEED.items.iphone.itemId, requested_attributes: { color: option } });
+      const unavailable = await run<{ out_of_stock?: boolean }>('get_product_details', { item_id: SEED.items.iphone.itemId, requested_attributes: { [row.tier_variation[0]!.name]: option } });
       expect(unavailable.out_of_stock).toBe(true);
     } finally {
       await db().query('UPDATE models SET stock = $1 WHERE id = $2', [row.stock, SEED.items.iphone.blackModel]);
@@ -107,7 +109,8 @@ describe('assistant platform extensions', () => {
     const b = await add();
     const ids = [a.card.action.action_id, b.card.action.action_id].sort();
     await db().query('UPDATE pending_actions SET created_at = $1 WHERE id = ANY($2::uuid[])', [new Date('2026-01-01T00:00:00Z'), ids]);
-    expect((await run<{ success: boolean }>('confirm_action', {})).success).toBe(true);
+    expect((await run<{ success: boolean }>('confirm_action', {})).success).toBe(false);
+    expect((await run<{ success: boolean }>('confirm_action', { action_id: ids[1] })).success).toBe(true);
     const states = await db().query<{ id: string; status: string }>('SELECT id, status FROM pending_actions WHERE id = ANY($1::uuid[]) ORDER BY id', [ids]);
     expect(states.rows.map((row) => row.status)).toEqual(['PENDING', 'EXECUTED']);
   });
@@ -145,7 +148,7 @@ describe('assistant platform extensions', () => {
     const conversationId = randomUUID();
     await db().query('INSERT INTO conversations (id, shop_id, buyer_id, channel, status, started_at) VALUES ($1, $2, $3, $4, $5, NOW())', [conversationId, shopId, buyer.rows[0]!.id, 'TEXT', 'ACTIVE']);
     const run = <T>(name: string, args: unknown) => client.http.request<T>('POST', `/api/v1/assistant/_debug/tools/${name}`, { body: { conversation_id: conversationId, args } });
-    const prepared = await run<{ card: { action: { action_id: string } } }>('add_to_cart', { item_id: SEED.items.iphone.itemId, model_id: SEED.items.iphone.blackModel, quantity: 'hai' });
+    const prepared = await run<{ card: { action: { action_id: string } } }>('add_to_cart', { item_id: SEED.items.iphone.itemId, model_id: SEED.items.iphone.blackModel, quantity: 2 });
     const id = prepared.card.action.action_id;
     const options = await client.assistant.actions.options(id);
     expect(options.quantity).toBe(2);
@@ -221,8 +224,8 @@ describe('assistant platform extensions', () => {
     expect((await run<{ success: boolean }>('get_return_policy', {})).success).toBe(true);
     expect((await run<{ success: boolean }>('get_shipping_info', { item_id: SEED.items.iphone.itemId })).success).toBe(true);
     expect((await run<{ success: boolean }>('get_vouchers', {})).success).toBe(true);
-    const fuzzy = await run<{ card: { items: Array<{ name: string }>; resolution?: { resolved_from: string } } }>('search_products', { query: 'iphon' });
-    expect(fuzzy.card.items.some((item) => item.name.toLowerCase().includes('iphone'))).toBe(true);
+    const literal = await run<{ card: { items: Array<{ name: string }> } }>('search_products', { query: 'iphon' });
+    expect(literal.card.items.some((item) => item.name.toLowerCase().includes('iphone'))).toBe(true);
     expect((await run<{ success: boolean; text: string }>('place_order', { voucher_code: 'nonexistent', address_id: addressId })).success).toBe(false);
     expect((await run<{ success: boolean }>('get_cart', {})).success).toBe(true);
     expect((await run<{ success: boolean }>('get_order_status', {})).success).toBe(true);
@@ -270,9 +273,10 @@ describe('assistant platform extensions', () => {
     const cart = await client.cart.get();
     const item = cart.shops.flatMap((shop) => shop.items).find((line) => line.model_id === SEED.items.iphone.blackModel);
     expect(item?.quantity).toBe(1);
-    const voucherAction = await run<{ success: boolean; card: { action: { action_id: string; summary: { lines: Array<{ value: string }> } } } }>('place_order', { address_id: addressId, voucher_code: 'tech năm mươi k' });
+    const voucherAction = await run<{ success: boolean; card: { action: { action_id: string; summary: { lines: Array<{ value: string }> } } } }>('place_order', { address_id: addressId, voucher_code: 'TECH50K' });
     expect(voucherAction.success).toBe(true);
-    expect(voucherAction.card.action.summary.lines.some((line) => line.value.includes('tech năm mươi k → TECH50K'))).toBe(true);
+    expect(voucherAction.card.action.summary.lines.some((line) => line.value === 'TECH50K')).toBe(true);
+    expect((await run<{ success: boolean }>('place_order', { address_id: addressId, voucher_code: 'tech năm mươi k' })).success).toBe(false);
     await client.assistant.actions.cancel(voucherAction.card.action.action_id);
     const stale = await run<{ card: { action: { action_id: string } } }>('place_order', { address_id: addressId, payment_method: 'COD' });
     await client.cart.updateItem(item!.cart_item_id, { quantity: 2 });
@@ -283,7 +287,7 @@ describe('assistant platform extensions', () => {
       quantity: 2,
     });
     expect(update.success).toBe(true);
-    expect((await run<{ success: boolean }>('confirm_action', {})).success).toBe(true);
+    expect((await run<{ success: boolean }>('confirm_action', { action_id: update.card.action.action_id })).success).toBe(true);
     expect(
       (await client.cart.get()).shops.flatMap((shop) => shop.items).find((line) => line.model_id === SEED.items.iphone.blackModel)?.quantity,
     ).toBe(2);
@@ -299,7 +303,7 @@ describe('assistant platform extensions', () => {
     expect(place.success).toBe(true);
     expect(place.card.action.requires_tap).toBe(true);
     const orderAction = place.card.action.action_id;
-    expect((await run<{ success: boolean; text: string }>('confirm_action', {})).text).toMatch(/tap/i);
+    expect((await run<{ success: boolean }>('confirm_action', {})).success).toBe(false);
     expect((await db().query<{ status: string }>('SELECT status FROM pending_actions WHERE id = $1', [older.card.action.action_id])).rows[0]?.status).toBe('PENDING');
     expect((await run<{ success: boolean; text: string }>('confirm_action', { action_id: orderAction })).text).toMatch(/tap/i);
     const [order, replay] = await Promise.all([
