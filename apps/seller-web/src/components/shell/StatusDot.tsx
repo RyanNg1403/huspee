@@ -1,6 +1,13 @@
 import type { ReactNode } from 'react';
 
-const TONES = { action: 'bg-primary', success: 'bg-success-dot', neutral: 'bg-[#8c8c8c]' } as const;
+const TONES = {
+  action: 'bg-primary',
+  success: 'bg-success-dot',
+  neutral: 'bg-[#8c8c8c]',
+  progress: 'bg-gray-400',
+  muted: 'bg-gray-300',
+  warning: 'bg-warning',
+} as const;
 export type StatusTone = keyof typeof TONES;
 
 /** Status as a small dot plus text, never a coloured pill. */

@@ -1,7 +1,7 @@
 'use client';
 
 import { useT } from '@huspee/web-ui/i18n/client';
-import { StatusDot, type StatusTone } from '../StatusDot';
+import { StatusDot, type StatusTone } from '@/components/shell';
 import { returnUiMessages } from './messages';
 import { needsSellerAction, type ReturnStatus } from './return-filters';
 

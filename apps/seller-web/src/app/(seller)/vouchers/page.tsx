@@ -15,7 +15,7 @@ import { PageTabs } from '@/components/commerce/PageTabs';
 import { Pager } from '@/components/commerce/Pager';
 import { SearchInput } from '@/components/commerce/SearchInput';
 import { ShopGuard } from '@/components/commerce/ShopGuard';
-import { StatusDot } from '@/components/commerce/StatusDot';
+import { StatusDot } from '@/components/shell';
 import { btn, panel, sub, table } from '@/components/commerce/ui';
 import {
   loadVoucherDetails,
