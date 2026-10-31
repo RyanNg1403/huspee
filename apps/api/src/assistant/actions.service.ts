@@ -197,6 +197,8 @@ export class ActionsService {
     const snapshot = assistantQuoteSnapshot(quote, address);
     const snapshotHash = createHash('sha256').update(JSON.stringify(snapshot)).digest('hex');
     const group = snapshot.groups[0]!;
+    const quoted = quote.groups[0]!;
+    const channel = quoted.shipping_options.find((option) => option.logistics_channel_id === quoted.logistics_channel_id);
     const summary = {
       title: 'Đặt hàng / Place order',
       lines: [
@@ -205,6 +207,14 @@ export class ActionsService {
           value: `${line.model_name ? `${line.model_name} ` : ''}× ${line.quantity} @ ${line.unit_price} VND`,
         })),
         { label: 'Mã giảm giá / Voucher', value: group.voucher?.code ?? 'Không có / None' },
+        ...(channel
+          ? [
+              {
+                label: 'Vận chuyển / Shipping',
+                value: `${channel.logistics_channel_name} · ${channel.estimated_delivery_days_min}–${channel.estimated_delivery_days_max} ngày (ước tính) / days (estimated)`,
+              },
+            ]
+          : []),
         {
           label: 'Địa chỉ / Address',
           value: [address.name, address.phone, address.address, address.town, address.district, address.city, address.state]

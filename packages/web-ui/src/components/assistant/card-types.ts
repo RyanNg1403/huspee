@@ -9,7 +9,7 @@ export type ProductInfo = {
     stock: number;
   }>;
   description?: string;
-  attributes?: Array<{ name: string; value: string }>;
+  attributes?: Array<{ name: string; value: string | null }>;
   brand?: string | null;
   category?: string;
   rating?: number | null;
@@ -69,7 +69,10 @@ export type Card =
         name: string;
         image: string | null;
         price_min: number;
+        price_max?: number;
         rows: Record<string, string>;
+        specs?: Array<{ name: string; value: string | null }>;
+        models?: Array<{ model_id: number; name: string; price: number; stock: number }>;
       }>;
     }
   | {
@@ -95,6 +98,10 @@ export type Card =
         quantity: number;
         price: number;
       }>;
+      shipping_carrier?: string | null;
+      tracking_number?: string | null;
+      delivered_time?: number | null;
+      return?: { window_days: number; due_time: number | null; eligible: boolean; request: { return_sn: string; status: string } | null };
       tracking: Array<{ time: number; description: string }>;
     }
   | { kind: 'handoff'; ticket_id: number }

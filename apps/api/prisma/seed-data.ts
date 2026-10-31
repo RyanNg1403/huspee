@@ -62,6 +62,12 @@ const v = (value_id: number, name: string, display_name = name) => ({ value_id, 
 export const ATTRIBUTES = [
   { id: 200101, categoryId: 100010, name: 'Storage Capacity', displayName: 'Dung lượng lưu trữ', isMandatory: true, values: [v(1, '128GB'), v(2, '256GB'), v(3, '512GB')] },
   { id: 200102, categoryId: 100010, name: 'Warranty Type', displayName: 'Loại bảo hành', isMandatory: false, values: [v(1, 'Manufacturer', 'Bảo hành chính hãng'), v(2, 'Shop', 'Bảo hành shop')] },
+  { id: 200103, categoryId: 100010, name: 'RAM', displayName: 'RAM', isMandatory: false, values: [v(1, '6GB'), v(2, '8GB')] },
+  { id: 200104, categoryId: 100010, name: 'Main Camera', displayName: 'Camera chính', isMandatory: false, values: [v(1, '48MP'), v(2, '50MP OIS')] },
+  { id: 200105, categoryId: 100010, name: 'Display', displayName: 'Màn hình', isMandatory: false, values: [v(1, 'Super AMOLED 120Hz'), v(2, 'Super Retina XDR 60Hz')] },
+  { id: 200106, categoryId: 100010, name: 'Battery Capacity', displayName: 'Dung lượng pin', isMandatory: false, values: [v(1, '5000mAh')] },
+  { id: 200107, categoryId: 100010, name: 'Water Resistance', displayName: 'Kháng nước', isMandatory: false, values: [v(1, 'IP67'), v(2, 'IP68')] },
+  { id: 200108, categoryId: 100010, name: 'Charging Port', displayName: 'Cổng sạc', isMandatory: false, values: [v(1, 'USB-C')] },
   { id: 200111, categoryId: 100011, name: 'Connectivity', displayName: 'Kết nối', isMandatory: true, values: [v(1, 'Bluetooth'), v(2, 'Wired', 'Có dây')] },
   { id: 200121, categoryId: 100012, name: 'Output Power', displayName: 'Công suất', isMandatory: false, values: [v(1, '20W'), v(2, '65W'), v(3, '100W')] },
   { id: 200201, categoryId: 100020, name: 'RAM', displayName: 'RAM', isMandatory: true, values: [v(1, '8GB'), v(2, '16GB'), v(3, '32GB')] },
@@ -226,7 +232,7 @@ export const ITEMS: SeedItem[] = [
   {
     id: 2000101, shopId: 880001, categoryId: 100010, brandId: 3001, name: 'Apple iPhone 15 128GB Chính Hãng VN/A', short: 'iPhone 15',
     description: 'iPhone 15 với Dynamic Island, camera chính 48MP và cổng USB‑C. Hàng chính hãng VN/A, nguyên seal.', sku: 'TZ-IP15',
-    weightKg: 0.4, sales: 312, views: 15800, likes: 920, attributes: [attr(200101, 1), attr(200102, 1)],
+    weightKg: 0.4, sales: 312, views: 15800, likes: 920, attributes: [attr(200101, 1), attr(200102, 1), attr(200104, 1), attr(200108, 1)],
     tiers: [{ name: 'Màu sắc', options: ['Đen', 'Hồng', 'Xanh dương'] }],
     models: [
       { id: 3000101, tierIndex: [0], sku: 'TZ-IP15-BLK', price: 19990000, stock: 25, promo: 18490000 },
@@ -238,7 +244,7 @@ export const ITEMS: SeedItem[] = [
   {
     id: 2000102, shopId: 880001, categoryId: 100010, brandId: 3002, name: 'Samsung Galaxy A55 5G 8GB/128GB', short: 'Galaxy A55',
     description: 'Màn hình Super AMOLED 120Hz, camera 50MP OIS, kháng nước IP67, pin 5000mAh.', sku: 'TZ-A55',
-    weightKg: 0.45, sales: 205, views: 9100, likes: 410, attributes: [attr(200101, 1), attr(200102, 1)],
+    weightKg: 0.45, sales: 205, views: 9100, likes: 410, attributes: [attr(200101, 1), attr(200102, 1), attr(200103, 2), attr(200104, 2), attr(200105, 1), attr(200106, 1), attr(200107, 1)],
     tiers: [{ name: 'Màu sắc', options: ['Xanh Navy', 'Tím Lilac'] }, { name: 'Dung lượng', options: ['128GB', '256GB'] }],
     models: [
       { id: 3000111, tierIndex: [0, 0], sku: 'TZ-A55-NV-128', price: 9490000, stock: 30 },

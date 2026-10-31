@@ -111,7 +111,7 @@ describe('seeded shop reads (TechZone)', () => {
     const phones = cats.response.category_list!.find((c) => c.category_id === 100010)!;
     expect(phones).toMatchObject({ parent_category_id: 100001, display_category_name: 'Điện thoại', has_children: false });
     const tree = await sdk.product.getAttributeTree({ category_id_list: [100010] });
-    expect(tree.response.list![0]!.attribute_tree!.map((a) => a.attribute_id)).toEqual([200101, 200102]);
+    expect(tree.response.list![0]!.attribute_tree!.map((a) => a.attribute_id)).toEqual([200101, 200102, 200103, 200104, 200105, 200106, 200107, 200108]);
     const brands = await sdk.product.getBrandList({ offset: 0, page_size: 50, category_id: 100010, status: 1 });
     expect(brands.response.brand_list!.map((b) => b.original_brand_name)).toEqual(expect.arrayContaining(['Apple', 'Samsung', 'Xiaomi']));
     expect(brands.response.brand_list!.map((b) => b.original_brand_name)).not.toContain('Cocoon');

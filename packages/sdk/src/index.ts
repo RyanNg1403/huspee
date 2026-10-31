@@ -14,6 +14,7 @@ import type {
   AssistantProfile, AssistantConnection, AssistantSetupConnection, AssistantConfig, AssistantConfigInput, AssistantFaq, AssistantFaqInput, AssistantConversation, AssistantConversationDetail, BuyerAssistantConversation, BuyerAssistantConversationDetail, PendingActionView, HandoffTicket, HandoffTicketDetail, HandoffMessage,
   AddressInput,
   BuyerOrder,
+  BuyerOrderCounts,
   BuyerOrderListQuery,
   BuyerReturn,
   Cart,
@@ -160,6 +161,7 @@ export class HuspeeClient {
           },
           raw: true,
         }),
+      counts: () => this.http.request<BuyerOrderCounts>('GET', '/api/v1/buyer/orders/counts'),
       get: (orderSn: string) => this.http.request<BuyerOrder>('GET', `/api/v1/buyer/orders/${encodeURIComponent(orderSn)}`),
       cancel: (orderSn: string, reason?: string) =>
         this.http.request<BuyerOrder>('POST', `/api/v1/buyer/orders/${encodeURIComponent(orderSn)}/cancel`, { body: reason ? { reason } : {} }),
@@ -199,12 +201,12 @@ export class HuspeeClient {
         remove: (shopId: number, faqId: number) => this.http.request<{ deleted: boolean }>('DELETE', `/api/v1/seller/shops/${shopId}/assistant/faqs/${faqId}`),
       },
       conversations: {
-        list: (shopId: number, query: { status?: 'ACTIVE' | 'ENDED'; has_handoff?: boolean; from?: number; to?: number; page?: number; page_size?: number } = {}) => this.http.request<Paginated<AssistantConversation>>('GET', `/api/v1/seller/shops/${shopId}/assistant/conversations`, { query, raw: true }),
+        list: (shopId: number, query: { status?: 'ACTIVE' | 'ENDED'; channel?: 'VOICE' | 'TEXT'; has_handoff?: boolean; from?: number; to?: number; page?: number; page_size?: number } = {}) => this.http.request<Paginated<AssistantConversation>>('GET', `/api/v1/seller/shops/${shopId}/assistant/conversations`, { query, raw: true }),
         get: (shopId: number, conversationId: string) => this.http.request<AssistantConversationDetail>('GET', `/api/v1/seller/shops/${shopId}/assistant/conversations/${encodeURIComponent(conversationId)}`),
       },
     },
     inbox: {
-      list: (shopId: number, query: { status?: 'OPEN' | 'ANSWERED' | 'CLOSED'; page?: number; page_size?: number } = {}) => this.http.request<Paginated<HandoffTicket>>('GET', `/api/v1/seller/shops/${shopId}/inbox`, { query, raw: true }),
+      list: (shopId: number, query: { status?: 'OPEN' | 'ANSWERED' | 'CLOSED'; q?: string; page?: number; page_size?: number } = {}) => this.http.request<Paginated<HandoffTicket>>('GET', `/api/v1/seller/shops/${shopId}/inbox`, { query, raw: true }),
       get: (shopId: number, ticketId: number) => this.http.request<HandoffTicketDetail>('GET', `/api/v1/seller/shops/${shopId}/inbox/${ticketId}`),
       reply: (shopId: number, ticketId: number, body: string) => this.http.request<HandoffMessage>('POST', `/api/v1/seller/shops/${shopId}/inbox/${ticketId}/replies`, { body: { body } }),
       close: (shopId: number, ticketId: number) => this.http.request<HandoffTicket>('POST', `/api/v1/seller/shops/${shopId}/inbox/${ticketId}/close`),

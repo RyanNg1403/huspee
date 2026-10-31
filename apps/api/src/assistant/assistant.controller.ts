@@ -242,6 +242,7 @@ export class AssistantController {
       z.object({
         ...paging,
         status: z.enum(['ACTIVE', 'ENDED']).optional(),
+        channel: z.enum(['VOICE', 'TEXT']).optional(),
         has_handoff: q.bool().optional(),
         from: q.int().optional(),
         to: q.int().optional(),
@@ -251,6 +252,7 @@ export class AssistantController {
     const where = {
       shopId,
       ...(input.status ? { status: input.status } : {}),
+      ...(input.channel ? { channel: input.channel } : {}),
       ...(input.has_handoff === undefined ? {} : { tickets: input.has_handoff ? { some: {} } : { none: {} } }),
       ...(input.from !== undefined || input.to !== undefined
         ? {
@@ -264,6 +266,7 @@ export class AssistantController {
     const [rows, total] = await Promise.all([
       this.prisma.conversation.findMany({
         where,
+        include: { buyer: { select: { name: true } } },
         orderBy: [{ startedAt: 'desc' }, { id: 'desc' }],
         skip: (input.page - 1) * input.page_size,
         take: input.page_size,
@@ -283,11 +286,13 @@ export class AssistantController {
     endedAt: Date | null;
     language: string | null;
     summary: unknown;
+    buyer: { name: string };
   }) {
     return {
       conversation_id: row.id,
       shop_id: row.shopId,
       buyer_id: row.buyerId,
+      buyer_name: row.buyer.name,
       channel: row.channel,
       status: row.status,
       started_at: unix(row.startedAt),
@@ -303,7 +308,7 @@ export class AssistantController {
     await this.member(user, shopId);
     const row = await this.prisma.conversation.findFirst({
       where: { id, shopId },
-      include: { messages: { orderBy: { createdAt: 'asc' } }, toolCalls: { orderBy: { createdAt: 'asc' } } },
+      include: { buyer: { select: { name: true } }, messages: { orderBy: { createdAt: 'asc' } }, toolCalls: { orderBy: { createdAt: 'asc' } } },
     });
     if (!row) throw notFound('Conversation');
     return {

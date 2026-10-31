@@ -68,7 +68,7 @@ export interface CreateReturnInput {
   image_urls?: string[];
 }
 
-const returnInclude = { buyer: { select: { name: true, email: true } } } satisfies Prisma.ReturnRequestInclude;
+export const returnInclude = { buyer: { select: { name: true, email: true } }, shop: { select: { name: true } } } satisfies Prisma.ReturnRequestInclude;
 type ReturnWithBuyer = Prisma.ReturnRequestGetPayload<{ include: typeof returnInclude }>;
 
 /**
@@ -338,9 +338,11 @@ export class ReturnService {
       return_sn: ret.returnSn,
       order_sn: ret.orderSn,
       shop_id: ret.shopId,
+      shop_name: ret.shop.name,
       status: ret.status,
       reason: ret.reason,
       text_reason: ret.textReason,
+      image_urls: ret.imageUrls.map((url) => mediaUrl(url)),
       solution: ret.solution === SOLUTION_REFUND_ONLY ? 'REFUND_ONLY' : 'RETURN_REFUND',
       refund_amount: toNumber(ret.refundAmount),
       currency: ret.currency,
