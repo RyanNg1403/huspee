@@ -30,6 +30,7 @@ services:
       PORT: "3000"
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:3000}
       WEB_APP_URL: ${WEB_APP_URL:-http://localhost:3001}
+      BROWSER_PROXY_ENABLED: "true"
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       HUSPEE_PARTNER_ID: ${HUSPEE_PARTNER_ID:-2001001}
       HUSPEE_PARTNER_KEY: ${HUSPEE_PARTNER_KEY:-dev-partner-key-change-me-0123456789abcdef}
@@ -52,7 +53,7 @@ services:
       context: .
       dockerfile: apps/web/Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3000}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
     depends_on:
       api:
         condition: service_healthy
@@ -61,6 +62,9 @@ services:
     environment:
       PORT: "3001"
       NODE_ENV: production
+      API_INTERNAL_URL: http://api:3000
+      API_PUBLIC_URL: ${PUBLIC_BASE_URL:-http://localhost:3000}
+      WEB_APP_URL: ${WEB_APP_URL:-http://localhost:3001}
 
 volumes:
   pgdata:

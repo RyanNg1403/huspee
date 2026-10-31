@@ -4,6 +4,15 @@ Huspee is a **simulated, self-hosted** marketplace. It reproduces selected Shope
 contracts so that unmodified `@congminh1254/shopee-sdk` methods work against it, but it does **not**
 claim parity with production Shopee. Huspee is unaffiliated with Shopee.
 
+When `BROWSER_PROXY_ENABLED=true`, locally hosted media and the dashboard's authorization link
+use relative URLs so phone browsers stay on the forwarded web origin. Direct SDK deployments
+can leave this option off (its default) to retain absolute media and authorization URLs.
+
+The custom SDK method `assistant.voice.poll(conversationId, after)` returns finite JSON batches
+of assistant events with a cursor and closed flag. It requires the owning buyer's session. The
+browser uses it on Cloudflare Quick Tunnels; other origins retain SSE. The runtime keeps the
+latest 200 events per session and retains closed event logs for 60 seconds (at most 100 logs).
+
 Behaviour is grouped as **faithful** (matches the documented contract), **approximated** (same
 contract shape, simplified or simulated semantics) and **unsupported**.
 

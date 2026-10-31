@@ -2,7 +2,9 @@ import { HuspeeApiError, HuspeeClient } from '@huspee/sdk';
 let client: HuspeeClient | undefined;
 export function getApiClient() {
   return (client ??= new HuspeeClient({
-    baseUrl: process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000',
+    baseUrl:
+      process.env.NEXT_PUBLIC_API_URL ||
+      (typeof window === 'undefined' ? 'http://localhost:3001' : window.location.origin),
   }));
 }
 export function isApiError(e: unknown): e is HuspeeApiError {

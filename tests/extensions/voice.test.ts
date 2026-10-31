@@ -96,6 +96,7 @@ describe('voice runtime with fake app-server', () => {
         'assistant_busy',
       );
       expect(() => runtime.subscribe(ctx.conversationId, 999, () => undefined)).toThrow('not_found');
+      expect(() => runtime.poll(ctx.conversationId, 999, 0)).toThrow('not_found');
       const events: Record<string, unknown>[] = [];
       runtime.subscribe(ctx.conversationId, 1, (event) => events.push(event));
       await new Promise((resolveWait) => setTimeout(resolveWait, 100));
@@ -253,7 +254,15 @@ it('serves a fake voice session over HTTP and protects its event stream', async 
     expect(data).toContain('"type":"transcript"');
     expect(data).toContain('"type":"tool"');
     expect(data).toContain('"type":"card"');
+    await expect(other.assistant.voice.poll(started.conversation_id)).rejects.toMatchObject({ status: 404 });
+    await expect(buyer.assistant.voice.poll(started.conversation_id, -1)).rejects.toMatchObject({ status: 400 });
+    const snapshot = await buyer.assistant.voice.poll(started.conversation_id);
+    expect(snapshot.events).toEqual(expect.arrayContaining([expect.objectContaining({ type: 'card' })]));
+    expect(snapshot.closed).toBe(false);
+    expect((await buyer.assistant.voice.poll(started.conversation_id)).events.slice(0, snapshot.events.length)).toEqual(snapshot.events);
+    expect((await buyer.assistant.voice.poll(started.conversation_id, snapshot.cursor)).events).not.toEqual(expect.arrayContaining(snapshot.events));
     await buyer.assistant.voice.stop(started.conversation_id);
+    expect(await buyer.assistant.voice.poll(started.conversation_id, snapshot.cursor)).toMatchObject({ closed: true, events: expect.arrayContaining([{ type: 'closed', reason: null }]) });
     controller.abort();
     const textSession = await buyer.assistant.text.start({ shop_id: 880001, lang: 'vi' });
     await expect(other.assistant.voice.text(textSession.conversation_id, 'test')).rejects.toMatchObject({ status: 404 });
@@ -275,6 +284,25 @@ it('serves a fake voice session over HTTP and protects its event stream', async 
     const resumed = await buyer.assistant.text.start({ shop_id: 880001, resume_conversation_id: textSession.conversation_id });
     expect(resumed.conversation_id).not.toBe(textSession.conversation_id);
     await buyer.assistant.voice.stop(resumed.conversation_id);
+    // JSON-only transport: no EventSource subscription, ordered replay and no duplicates at the cursor.
+    const polled = await buyer.assistant.text.start({ shop_id: 880001 });
+    await buyer.assistant.voice.text(polled.conversation_id, 'Find a product');
+    let cursor = 0;
+    const polledEvents: Record<string, unknown>[] = [];
+    for (let attempt = 0; attempt < 50; attempt++) {
+      const page = await buyer.assistant.voice.poll(polled.conversation_id, cursor);
+      expect(page.cursor).toBeGreaterThanOrEqual(cursor);
+      cursor = page.cursor;
+      polledEvents.push(...page.events);
+      if (polledEvents.some((event) => event.text === 'Final answer')) break;
+      await new Promise((resolveWait) => setTimeout(resolveWait, 50));
+    }
+    expect(polledEvents).toContainEqual(expect.objectContaining({ type: 'card' }));
+    expect(polledEvents.filter((event) => event.text === 'Verified product')).toHaveLength(1);
+    expect(await buyer.assistant.voice.poll(polled.conversation_id, cursor)).toMatchObject({ events: [], cursor, closed: false });
+    await buyer.assistant.voice.stop(polled.conversation_id);
+    expect(await buyer.assistant.voice.poll(polled.conversation_id, cursor)).toMatchObject({ closed: true, events: [{ type: 'closed', reason: null }] });
+    await expect(other.assistant.voice.poll(polled.conversation_id)).rejects.toMatchObject({ status: 404 });
   } finally {
     server.kill('SIGTERM');
   }

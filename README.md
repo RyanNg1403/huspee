@@ -51,6 +51,23 @@ settings, FAQs, logs and insights, with no account sign-in controls. The setup p
 pending sign-in code to the browser that started it; other browsers see a waiting status. Account
 disconnection remains a seller-authenticated maintenance API operation, not a public setup action.
 
+## Open on a phone
+
+Forward **port 3001** and open its **HTTPS** URL on the phone. The web server proxies API,
+media, session cookies, seller authorization and assistant events through that same port; leave
+`NEXT_PUBLIC_API_URL` empty. With local processes, set the web server's `API_INTERNAL_URL` to
+the API's listening address and enable `BROWSER_PROXY_ENABLED=true` on the API (the example
+environment and Docker Compose already do this). `API_PUBLIC_URL` on the web server must match
+the API's `PUBLIC_BASE_URL`, so seller consent redirects stay on the forwarded origin.
+
+Plain HTTP on a LAN IP supports browsing but cannot request a phone microphone. HTTPS forwarding
+and microphone permission are required for voice, along with the ChatGPT connection described above.
+The assistant fills small screens and follows the visible viewport when the keyboard opens.
+
+For a temporary public link, run `cloudflared tunnel --url http://localhost:3001` and open the
+printed HTTPS URL. On `*.trycloudflare.com`, the assistant automatically polls for JSON events
+because Quick Tunnels do not support SSE. The link lasts while the tunnel process is running.
+
 ## Mock data
 
 Every account's password is `Password123!`.

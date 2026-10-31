@@ -113,7 +113,7 @@ export class SellerController {
       path: CALLBACK_PATH,
       maxAge: 15 * 60 * 1000,
     });
-    return { data: { authorization_url: url.toString(), partner_id: app.id, expires_in: cfg.SIGNATURE_MAX_AGE_SECONDS } };
+    return { data: { authorization_url: cfg.BROWSER_PROXY_ENABLED ? `${url.pathname}${url.search}` : url.toString(), partner_id: app.id, expires_in: cfg.SIGNATURE_MAX_AGE_SECONDS } };
   }
 
   /**

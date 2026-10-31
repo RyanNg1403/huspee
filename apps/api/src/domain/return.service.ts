@@ -131,7 +131,7 @@ export class ReturnService {
         model_name: line.modelName,
         item_sku: line.itemSku,
         model_sku: line.modelSku,
-        image_url: line.imageUrl,
+        image_url: line.imageUrl ? mediaUrl(line.imageUrl) : null,
       });
     }
     if (lines.length === 0) throw validation('Nothing left to return for this order');
@@ -286,7 +286,7 @@ export class ReturnService {
       item: lines.map((l) => ({
         model_id: l.external_model_id,
         name: [l.item_name, l.model_name].filter(Boolean).join(' - '),
-        images: l.image_url ? [l.image_url] : [],
+        images: l.image_url ? [mediaUrl(l.image_url)] : [],
         amount: l.quantity,
         item_price: l.item_price,
         is_add_on_deal: false,
@@ -353,7 +353,7 @@ export class ReturnService {
         model_name: l.model_name,
         quantity: l.quantity,
         refund_amount: l.refund_amount,
-        image_url: l.image_url,
+        image_url: l.image_url ? mediaUrl(l.image_url) : null,
       })),
       seller_offer:
         negotiation.negotiation_status === 'PENDING_BUYER_RESPOND'

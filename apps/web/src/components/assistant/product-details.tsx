@@ -8,21 +8,8 @@ import { formatCount, formatVnd } from '@/lib/format';
 import { useApi } from '@/lib/use-api';
 import { messages } from './messages';
 
-export type ProductInfo = {
-  item_id: number;
-  name: string;
-  images: string[];
-  models: Array<{ model_id: number; name: string; price: number; stock: number }>;
-  description?: string;
-  attributes?: Array<{ name: string; value: string }>;
-  brand?: string | null;
-  category?: string;
-  rating?: number | null;
-  rating_count?: number;
-  sold?: number;
-  days_to_ship?: number;
-  reviews?: Array<{ rating: number; comment: string; buyer_name: string; model_name: string | null }>;
-};
+import type { ProductInfo } from './card-types';
+export type { ProductInfo } from './card-types';
 
 function Stars({ value }: { value: number }) {
   return (

@@ -307,7 +307,7 @@ async function main() {
             modelName: tierNames,
             itemSku: item.sku,
             modelSku: model.sku,
-            imageUrl: `${process.env.PUBLIC_BASE_URL ?? 'http://localhost:3000'}/media/seed-photo-${item.id}-0`,
+            imageUrl: `/media/seed-photo-${item.id}-0`,
             quantity: h.quantity,
             originalPrice: new Prisma.Decimal(model.price),
             discountedPrice: new Prisma.Decimal(unit),

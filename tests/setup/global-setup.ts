@@ -26,6 +26,8 @@ export const serverEnv = {
   PUBLIC_BASE_URL: API,
   WEB_APP_URL: 'http://localhost:3001',
   COOKIE_SECURE: 'false',
+  // Direct API/SDK tests keep absolute URLs, regardless of the local phone-demo .env.
+  BROWSER_PROXY_ENABLED: 'false',
   HUSPEE_PARTNER_ID: String(PARTNER_ID),
   HUSPEE_PARTNER_KEY: PARTNER_KEY,
   HUSPEE_TOKEN_ENCRYPTION_KEY: TOKEN_ENCRYPTION_KEY,

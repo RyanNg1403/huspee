@@ -5,6 +5,8 @@ const schema = z.object({
   PORT: z.coerce.number().int().default(3000),
   PUBLIC_BASE_URL: z.string().url().default('http://localhost:3000'),
   WEB_APP_URL: z.string().url().default('http://localhost:3001'),
+  // Opt in when Next.js proxies the API and media on the browser's origin.
+  BROWSER_PROXY_ENABLED: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
   COOKIE_SECURE: z
     .enum(['true', 'false'])
     .default('false')
