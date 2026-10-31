@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import { chromium, webkit, devices } from 'playwright-core';
+import { say } from './assistant-helpers.mjs';
 
 const url = process.env.WEB_URL || 'http://127.0.0.1:3001';
 const engine = process.env.BROWSER || 'chromium';
@@ -38,7 +39,7 @@ try {
       assert.deepEqual(broken, [], `${path}: broken images`);
     }
     await page.goto(`${url}/shops/880001`);
-    await page.getByRole('button', { name: 'Shop assistant', exact: true }).click();
+    await page.getByTestId('assistant-launcher').click();
     const panel = page.locator('.assistant-panel');
     await panel.waitFor({ state: 'visible' });
     let box = await panel.boundingBox();
@@ -49,13 +50,13 @@ try {
     await page.waitForTimeout(150);
     box = await panel.boundingBox();
     assert.ok(box.y + box.height <= 421, `${width}px: assistant clipped after keyboard resize`);
-    await panel.getByRole('button', { name: 'Close', exact: true }).click();
+    await panel.getByRole('button', { name: 'Minimize assistant', exact: true }).click();
     await page.setViewportSize({ width, height: 812 });
     console.log(`${engine}: ${width}px pages, images, assistant and keyboard resize passed`);
   }
 
   await page.setViewportSize({ width: 812, height: 375 });
-  await page.getByRole('button', { name: 'Shop assistant', exact: true }).click();
+  await page.getByTestId('assistant-launcher').click();
   const landscape = await page.locator('.assistant-panel').boundingBox();
   assert.ok(landscape.y >= 0 && landscape.y + landscape.height <= 375, 'Landscape assistant clipped');
   await page.setViewportSize({ width: 375, height: 812 });
@@ -97,8 +98,8 @@ try {
       return route.fulfill({ json: { data: { ok: true } } });
     });
     await page.goto(`${url}/shops/880001`);
-    await page.getByRole('button', { name: 'Shop assistant', exact: true }).click();
-    await page.getByRole('button', { name: 'Type', exact: true }).click();
+    await page.getByTestId('assistant-launcher').click();
+    await say(page, 'Polling check', { echo: false });
     await page.getByText('Tunnel polling check', { exact: true }).waitFor();
     await page.waitForTimeout(800);
     assert.deepEqual(cursors.slice(0, 3), [0, 0, 1], 'Polling should retry the cursor and advance after delivery');

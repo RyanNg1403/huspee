@@ -28,6 +28,8 @@ export type Action = {
   type?: 'ADD_TO_CART' | 'UPDATE_CART_ITEM' | 'PLACE_ORDER' | 'OPEN_RETURN';
   status: string;
   requires_tap: boolean;
+  /** Unix seconds; the server rejects confirmation after this. */
+  expires_at?: number;
   summary: {
     title: string;
     lines: Array<{ label: string; value: string }>;

@@ -1,11 +1,12 @@
 'use client';
 import { useEffect } from 'react';
+import { SHEET_QUERY } from './use-media-query';
 
 /** A phone chat is a screen: preserve the underlying page while only its transcript scrolls. */
 export function useChatScrollLock(open: boolean) {
   useEffect(() => {
     if (!open) return;
-    const media = window.matchMedia('(max-width: 767px), (pointer: coarse) and (max-height: 500px)');
+    const media = window.matchMedia(SHEET_QUERY);
     let unlock: (() => void) | undefined;
     const sync = () => {
       if (!media.matches) { unlock?.(); unlock = undefined; return; }

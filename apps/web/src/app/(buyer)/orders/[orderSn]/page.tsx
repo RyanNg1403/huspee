@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { useParams } from 'next/navigation';
 import type { BuyerOrder, OrderTracking } from '@huspee/sdk';
 import { RequireRole } from '@huspee/web-ui/components/session';
+import { VoiceWidget } from '@/components/assistant/VoiceWidget';
 import { Button, Icon, QueryState, useToast } from '@huspee/web-ui/components/ui';
 import { useLang, useT } from '@huspee/web-ui/i18n';
 import { common } from '@huspee/web-ui/i18n/common';
@@ -73,6 +74,7 @@ function OrderDetailView() {
 
   return (
     <div className="space-y-4 pb-12">
+      <VoiceWidget shopId={order.shop.shop_id} order={{ order_sn: order.order_sn, status: order.status, image: order.items[0]?.image_url ?? undefined }} />
       {/* Top Bar with Back and Status */}
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-white p-4 shadow-card">
         <div className="flex items-center gap-3">

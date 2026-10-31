@@ -49,3 +49,16 @@ export function upsertCard(cards: Card[], incoming: Card): Card[] {
   }
   return [...cards, incoming];
 }
+
+/** {@link upsertCard} for cards that remember when they first arrived. */
+export function upsertTimed(
+  previous: Array<{ card: Card; at: number }>,
+  incoming: Card,
+  now: number,
+): Array<{ card: Card; at: number }> {
+  const next = upsertCard(
+    previous.map((item) => item.card),
+    incoming,
+  );
+  return next.map((card, i) => ({ card, at: previous[i]?.at ?? now }));
+}

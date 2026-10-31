@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import { chromium, webkit, devices } from 'playwright-core';
+import { openSheet, pollingEventSource, say, signIn } from './assistant-helpers.mjs';
 
 const url = process.env.WEB_URL;
-assert.ok(url && new URL(url).hostname.endsWith('.trycloudflare.com'), 'Use the Cloudflare URL to exercise polling with a mock assistant');
+assert.ok(url, 'Set WEB_URL to the buyer web app; every assistant route and WebRTC are mocked');
 const engine = process.env.BROWSER || 'chromium';
 const browser = await ({ chromium, webkit }[engine]).launch({ headless: true, executablePath: process.env.BROWSER_BIN });
 const out = '.token/chat-continuity';
@@ -11,6 +12,7 @@ await fs.mkdir(out, { recursive: true });
 try {
   const context = await browser.newContext({ ...devices[engine === 'webkit' ? 'iPhone 13' : 'Pixel 5'], viewport: { width: 375, height: 812 } });
   await context.addCookies([{ name: 'huspee_lang', value: 'en', url }]);
+  await context.addInitScript(pollingEventSource);
   await context.addInitScript(() => {
     window.mockVoice = { stopped: 0, deny: false, calls: 0, pc: null };
     Object.defineProperty(navigator, 'mediaDevices', { value: { getUserMedia: async () => {
@@ -75,23 +77,15 @@ try {
     }
     return route.fulfill({ json: { data: { ok: true } } });
   });
-  await page.goto(`${url}/login?next=%2Fproducts%2F2000201`);
-  await page.locator('input[name="email"]').fill('an.nguyen@example.com');
-  await page.locator('input[name="password"]').fill('Password123!');
-  await page.locator('button[type="submit"]').click();
-  await page.waitForURL((target) => target.pathname === '/products/2000201');
+  await signIn(page, url, '/products/2000201');
   await page.locator('h1').waitFor();
-  await page.getByRole('button', { name: 'Shop assistant', exact: true }).click();
+  await openSheet(page);
   const panel = page.locator('.assistant-panel');
-  await panel.getByRole('button', { name: 'Type', exact: true }).click();
-  async function say(text) {
-    await panel.getByPlaceholder('Type a question…').fill(text);
-    await panel.getByPlaceholder('Type a question…').press('Enter');
-    await panel.getByText(text, { exact: true }).waitFor();
-  }
   const original = 'Does La Roche have a discount?';
-  await say(original);
+  await say(page, original);
   const productContext = page.getByTestId('conversation-products');
+  // The list of products found in this conversation starts collapsed to one line.
+  await productContext.getByRole('button').click();
   await productContext.getByRole('link', { name: `Text ${laRoche.name}`, exact: true }).waitFor();
   await panel.getByRole('button', { name: 'Call assistant', exact: true }).click();
   await panel.getByRole('button', { name: 'End call', exact: true }).waitFor();
@@ -102,7 +96,7 @@ try {
   await page.screenshot({ path: `${out}/${engine}-mobile-call.png` });
   await panel.getByRole('button', { name: 'End call', exact: true }).click();
   await panel.getByRole('button', { name: 'Call assistant', exact: true }).waitFor();
-  await say('Remember both?');
+  await say(page, 'Remember both?');
   await panel.getByText('We discussed La Roche and Cocoon.', { exact: true }).waitFor();
   assert.equal(ends, 0, 'Hanging up must not end chat');
   assert.equal(await page.evaluate(() => window.mockVoice.stopped), 1, 'Microphone must stop');
@@ -110,7 +104,8 @@ try {
   await page.screenshot({ path: `${out}/${engine}-mobile-text.png` });
   await productContext.getByRole('link', { name: `Voice ${cocoon.name}`, exact: true }).click();
   await page.waitForURL((target) => target.pathname === '/products/2000202');
-  await page.getByTestId('product-context-notice').getByText('Viewing now', { exact: true }).waitFor();
+  await page.getByTestId('product-context-notice').getByText('Viewing', { exact: true }).waitFor();
+  assert.ok((await page.getByTestId('product-context-notice').innerText()).includes(cocoon.name.slice(0, 20)), 'The viewed row follows the page');
   assert.equal(await productContext.getByRole('link').count(), 2, 'Viewing Cocoon must keep La Roche in the conversation context');
   await productContext.getByRole('button').click();
   assert.equal(await productContext.getByRole('button').getAttribute('aria-expanded'), 'false');
@@ -124,19 +119,20 @@ try {
   await page.evaluate(() => { window.mockVoice.deny = true; });
   await panel.getByRole('button', { name: 'Call assistant', exact: true }).click();
   await panel.getByRole('button', { name: 'Call assistant', exact: true }).waitFor();
-  await say('Continue after microphone denial');
+  await panel.getByText('The browser is blocking the microphone', { exact: true }).waitFor();
+  await say(page, 'Continue after microphone denial');
   await page.evaluate(() => { window.mockVoice.deny = false; });
   failCall = true;
   await panel.getByRole('button', { name: 'Call assistant', exact: true }).click();
   await panel.getByRole('button', { name: 'Call assistant', exact: true }).waitFor();
-  await say('Continue after call failure');
+  await say(page, 'Continue after call failure');
   failCall = false; delayCall = true;
   const joining = page.waitForRequest((request) => request.url().endsWith('/call'));
   await panel.getByRole('button', { name: 'Call assistant', exact: true }).click();
   await joining;
   await panel.getByRole('button', { name: 'Cancel call', exact: true }).click();
   await panel.getByRole('button', { name: 'Call assistant', exact: true }).waitFor();
-  await say('Continue after cancelling');
+  await say(page, 'Continue after cancelling');
   await page.waitForTimeout(1000); // let the delayed answer exercise stale-call cleanup
   assert.equal(await panel.getByRole('button', { name: 'End call', exact: true }).count(), 0);
   assert.equal(starts, 1, 'All modes must use one conversation');
@@ -148,8 +144,9 @@ try {
   await page.waitForTimeout(100);
   assert.equal(ends, 1);
   assert.equal(await productContext.count(), 0, 'Ended chat must not advertise live context');
-  await panel.getByRole('button', { name: 'Type', exact: true }).click();
+  await say(page, 'A new chat');
   await panel.getByRole('button', { name: 'Call assistant', exact: true }).waitFor();
+  assert.equal(starts, 2);
   assert.equal(await productContext.count(), 0, 'A new conversation must not inherit the old product indicator');
   assert.deepEqual(errors, []);
   console.log(`${engine}: shared text/voice, product context, navigation, reset and call failure cases passed (mock WebRTC/assistant)`);
