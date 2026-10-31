@@ -8,7 +8,7 @@ import { useLang, useT } from '@huspee/web-ui/i18n';
 import { getApiClient } from '@huspee/web-ui/lib/api';
 import { useApi } from '@huspee/web-ui/lib/use-api';
 import { ticketState } from '../handoff';
-import { StatusDot } from '../StatusDot';
+import { StatusDot } from '@/components/shell';
 import { elapsed, formatStamp, type Elapsed } from '../time';
 import { inboxMessages } from './messages';
 
@@ -159,7 +159,7 @@ function TicketRow({ ticket, selected, now }: { ticket: HandoffTicket; selected:
       {preview && <span className="mt-0.5 line-clamp-1 text-[13px] text-muted">{preview}</span>}
       <span className={`mt-1.5 block text-[13px] ${state.kind === 'waiting' ? 'text-ink' : 'text-muted'}`}>
         {state.kind === 'waiting' ? (
-          <StatusDot tone="attention">
+          <StatusDot tone="action">
             {t('waiting', { elapsed: elapsedLabel(elapsed(state.since, now)) })}
           </StatusDot>
         ) : state.kind === 'answered' ? (

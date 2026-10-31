@@ -4,10 +4,6 @@ export const assistantMessages = defineMessages({
   vi: {
     assistantTitle: 'Trợ lý ảo',
     assistantDesc: 'Quản lý giọng nói, phong cách giao tiếp và câu chào cho trợ lý AI của cửa hàng',
-    tabSettings: 'Cấu hình',
-    tabFaqs: 'Câu hỏi thường gặp',
-    tabConversations: 'Lịch sử hội thoại',
-    tabInsights: 'Phân tích & Thống kê',
     insightsTitle: 'Phân tích & Thống kê trợ lý',
     insightsDesc: 'Theo dõi hiệu suất tương tác, sản phẩm được quan tâm và phân tích hành vi người mua',
     range7d: '7 ngày qua',
@@ -139,10 +135,6 @@ export const assistantMessages = defineMessages({
   en: {
     assistantTitle: 'Virtual Assistant',
     assistantDesc: 'Manage voice, tone, and greetings for your shop AI assistant',
-    tabSettings: 'Settings',
-    tabFaqs: 'FAQs',
-    tabConversations: 'Conversations',
-    tabInsights: 'Insights',
     insightsTitle: 'Assistant Insights',
     insightsDesc: 'Track interaction performance, popular products, and buyer behavior analysis',
     range7d: 'Last 7 days',

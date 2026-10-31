@@ -9,7 +9,7 @@ import { common } from '@huspee/web-ui/i18n/common';
 import { errorMessageKey, getApiClient } from '@huspee/web-ui/lib/api';
 import { useApi } from '@huspee/web-ui/lib/use-api';
 import { threadItems, ticketState, type ThreadItem } from '../handoff';
-import { StatusDot } from '../StatusDot';
+import { StatusDot } from '@/components/shell';
 import { formatStamp } from '../time';
 import { inboxMessages } from './messages';
 import { INBOX_CHANGED } from './TicketList';
@@ -117,7 +117,7 @@ function TicketView({
           <p className="flex flex-wrap items-center gap-x-1.5 text-[13px] text-muted">
             {first && <span>{t('sentAt', { time: stamp(first.created_at) })} ·</span>}
             {state.kind === 'waiting' ? (
-              <StatusDot tone="attention">{t('tabOpen')}</StatusDot>
+              <StatusDot tone="action">{t('tabOpen')}</StatusDot>
             ) : state.kind === 'answered' ? (
               <StatusDot tone="neutral">{t('tabAnswered')}</StatusDot>
             ) : (

@@ -10,7 +10,7 @@ import { errorMessageKey, getApiClient } from '@huspee/web-ui/lib/api';
 import { formatDate } from '@huspee/web-ui/lib/format';
 import { useApi } from '@huspee/web-ui/lib/use-api';
 import { conversationOverview, toolEntries, transcriptEntries } from '../conversation-log';
-import { StatusDot } from '../StatusDot';
+import { StatusDot } from '@/components/shell';
 import { formatClock, minutesBetween } from '../time';
 import { OutcomeText } from './describe';
 import { Lookups } from './Lookups';

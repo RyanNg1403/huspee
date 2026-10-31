@@ -8,7 +8,7 @@ import { useLang, useT } from '@huspee/web-ui/i18n';
 import { getApiClient } from '@huspee/web-ui/lib/api';
 import { useApi } from '@huspee/web-ui/lib/use-api';
 import { conversationOverview, type Overview } from '../conversation-log';
-import { StatusDot } from '../StatusDot';
+import { StatusDot } from '@/components/shell';
 import { formatStamp } from '../time';
 import { OutcomeText } from './describe';
 import { conversationMessages } from './messages';
