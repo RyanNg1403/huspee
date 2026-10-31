@@ -16,7 +16,7 @@ export function ShopAvatar({
     .join('');
   return (
     <span
-      className={`flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-soft font-bold text-primary ${className}`}
+      className={`flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-link font-bold text-white ${className}`}
     >
       {shop.logo_url ? (
         <Image

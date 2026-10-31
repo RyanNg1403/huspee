@@ -1,8 +1,7 @@
 'use client';
-import type { ProductSummary, PublicVoucher } from '@huspee/sdk';
+import type { ProductSummary } from '@huspee/sdk';
 import { EmptyState } from '@huspee/web-ui/components/ui';
 import { useT } from '@huspee/web-ui/i18n';
-import { formatVnd } from '@huspee/web-ui/lib/format';
 import { ProductCard } from '@/components/catalog';
 import { messages } from './messages';
 
@@ -69,37 +68,3 @@ export function ProductGridSkeleton({
     </div>
   );
 }
-export function Vouchers({ vouchers }: { vouchers: PublicVoucher[] }) {
-  const t = useT(messages);
-  if (!vouchers.length) return <EmptyState title={t('noVouchers')} />;
-  return (
-    <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1">
-      {vouchers.map((v) => (
-        <div
-          key={v.voucher_code}
-          className="relative flex min-w-60 shrink-0 overflow-hidden rounded-2xl border border-primary/20 bg-primary-soft text-sm"
-        >
-          <div className="flex w-20 shrink-0 flex-col items-center justify-center border-r border-dashed border-primary/30 bg-primary px-2 text-center font-bold text-white">
-            <span className="text-lg leading-tight">
-              {v.reward_type === 'percentage'
-                ? `${v.percentage}%`
-                : v.discount_amount != null
-                  ? `${Math.round(v.discount_amount / 1000)}K`
-                  : ''}
-            </span>
-          </div>
-          <div className="flex flex-col gap-0.5 px-3 py-2.5">
-            <strong className="text-ink">{v.voucher_name}</strong>
-            <p className="text-xs text-gray-600">
-              {t('minSpend')}: {formatVnd(v.min_spend)}
-            </p>
-            <p className="mt-1 w-fit rounded-md bg-white px-1.5 py-0.5 font-mono text-xs font-semibold text-primary">
-              {v.voucher_code}
-            </p>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-export const panel = 'rounded-2xl border border-line bg-white p-4 shadow-card sm:p-6';

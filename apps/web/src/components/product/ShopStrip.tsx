@@ -4,7 +4,8 @@ import type { PublicShop } from '@huspee/sdk';
 import { useT } from '@huspee/web-ui/i18n';
 import { AskAssistantButton, MicIcon } from '../shop/AskAssistant';
 import { InlineState } from '../shop/InlineState';
-import { OfficialBadge, ShopAvatar } from '../shop/ShopAvatar';
+import { ShopAvatar } from '@/components/catalog';
+import { OfficialBadge } from '../shop/OfficialBadge';
 import { messages } from './messages';
 
 type Query<T> = { data: T | null; loading: boolean; error: unknown; reload: () => void };

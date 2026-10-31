@@ -9,7 +9,7 @@ import { formatCount } from '@huspee/web-ui/lib/format';
 import { useApi } from '@huspee/web-ui/lib/use-api';
 import { useAssistantEnabled } from '../shop/AskAssistant';
 import { categoryPath } from '../shop/categories';
-import { OfficialBadge } from '../shop/ShopAvatar';
+import { OfficialBadge } from '../shop/OfficialBadge';
 import { VoucherTicket } from '../shop/VoucherTicket';
 import { vouchersForItem } from '../shop/vouchers';
 import { messages } from './messages';

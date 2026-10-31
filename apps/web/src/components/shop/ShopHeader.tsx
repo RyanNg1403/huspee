@@ -6,7 +6,8 @@ import { formatVnd } from '@huspee/web-ui/lib/format';
 import { AskAssistantButton, MicIcon } from './AskAssistant';
 import { InlineState } from './InlineState';
 import { messages } from './messages';
-import { OfficialBadge, ShopAvatar } from './ShopAvatar';
+import { ShopAvatar } from '@/components/catalog';
+import { OfficialBadge } from './OfficialBadge';
 
 type Policies = { data: ShopPolicies | null; loading: boolean; error: unknown; reload: () => void };
 
