@@ -12,6 +12,7 @@ const adapter = {
   text: (id: string, text: string) => getApiClient().assistant.voice.text(id, text),
   stop: (id: string) => getApiClient().assistant.voice.stop(id),
   eventsUrl: (id: string) => getApiClient().assistant.voice.eventsUrl(id),
+  poll: (id: string, after: number) => getApiClient().assistant.voice.poll(id, after),
   confirm: (id: string, key: string) => getApiClient().assistant.actions.confirm(id, key),
   options: (id: string) => getApiClient().assistant.actions.options(id),
   edit: (id: string, input: { quantity: number; model_id: number; line_index?: number }) =>
@@ -42,15 +43,20 @@ export function AssistantDock({ children }: { children: React.ReactNode }) {
   const [pageShop, setPageShop] = useState<number | null>(null);
   const [dockShop, setDockShop] = useState<number | null>(null);
   const [active, setActive] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(false);
   // Follow the page's shop while idle; adjusting state during render avoids an extra effect pass.
   if (!active && pageShop !== null && pageShop !== dockShop) setDockShop(pageShop);
   const visible = dockShop !== null && (active || pageShop !== null);
+  useEffect(() => {
+    document.body.classList.toggle('assistant-mobile-open', visible && panelOpen);
+    return () => document.body.classList.remove('assistant-mobile-open');
+  }, [visible, panelOpen]);
   return (
     <PageShop.Provider value={setPageShop}>
       {children}
       {dockShop !== null && (
         <div hidden={!visible}>
-          <DockedPanel key={dockShop} shopId={dockShop} onActiveChange={setActive} />
+          <DockedPanel key={dockShop} shopId={dockShop} onActiveChange={setActive} onOpenChange={setPanelOpen} />
         </div>
       )}
     </PageShop.Provider>
@@ -60,9 +66,11 @@ export function AssistantDock({ children }: { children: React.ReactNode }) {
 function DockedPanel({
   shopId,
   onActiveChange,
+  onOpenChange,
 }: {
   shopId: number;
   onActiveChange: (active: boolean) => void;
+  onOpenChange: (open: boolean) => void;
 }) {
   const profile = useApi(() => getApiClient().assistant.profile(shopId), [shopId]);
   if (profile.loading || profile.data?.enabled === false) return null;
@@ -72,6 +80,7 @@ function DockedPanel({
       adapter={adapter}
       profile={profile.data ?? undefined}
       onActiveChange={onActiveChange}
+      onOpenChange={onOpenChange}
     />
   );
 }

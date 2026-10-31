@@ -121,6 +121,7 @@ export class HuspeeClient {
       text: (conversationId: string, text: string) => this.http.request<{ ok: true }>('POST', `/api/v1/assistant/voice/sessions/${encodeURIComponent(conversationId)}/text`, { body: { text } }),
       stop: (conversationId: string) => this.http.request<{ ok: true }>('POST', `/api/v1/assistant/voice/sessions/${encodeURIComponent(conversationId)}/stop`),
       eventsUrl: (conversationId: string) => this.http.url(`/api/v1/assistant/voice/sessions/${encodeURIComponent(conversationId)}/events`),
+      poll: (conversationId: string, after = 0) => this.http.request<{ events: Record<string, unknown>[]; cursor: number; closed: boolean }>('GET', `/api/v1/assistant/voice/sessions/${encodeURIComponent(conversationId)}/poll`, { query: { after } }),
     },
     conversations: {
       list: (shopId: number) => this.http.request<BuyerAssistantConversation[]>('GET', `/api/v1/assistant/shops/${shopId}/conversations`),

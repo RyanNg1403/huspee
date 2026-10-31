@@ -1,5 +1,5 @@
 import { defaultAssistantConfig } from '../assistant-defaults';
-import { Body, Controller, Get, Param, Post, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, Res, UseGuards } from '@nestjs/common';
 import type { Response } from 'express';
 import type { User } from '@prisma/client';
 import { z } from 'zod';
@@ -177,6 +177,19 @@ export class VoiceController {
       await this.conversations.end(conversation.id);
       const busy = error instanceof Error && error.message === 'assistant_busy';
       return res.status(503).json({ error: { code: busy ? 'assistant_busy' : 'assistant_unavailable', message: busy ? 'Assistant is busy' : 'Assistant is unavailable' } });
+    }
+  }
+  @Get('voice/sessions/:conversationId/poll')
+  async poll(@CurrentUser() user: User, @Param('conversationId') id: string, @Query() query: unknown, @Res() res: Response) {
+    if (!this.enabled()) return res.status(503).json({ error: { code: 'assistant_unavailable', message: 'Assistant is unavailable' } });
+    if (!z.string().uuid().safeParse(id).success) throw notFound('Conversation');
+    const { after } = parseInput(z.object({ after: z.coerce.number().int().min(0).max(Number.MAX_SAFE_INTEGER).default(0) }), query);
+    await this.conversations.assertBuyer(id, user.id);
+    try {
+      res.setHeader('Cache-Control', 'no-store');
+      return res.json({ data: this.voice.runtime.poll(id, user.id, after) });
+    } catch {
+      throw notFound('Voice session');
     }
   }
   @Get('voice/sessions/:conversationId/events')

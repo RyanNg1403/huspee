@@ -265,6 +265,7 @@ These `/api/v1` routes use platform sessions unless marked public, and the brows
 | GET | `/assistant/conversations/:conversationId` | buyer session | `assistant.conversations.get` | own transcript plus cards from stored tool results; assistant tests |
 | POST | `/assistant/voice/sessions` | buyer session | `assistant.voice.start` | voice module; optional `resume_conversation_id`; voice tests |
 | GET | `/assistant/voice/sessions/:conversationId/events` | buyer session | `assistant.voice.eventsUrl` | voice module; SSE (transcripts, tools, cards, actions); voice tests |
+| GET | `/assistant/voice/sessions/:conversationId/poll` | buyer session | `assistant.voice.poll` | custom; cursor-based JSON fallback for tunnels without SSE; voice tests |
 | POST | `/assistant/voice/sessions/:conversationId/text` | buyer session | `assistant.voice.text` | voice module; voice tests |
 | POST | `/assistant/voice/sessions/:conversationId/stop` | buyer session | `assistant.voice.stop` | voice module; voice tests |
 | GET | `/assistant/actions/:actionId/options` | buyer session | `assistant.actions.options` | custom; pending cart, order or return edit options; assistant tests |

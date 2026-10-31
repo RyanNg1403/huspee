@@ -54,6 +54,7 @@ type Adapter = {
   text: (id: string, text: string) => Promise<unknown>;
   stop: (id: string) => Promise<unknown>;
   eventsUrl: (id: string) => string;
+  poll: (id: string, after: number) => Promise<{ events: Record<string, unknown>[]; cursor: number; closed: boolean }>;
   confirm: (id: string, key: string) => Promise<{ action: Action }>;
   options: (id: string) => Promise<EditOptions>;
   edit: (
@@ -170,11 +171,13 @@ export function VoicePanel({
   adapter,
   profile,
   onActiveChange,
+  onOpenChange,
 }: {
   shopId: number;
   adapter: Adapter;
   profile?: Profile;
   onActiveChange?: (active: boolean) => void;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const t = useT(messages);
   const pathname = usePathname();
@@ -201,6 +204,7 @@ export function VoicePanel({
     pc?: RTCPeerConnection;
     stream?: MediaStream;
     events?: EventSource;
+    pollTimer?: number;
     conversationId?: string;
     audio?: HTMLAudioElement;
     audioContext?: AudioContext;
@@ -208,6 +212,22 @@ export function VoicePanel({
     voiceActivity?: VoiceActivity;
   }>({});
   const scrollArea = useRef<HTMLDivElement>(null);
+  const dock = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!open || !viewport) return;
+    const resize = () => {
+      dock.current?.style.setProperty('--assistant-height', `${viewport.height}px`);
+      dock.current?.style.setProperty('--assistant-top', `${viewport.offsetTop}px`);
+    };
+    resize();
+    viewport.addEventListener('resize', resize);
+    viewport.addEventListener('scroll', resize);
+    return () => {
+      viewport.removeEventListener('resize', resize);
+      viewport.removeEventListener('scroll', resize);
+    };
+  }, [open]);
   const followConversation = useRef(true);
   const sequence = useRef(0);
   const channelOpened = useRef(false);
@@ -223,6 +243,7 @@ export function VoicePanel({
     current.voiceActivity?.stop();
     void current.audioContext?.close().catch(() => undefined);
     current.events?.close();
+    if (current.pollTimer !== undefined) window.clearTimeout(current.pollTimer);
     current.pc?.close();
     current.stream?.getTracks().forEach((track) => track.stop());
     if (current.audio) {
@@ -238,6 +259,10 @@ export function VoicePanel({
   useEffect(() => {
     onActiveChange?.(state !== 'idle');
   }, [state, onActiveChange]);
+  useEffect(() => {
+    onOpenChange?.(open);
+    return () => onOpenChange?.(false);
+  }, [open, onOpenChange]);
   async function openHistory() {
     setView('history');
     setViewing(null);
@@ -278,6 +303,7 @@ export function VoicePanel({
       current.voiceActivity?.stop();
       void current.audioContext?.close().catch(() => undefined);
       current.events?.close();
+      if (current.pollTimer !== undefined) window.clearTimeout(current.pollTimer);
       current.pc?.close();
       current.stream?.getTracks().forEach((track) => track.stop());
       if (current.audio) {
@@ -306,6 +332,35 @@ export function VoicePanel({
     if (event.type === 'error') setError(t('error'));
   }
   function connectEvents(id: string) {
+    // Cloudflare Quick Tunnels buffer SSE; use finite, cursor-based JSON requests there.
+    if (window.location.hostname.endsWith('.trycloudflare.com')) {
+      const token = generation.current;
+      let cursor = 0;
+      let failures = 0;
+      const poll = async () => {
+        try {
+          const result = await adapter.poll(id, cursor);
+          if (generation.current !== token) return;
+          failures = 0;
+          cursor = result.cursor;
+          for (const event of result.events) {
+            if (generation.current !== token) return;
+            onEvent(event as LiveEvent);
+          }
+          if (result.closed && generation.current === token) cleanup(false);
+        } catch {
+          if (generation.current !== token) return;
+          if (++failures >= 3) {
+            setError(t('unavailable'));
+            cleanup(true);
+            return;
+          }
+        }
+        if (generation.current === token) resources.current.pollTimer = window.setTimeout(poll, failures ? 1500 : 600);
+      };
+      void poll();
+      return;
+    }
     const events = new EventSource(adapter.eventsUrl(id), { withCredentials: true });
     resources.current.events = events;
     events.onmessage = (e) => {
@@ -342,7 +397,8 @@ export function VoicePanel({
         setState('active');
         return;
       }
-      if (!window.RTCPeerConnection) throw new Error('microphone');
+      if (!window.isSecureContext) throw new Error('secureContext');
+      if (!window.RTCPeerConnection || !navigator.mediaDevices?.getUserMedia) throw new Error('microphone');
       let stream: MediaStream | undefined;
       try {
         stream = await navigator.mediaDevices.getUserMedia({
@@ -506,7 +562,15 @@ export function VoicePanel({
         (e instanceof DOMException &&
           ['NotAllowedError', 'NotFoundError', 'NotReadableError'].includes(e.name)) ||
         (e instanceof Error && e.message === 'microphone');
-      setError(microphone ? t('microphone') : code === 'assistant_busy' ? t('busy') : t('unavailable'));
+      setError(
+        e instanceof Error && e.message === 'secureContext'
+          ? t('secureContext')
+          : microphone
+            ? t('microphone')
+            : code === 'assistant_busy'
+              ? t('busy')
+              : t('unavailable'),
+      );
       cleanup(true);
     }
   }
@@ -581,10 +645,13 @@ export function VoicePanel({
   const roundButton =
     'flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-line bg-white text-gray-700 transition hover:bg-gray-50 disabled:opacity-40';
   return (
-    <div className="fixed right-4 bottom-4 z-50 flex flex-col items-end sm:right-6 sm:bottom-6">
+    <div
+      ref={dock}
+      className={`assistant-dock fixed right-4 bottom-4 z-50 flex flex-col items-end sm:right-6 sm:bottom-6 ${open ? 'assistant-dock-open' : ''}`}
+    >
       {open && (
         <section
-          className="mb-3 flex h-[min(78vh,42rem)] w-[min(calc(100vw-2rem),25rem)] flex-col overflow-hidden rounded-3xl border border-line bg-white shadow-panel"
+          className="assistant-panel mb-3 flex h-[min(78dvh,42rem,calc(100dvh-7rem))] w-[min(calc(100vw-2rem),25rem)] flex-col overflow-hidden rounded-3xl border border-line bg-white shadow-panel"
           aria-label={t('open')}
         >
           <header className="flex items-center gap-3 border-b border-line px-4 py-3">
@@ -625,7 +692,7 @@ export function VoicePanel({
                 aria-label={view === 'history' ? t('back') : t('history')}
                 aria-pressed={view === 'history'}
                 title={t('history')}
-                className={`flex h-9 w-9 items-center justify-center rounded-full transition hover:bg-gray-100 ${view === 'history' ? 'bg-primary-soft text-primary' : 'text-gray-500 hover:text-gray-700'}`}
+                className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition hover:bg-gray-100 ${view === 'history' ? 'bg-primary-soft text-primary' : 'text-gray-500 hover:text-gray-700'}`}
               >
                 <ClockGlyph className="h-5 w-5" />
               </button>
@@ -634,7 +701,7 @@ export function VoicePanel({
             <button
               onClick={() => setOpen(false)}
               aria-label={t('close')}
-              className="flex h-9 w-9 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
             >
               <svg
                 viewBox="0 0 24 24"
@@ -926,7 +993,7 @@ export function VoicePanel({
                       {resources.current.stream && pushToTalk && (
                         <button
                           type="button"
-                          className={`${roundButton} border-primary bg-primary-soft text-primary active:bg-primary active:text-white`}
+                          className={`${roundButton} touch-none select-none border-primary bg-primary-soft text-primary active:bg-primary active:text-white`}
                           aria-label={t('holdToTalk')}
                           onPointerDown={(event) => {
                             event.currentTarget.setPointerCapture(event.pointerId);

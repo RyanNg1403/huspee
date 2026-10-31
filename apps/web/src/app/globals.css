@@ -61,3 +61,34 @@ input[type='radio'] {
 ::selection {
   background: #ffd9cc;
 }
+
+@media (max-width: 639px) {
+  /* Keep typing from zooming the page in iOS Safari. */
+  input:not([type='checkbox']):not([type='radio']),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+  .assistant-dock {
+    bottom: max(1rem, env(safe-area-inset-bottom));
+    right: max(1rem, env(safe-area-inset-right));
+  }
+  .assistant-dock-open {
+    inset: var(--assistant-top, 0px) 0 auto;
+    height: var(--assistant-height, 100dvh);
+  }
+  .assistant-dock-open .assistant-panel {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    border-radius: 0;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+      env(safe-area-inset-left);
+  }
+  .assistant-dock-open > button {
+    display: none;
+  }
+  body.assistant-mobile-open {
+    overflow: hidden;
+  }
+}

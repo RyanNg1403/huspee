@@ -34,7 +34,11 @@ export interface ModelPrice {
 }
 
 export function mediaUrl(pathOrUrl: string): string {
-  return pathOrUrl.startsWith('/') ? `${loadConfig().PUBLIC_BASE_URL}${pathOrUrl}` : pathOrUrl;
+  const config = loadConfig();
+  if (config.BROWSER_PROXY_ENABLED && pathOrUrl.startsWith(`${config.PUBLIC_BASE_URL}/media/`)) {
+    return pathOrUrl.slice(config.PUBLIC_BASE_URL.length);
+  }
+  return pathOrUrl.startsWith('/') && !config.BROWSER_PROXY_ENABLED ? `${config.PUBLIC_BASE_URL}${pathOrUrl}` : pathOrUrl;
 }
 
 export function mediaPath(imageId: string): string {

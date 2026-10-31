@@ -17,6 +17,7 @@
     "build:web": "pnpm --filter @huspee/sdk build && pnpm --filter @huspee/web build",
     "demo:reset": "pnpm --filter @huspee/api exec prisma migrate reset --force",
     "smoke:ui": "node tests/ui/smoke.mjs",
+    "smoke:mobile": "node tests/ui/mobile.mjs",
     "eval:assistant": "pnpm --filter @huspee/api run eval:assistant"
   },
   "engines": {

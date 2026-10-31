@@ -5,6 +5,7 @@ import { realtimeIdentity, realtimeVoicePrompt, voicePrompt, type VoicePromptCon
 import { checkSpeech, detectLanguage, offPersona, promisesAction, speechText, statesFact, type SpeechLanguage } from './speech-check';
 
 type Event = Record<string, unknown>;
+type EventLog = { buyerId: number; cursor: number; events: Array<{ id: number; event: Event }>; closed: boolean };
 function traceValue(value: unknown, key = ''): unknown {
   if (/audio|sdp|token|secret|credential|password|authorization|api.?key/i.test(key)) return '[elided]';
   if (Array.isArray(value)) return value.map((item) => traceValue(item));
@@ -23,6 +24,7 @@ type Session = {
   threadId: string;
   listeners: Set<(event: Event) => void>;
   backlog: Event[];
+  eventLog: EventLog;
   timer: NodeJS.Timeout;
   answer?: (sdp: string) => void;
   rejectAnswer?: (error: Error) => void;
@@ -58,6 +60,7 @@ export type SpeechLog = { kind: 'blocked_unverified' | 'corrected'; text: string
 export class VoiceRuntime {
   private transport = new CodexTransport();
   private sessions = new Map<string, Session>();
+  private closedEvents = new Map<string, EventLog>();
   private threads = new Map<string, Session>();
   private reservations = 0;
   onTurnCompleted?: (conversationId: string, status: string | undefined) => void;
@@ -80,6 +83,9 @@ export class VoiceRuntime {
     };
   }
   private emit(session: Session, event: Event): void {
+    const log = session.eventLog;
+    log.events.push({ id: ++log.cursor, event });
+    if (log.events.length > 200) log.events.shift();
     if (session.listeners.size === 0) {
       session.backlog.push(event);
       if (session.backlog.length > 200) session.backlog.shift();
@@ -119,6 +125,7 @@ export class VoiceRuntime {
         threadId: response.thread.id,
         listeners: new Set(),
         backlog: [],
+        eventLog: { buyerId: ctx.buyerId, cursor: 0, events: [], closed: false },
         timer: setTimeout(() => {}, 0),
         closed: false,
         mode: sdp === undefined ? 'text' : 'voice',
@@ -184,6 +191,12 @@ export class VoiceRuntime {
       session.listeners.delete(listener);
       if (!session.listeners.size) void this.stopSession(session, 'disconnected');
     };
+  }
+  /** Finite JSON responses for proxies that buffer SSE. Retrying a cursor does not consume events. */
+  poll(id: string, buyerId: number, after: number) {
+    const log = this.sessions.get(id)?.eventLog ?? this.closedEvents.get(id);
+    if (!log || log.buyerId !== buyerId) throw new Error('not_found');
+    return { events: log.events.filter((item) => item.id > after).map((item) => item.event), cursor: log.cursor, closed: log.closed };
   }
   async text(id: string, buyerId: number, text: string): Promise<void> {
     const session = this.own(id, buyerId);
@@ -293,6 +306,11 @@ export class VoiceRuntime {
     this.sessions.delete(session.context.conversationId);
     this.threads.delete(session.threadId);
     this.emit(session, { type: 'closed', reason });
+    // Allow the next poll to receive final cards/errors and the close event, without retaining threads.
+    session.eventLog.closed = true;
+    this.closedEvents.set(session.context.conversationId, session.eventLog);
+    if (this.closedEvents.size > 100) this.closedEvents.delete(this.closedEvents.keys().next().value!);
+    setTimeout(() => this.closedEvents.delete(session.context.conversationId), 60000).unref();
     if (requestStop && session.mode === 'voice')
       await this.transport.request('thread/realtime/stop', { threadId: session.threadId }, 5000).catch(() => undefined);
     await this.transport.request('thread/unsubscribe', { threadId: session.threadId }, 5000).catch(() => undefined);
