@@ -303,6 +303,50 @@ it('serves a fake voice session over HTTP and protects its event stream', async 
     await buyer.assistant.voice.stop(polled.conversation_id);
     expect(await buyer.assistant.voice.poll(polled.conversation_id, cursor)).toMatchObject({ closed: true, events: [{ type: 'closed', reason: null }] });
     await expect(other.assistant.voice.poll(polled.conversation_id)).rejects.toMatchObject({ status: 404 });
+    // Page context is scoped to the shop and buyer, and the tool re-reads live catalog data.
+    await expect(buyer.assistant.text.start({ shop_id: 880001, item_id: 2000201 })).rejects.toMatchObject({ status: 404 });
+    await expect(buyer.assistant.voice.start({ shop_id: 880001, item_id: 99999999, sdp_offer: 'offer' })).rejects.toMatchObject({ status: 404 });
+    const contextual = await buyer.assistant.text.start({ shop_id: 880001, item_id: 2000101 });
+    const contextId = contextual.conversation_id;
+    const anonymous = new HuspeeClient({ baseUrl });
+    await expect(anonymous.assistant.voice.setContext(contextId, null)).rejects.toMatchObject({ status: 401 });
+    await expect(other.assistant.voice.setContext(contextId, 2000103)).rejects.toMatchObject({ status: 404 });
+    await expect(buyer.assistant.voice.setContext(contextId, 2000201)).rejects.toMatchObject({ status: 404 });
+    await expect(buyer.assistant.voice.setContext(contextId, -1)).rejects.toMatchObject({ status: 400 });
+    let contextCursor = 0;
+    async function viewedCards() {
+      await buyer.assistant.voice.text(contextId, 'VIEWED_PRODUCT_TEST');
+      const collected: Record<string, unknown>[] = [];
+      for (let attempt = 0; attempt < 100; attempt++) {
+        const batch = await buyer.assistant.voice.poll(contextId, contextCursor);
+        contextCursor = batch.cursor;
+        collected.push(...batch.events);
+        if (collected.some((event) => event.type === 'tool' && event.name === 'get_viewed_product' && ['done', 'error'].includes(String(event.status)))) {
+          return collected.filter((event) => event.type === 'card').map((event) => event.card);
+        }
+        await new Promise((resolveWait) => setTimeout(resolveWait, 30));
+      }
+      throw new Error('Context tool timed out');
+    }
+    expect(await viewedCards()).toEqual([expect.objectContaining({ kind: 'product', item_id: 2000101 })]);
+    expect(await buyer.assistant.voice.setContext(contextId, 2000103)).toEqual({ item_id: 2000103 });
+    expect(await viewedCards()).toEqual([expect.objectContaining({ kind: 'product', item_id: 2000103 })]);
+    const { db } = await import('../helpers/fixtures.js');
+    await db().query('UPDATE items SET status = $1 WHERE id = $2', ['UNLIST', 2000103]);
+    try {
+      await expect(buyer.assistant.text.start({ shop_id: 880001, item_id: 2000103 })).rejects.toMatchObject({ status: 404 });
+      expect(await viewedCards()).toEqual([]);
+    } finally {
+      await db().query('UPDATE items SET status = $1 WHERE id = $2', ['NORMAL', 2000103]);
+    }
+    expect(await buyer.assistant.voice.setContext(contextId, null)).toEqual({ item_id: null });
+    expect(await viewedCards()).toEqual([]);
+    await buyer.assistant.voice.stop(contextId);
+    await expect(buyer.assistant.voice.setContext(contextId, 2000101)).rejects.toMatchObject({ status: 404 });
+    const voiceContext = await buyer.assistant.voice.start({ shop_id: 880001, item_id: 2000101, sdp_offer: 'offer' });
+    expect(await buyer.assistant.voice.setContext(voiceContext.conversation_id, 2000103)).toEqual({ item_id: 2000103 });
+    await buyer.assistant.voice.stop(voiceContext.conversation_id);
+
   } finally {
     server.kill('SIGTERM');
   }

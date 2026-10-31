@@ -2,6 +2,10 @@ import { defineMessages } from '@/i18n';
 
 export const messages = defineMessages({
   vi: {
+    contextReady: 'Trò chuyện sẽ dùng thông tin sản phẩm này',
+    contextUsing: 'Đang trò chuyện về sản phẩm này',
+    contextUpdating: 'Đang cập nhật sản phẩm…',
+    contextError: 'Không thể cập nhật sản phẩm. Hãy bắt đầu cuộc trò chuyện mới để thử lại.',
     open: 'Trợ lý của shop',
     launcher: 'Hỏi trợ lý',
     subtitle: 'Trả lời từ dữ liệu thật của shop',
@@ -86,6 +90,10 @@ export const messages = defineMessages({
     loadFailed: 'Không tải được. Thử lại.',
   },
   en: {
+    contextReady: 'Chat will use this product',
+    contextUsing: 'Chat is using this product',
+    contextUpdating: 'Updating product context…',
+    contextError: 'Product context could not be updated. Start a new conversation to try again.',
     open: 'Shop assistant',
     launcher: 'Ask the assistant',
     subtitle: "Answers from the shop's real data",

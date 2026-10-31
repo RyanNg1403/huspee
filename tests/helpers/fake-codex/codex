@@ -26,7 +26,7 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
   else if (method === 'turn/start') {
     send({ id, result: { turn: { id: 'turn-1' } } });
     setTimeout(() => {
-      send({ id: 10002, method: 'item/tool/call', params: { threadId: params.threadId, tool: 'search_products', arguments: { query: 'tai nghe' } } });
+      send({ id: 10002, method: 'item/tool/call', params: { threadId: params.threadId, tool: params.input?.[0]?.text === 'VIEWED_PRODUCT_TEST' ? 'get_viewed_product' : 'search_products', arguments: params.input?.[0]?.text === 'VIEWED_PRODUCT_TEST' ? {} : { query: 'tai nghe' } } });
       send({ method: 'item/agentMessage/delta', params: { threadId: params.threadId, itemId: 'text-1', delta: 'Verified' } });
       send({ method: 'item/completed', params: { threadId: params.threadId, item: { type: 'agentMessage', id: 'text-1', text: 'Verified product' } } });
       setTimeout(() => {

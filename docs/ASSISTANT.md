@@ -48,6 +48,7 @@ fields or unpublished items):
 | Tool | Purpose |
 |---|---|
 | `search_products(query, min_price?, max_price?, limit?, requested_attributes?)` | Public items of this shop, with price range and stock per item |
+| `get_viewed_product(requested_attributes?)` | Fresh details for the product currently viewed in this shop; clears when the buyer leaves the product page |
 | `get_product_details(item_id, requested_attributes?)` | Description, attributes, variants (model_id, name, price, stock), rating |
 | `compare_products(item_ids[2..4])` | Side-by-side facts |
 | `get_vouchers()` | Public, currently usable vouchers of this shop with rules |
@@ -228,3 +229,17 @@ atomically, revalidates stock and price, and creates a new action requiring fres
 revalidation fails after invalidation, the old action remains cancelled and the buyer must prepare it
 again. Editing an order card (`line_index` selects the line) changes that cart line, then prepares a new order with the same
 address, payment and voucher, which again needs a tap.
+
+## Product page context
+
+The product page shares its public item ID with the shop assistant for both text and voice sessions.
+A notice in chat shows the product name and thumbnail: it previews context before starting and
+confirms when chat is using it. Context follows navigation within the same shop and clears on
+non-product pages or pages belonging to another shop. An active chat remains scoped to its original
+shop. History browsing does not display the live-context notice.
+
+The API accepts only a publicly visible product belonging to the session's shop. The
+`get_viewed_product` tool reads that server-held ID and fetches fresh product details; the prompt
+requires this check for references such as “this product.” The browser cannot supply prices or
+instructions as context. Viewing a product never authorizes a cart or order action. Context is
+session-local and is not restored from conversation history.

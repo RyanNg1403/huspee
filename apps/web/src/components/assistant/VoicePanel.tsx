@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useLang, useT } from '@/i18n';
@@ -7,6 +7,7 @@ import { formatDateTime } from '@/lib/format';
 import { useSession } from '@/components/session';
 import { AssistantCard, type Action, type Card, type EditOptions } from './cards';
 import { messages } from './messages';
+import type { ViewedProduct } from './product-context';
 import { upsertCard } from './card-state';
 import { BargeInGate, InterruptionDetector } from './interruption';
 import { startVoiceActivity, type VoiceActivity } from './voice-activity';
@@ -43,17 +44,20 @@ type Adapter = {
     sdp_offer: string;
     lang: string;
     resume_conversation_id?: string;
+    item_id?: number;
   }) => Promise<{ conversation_id: string; sdp_answer: string }>;
   startText: (input: {
     shop_id: number;
     lang: string;
     resume_conversation_id?: string;
+    item_id?: number;
   }) => Promise<{ conversation_id: string }>;
   history: (shopId: number) => Promise<HistoryItem[]>;
   conversation: (id: string) => Promise<HistoryDetail>;
   text: (id: string, text: string) => Promise<unknown>;
   stop: (id: string) => Promise<unknown>;
   eventsUrl: (id: string) => string;
+  setContext: (id: string, itemId: number | null) => Promise<{ item_id: number | null }>;
   poll: (id: string, after: number) => Promise<{ events: Record<string, unknown>[]; cursor: number; closed: boolean }>;
   confirm: (id: string, key: string) => Promise<{ action: Action }>;
   options: (id: string) => Promise<EditOptions>;
@@ -168,12 +172,14 @@ function MicOffGlyph({ className = '' }: { className?: string }) {
 
 export function VoicePanel({
   shopId,
+  product,
   adapter,
   profile,
   onActiveChange,
   onOpenChange,
 }: {
   shopId: number;
+  product?: ViewedProduct;
   adapter: Adapter;
   profile?: Profile;
   onActiveChange?: (active: boolean) => void;
@@ -206,11 +212,16 @@ export function VoicePanel({
     events?: EventSource;
     pollTimer?: number;
     conversationId?: string;
+    contextItemId?: number | null;
     audio?: HTMLAudioElement;
     audioContext?: AudioContext;
     analyserTimer?: number;
     voiceActivity?: VoiceActivity;
   }>({});
+  const [appliedItemId, setAppliedItemId] = useState<number | null>(null);
+  const desiredItemId = useRef<number | null>(product?.item_id ?? null);
+  desiredItemId.current = product?.item_id ?? null;
+  const contextQueue = useRef<Promise<void>>(Promise.resolve());
   const scrollArea = useRef<HTMLDivElement>(null);
   const dock = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -256,6 +267,30 @@ export function VoicePanel({
     setSpeaking(false);
     setState('idle');
   }
+  const synchronizeProduct = useCallback(() => {
+    const current = resources.current;
+    const id = current.conversationId;
+    const token = generation.current;
+    const desired = desiredItemId.current;
+    const work = contextQueue.current.catch(() => undefined).then(async () => {
+      if (!id || generation.current !== token || current.contextItemId === desired) return;
+      const result = await adapter.setContext(id, desired);
+      if (generation.current !== token) return;
+      current.contextItemId = result.item_id;
+      setAppliedItemId(result.item_id);
+    });
+    contextQueue.current = work;
+    return work;
+  }, [adapter]);
+  const contextFailure = useRef(() => {});
+  contextFailure.current = () => { cleanup(true); setError(t('contextError')); };
+  useEffect(() => {
+    if (state !== 'active') return;
+    const token = generation.current;
+    void synchronizeProduct().catch(() => {
+      if (generation.current === token) contextFailure.current();
+    });
+  }, [state, product?.item_id, synchronizeProduct]);
   useEffect(() => {
     onActiveChange?.(state !== 'idle');
   }, [state, onActiveChange]);
@@ -384,14 +419,17 @@ export function VoicePanel({
     channelOpened.current = false;
     setCards([]);
     const token = ++generation.current;
+    const itemId = desiredItemId.current;
     try {
       if (textOnly) {
-        const result = await adapter.startText({ shop_id: shopId, lang, resume_conversation_id: resumeId });
+        const result = await adapter.startText({ shop_id: shopId, lang, resume_conversation_id: resumeId, item_id: itemId ?? undefined });
         if (generation.current !== token) {
           void adapter.stop(result.conversation_id).catch(() => undefined);
           return;
         }
         resources.current.conversationId = result.conversation_id;
+        resources.current.contextItemId = itemId;
+        setAppliedItemId(itemId);
         setLiveId(result.conversation_id);
         connectEvents(result.conversation_id);
         setState('active');
@@ -543,12 +581,15 @@ export function VoicePanel({
         sdp_offer: pc.localDescription?.sdp ?? '',
         lang,
         resume_conversation_id: resumeId,
+        item_id: itemId ?? undefined,
       });
       if (generation.current !== token) {
         void adapter.stop(result.conversation_id).catch(() => undefined);
         return;
       }
       resources.current.conversationId = result.conversation_id;
+      resources.current.contextItemId = itemId;
+      setAppliedItemId(itemId);
       setLiveId(result.conversation_id);
       await pc.setRemoteDescription({ type: 'answer', sdp: result.sdp_answer });
       connectEvents(result.conversation_id);
@@ -580,6 +621,8 @@ export function VoicePanel({
     if (!text || !id || busy) return;
     setBusy(true);
     try {
+      await synchronizeProduct();
+      if (resources.current.conversationId !== id) return;
       await adapter.text(id, text);
       if (override === undefined) setMessage('');
     } catch {
@@ -715,6 +758,19 @@ export function VoicePanel({
               </svg>
             </button>
           </header>
+          {view === 'chat' && product && (
+            <div role="status" aria-live="polite" className="flex shrink-0 items-center gap-3 border-b border-line bg-primary-soft px-4 py-3" data-testid="product-context-notice">
+              {product.image && (
+                // Product media shares the storefront's image handling.
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={product.image} alt="" className="h-10 w-10 shrink-0 rounded-lg border border-line bg-surface object-cover" />
+              )}
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-primary">{state === 'idle' ? t('contextReady') : appliedItemId === product.item_id ? t('contextUsing') : t('contextUpdating')}</p>
+                <Link href={`/products/${product.item_id}`} className="mt-0.5 block truncate text-sm font-semibold text-ink hover:text-primary" title={product.name}>{product.name}</Link>
+              </div>
+            </div>
+          )}
           {session.status === 'anonymous' ? (
             <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
               <span className="flex h-16 w-16 items-center justify-center rounded-full bg-primary-soft text-primary">

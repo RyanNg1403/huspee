@@ -219,7 +219,7 @@ function Product({ product }: { product: ProductDetail }) {
   }
   return (
     <div className="space-y-5">
-      <VoiceWidget shopId={product.shop.shop_id} />
+      <VoiceWidget shopId={product.shop.shop_id} product={{ item_id: product.item_id, name: product.name, image: product.images[0] }} />
       <nav className="flex min-w-0 items-center gap-1.5 text-sm text-gray-500">
         <Link href="/" className="hover:text-primary">
           Huspee

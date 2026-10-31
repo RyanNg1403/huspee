@@ -3,13 +3,15 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { getApiClient } from '@/lib/api';
 import { useApi } from '@/lib/use-api';
 import { VoicePanel } from './VoicePanel';
+import type { ViewedProduct } from './product-context';
 
 const adapter = {
-  start: (input: { shop_id: number; sdp_offer: string; lang: string; resume_conversation_id?: string }) =>
+  start: (input: { shop_id: number; sdp_offer: string; lang: string; resume_conversation_id?: string; item_id?: number }) =>
     getApiClient().assistant.voice.start(input),
-  startText: (input: { shop_id: number; lang: string; resume_conversation_id?: string }) =>
+  startText: (input: { shop_id: number; lang: string; resume_conversation_id?: string; item_id?: number }) =>
     getApiClient().assistant.text.start(input),
   text: (id: string, text: string) => getApiClient().assistant.voice.text(id, text),
+  setContext: (id: string, itemId: number | null) => getApiClient().assistant.voice.setContext(id, itemId),
   stop: (id: string) => getApiClient().assistant.voice.stop(id),
   eventsUrl: (id: string) => getApiClient().assistant.voice.eventsUrl(id),
   poll: (id: string, after: number) => getApiClient().assistant.voice.poll(id, after),
@@ -22,15 +24,17 @@ const adapter = {
   conversation: (id: string) => getApiClient().assistant.conversations.get(id),
 };
 
-const PageShop = createContext<(shopId: number | null) => void>(() => undefined);
+type PageContext = { shopId: number; product?: ViewedProduct };
+const PageShop = createContext<(page: PageContext | null) => void>(() => undefined);
 
 /** Marks the current page as belonging to a shop, so the dock shows that shop's assistant. */
-export function VoiceWidget({ shopId }: { shopId: number }) {
+export function VoiceWidget({ shopId, product }: { shopId: number; product?: ViewedProduct }) {
   const setPageShop = useContext(PageShop);
+  const itemId = product?.item_id, name = product?.name, image = product?.image;
   useEffect(() => {
-    setPageShop(shopId);
+    setPageShop({ shopId, product: itemId !== undefined && name !== undefined ? { item_id: itemId, name, image } : undefined });
     return () => setPageShop(null);
-  }, [shopId, setPageShop]);
+  }, [shopId, itemId, name, image, setPageShop]);
   return null;
 }
 
@@ -40,12 +44,12 @@ export function VoiceWidget({ shopId }: { shopId: number }) {
  * a session is running.
  */
 export function AssistantDock({ children }: { children: React.ReactNode }) {
-  const [pageShop, setPageShop] = useState<number | null>(null);
+  const [pageShop, setPageShop] = useState<PageContext | null>(null);
   const [dockShop, setDockShop] = useState<number | null>(null);
   const [active, setActive] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
   // Follow the page's shop while idle; adjusting state during render avoids an extra effect pass.
-  if (!active && pageShop !== null && pageShop !== dockShop) setDockShop(pageShop);
+  if (!active && pageShop !== null && pageShop.shopId !== dockShop) setDockShop(pageShop.shopId);
   const visible = dockShop !== null && (active || pageShop !== null);
   useEffect(() => {
     document.body.classList.toggle('assistant-mobile-open', visible && panelOpen);
@@ -56,7 +60,7 @@ export function AssistantDock({ children }: { children: React.ReactNode }) {
       {children}
       {dockShop !== null && (
         <div hidden={!visible}>
-          <DockedPanel key={dockShop} shopId={dockShop} onActiveChange={setActive} onOpenChange={setPanelOpen} />
+          <DockedPanel key={dockShop} shopId={dockShop} product={pageShop?.shopId === dockShop ? pageShop.product : undefined} onActiveChange={setActive} onOpenChange={setPanelOpen} />
         </div>
       )}
     </PageShop.Provider>
@@ -65,10 +69,12 @@ export function AssistantDock({ children }: { children: React.ReactNode }) {
 
 function DockedPanel({
   shopId,
+  product,
   onActiveChange,
   onOpenChange,
 }: {
   shopId: number;
+  product?: ViewedProduct;
   onActiveChange: (active: boolean) => void;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -77,6 +83,7 @@ function DockedPanel({
   return (
     <VoicePanel
       shopId={shopId}
+      product={product}
       adapter={adapter}
       profile={profile.data ?? undefined}
       onActiveChange={onActiveChange}

@@ -13,7 +13,7 @@ function traceValue(value: unknown, key = ''): unknown {
     return Object.fromEntries(Object.entries(value).map(([name, item]) => [name, traceValue(item, name)]));
   return value;
 }
-type Context = { conversationId: string; buyerId: number; shopId: number };
+type Context = { conversationId: string; buyerId: number; shopId: number; viewedItemId?: number | null };
 type ToolOutput = { text: string; success: boolean; card?: { kind: string; action?: unknown } };
 type ToolRegistry = {
   specs(): Array<{ name: string; description: string; inputSchema: object }>;
@@ -197,6 +197,9 @@ export class VoiceRuntime {
     const log = this.sessions.get(id)?.eventLog ?? this.closedEvents.get(id);
     if (!log || log.buyerId !== buyerId) throw new Error('not_found');
     return { events: log.events.filter((item) => item.id > after).map((item) => item.event), cursor: log.cursor, closed: log.closed };
+  }
+  setViewedItem(id: string, buyerId: number, itemId: number | null): void {
+    this.own(id, buyerId).context.viewedItemId = itemId;
   }
   async text(id: string, buyerId: number, text: string): Promise<void> {
     const session = this.own(id, buyerId);
@@ -499,7 +502,7 @@ export class VoiceRuntime {
       const name = String(params.tool);
       this.emit(session, { type: 'tool', name, status: 'started' });
       try {
-        const output = await this.tools.run(name, params.arguments, session.context);
+        const output = await this.tools.run(name, params.arguments, { ...session.context });
         session.evidence.push(output.text);
         const vi = /^readback_vi: (.*)$/m.exec(output.text)?.[1], en = /^readback_en: (.*)$/m.exec(output.text)?.[1];
         if (vi && en)

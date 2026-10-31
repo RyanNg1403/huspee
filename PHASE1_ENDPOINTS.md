@@ -260,12 +260,13 @@ These `/api/v1` routes use platform sessions unless marked public, and the brows
 | GET | `/assistant/connection` | public; pending code requires browser setup cookie | `assistant.connection.get` | custom; public `/setup/codex` page; codex-setup tests |
 | POST | `/assistant/connection/login` | public + CSRF header; issues browser setup cookie | `assistant.connection.login` | custom; starts shared Codex device login without marketplace sign-in; codex-setup tests |
 | POST | `/assistant/connection/login/cancel` | public + CSRF header + owning setup cookie | `assistant.connection.cancel` | custom; cancels only that browser's pending login, never disconnects an account; codex-setup tests |
-| POST | `/assistant/text/sessions` | buyer session | `assistant.text.start` | custom text thread; optional `resume_conversation_id` (own conversation); voice tests |
+| POST | `/assistant/text/sessions` | buyer session | `assistant.text.start` | custom text thread; optional `item_id` (public product in this shop) and `resume_conversation_id` (own conversation); voice tests |
 | GET | `/assistant/shops/:shopId/conversations` | buyer session | `assistant.conversations.list` | buyer's own past sessions with the shop; assistant tests |
 | GET | `/assistant/conversations/:conversationId` | buyer session | `assistant.conversations.get` | own transcript plus cards from stored tool results; assistant tests |
-| POST | `/assistant/voice/sessions` | buyer session | `assistant.voice.start` | voice module; optional `resume_conversation_id`; voice tests |
+| POST | `/assistant/voice/sessions` | buyer session | `assistant.voice.start` | voice module; optional `item_id` (public product in this shop) and `resume_conversation_id`; voice tests |
 | GET | `/assistant/voice/sessions/:conversationId/events` | buyer session | `assistant.voice.eventsUrl` | voice module; SSE (transcripts, tools, cards, actions); voice tests |
 | GET | `/assistant/voice/sessions/:conversationId/poll` | buyer session | `assistant.voice.poll` | custom; cursor-based JSON fallback for tunnels without SSE; voice tests |
+| PATCH | `/assistant/voice/sessions/:conversationId/context` | buyer session | `assistant.voice.setContext` | custom; update/clear viewed product for own active session; verifies shop and visibility; voice tests |
 | POST | `/assistant/voice/sessions/:conversationId/text` | buyer session | `assistant.voice.text` | voice module; voice tests |
 | POST | `/assistant/voice/sessions/:conversationId/stop` | buyer session | `assistant.voice.stop` | voice module; voice tests |
 | GET | `/assistant/actions/:actionId/options` | buyer session | `assistant.actions.options` | custom; pending cart, order or return edit options; assistant tests |
