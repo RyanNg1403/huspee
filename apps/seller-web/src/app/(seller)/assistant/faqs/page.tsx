@@ -19,7 +19,6 @@ import { useT } from '@huspee/web-ui/i18n';
 import { common } from '@huspee/web-ui/i18n/common';
 import { errorMessageKey, getApiClient } from '@huspee/web-ui/lib/api';
 import { useApi } from '@huspee/web-ui/lib/use-api';
-import { AssistantNav } from '../_components/AssistantNav';
 import { AssistantShopGuard } from '../_components/AssistantShopGuard';
 import { assistantMessages } from '../messages';
 
@@ -160,7 +159,6 @@ function AssistantFaqsContent({ shopId }: { shopId: number }) {
       </div>
 
       {/* Sub Nav */}
-      <AssistantNav />
 
       {/* Content State */}
       {faqsApi.loading ? (

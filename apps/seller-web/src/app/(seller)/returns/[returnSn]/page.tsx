@@ -3,614 +3,248 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useState } from 'react';
-import {
-  Button,
-  Card,
-  EmptyState,
-  ErrorState,
-  Input,
-  Modal,
-  Select,
-  Spinner,
-  Textarea,
-  useToast,
-} from '@huspee/web-ui/components/ui';
+import { EmptyState } from '@huspee/web-ui/components/ui';
 import { useLang, useT } from '@huspee/web-ui/i18n/client';
-import { formatDateTime, formatVnd } from '@huspee/web-ui/lib/format';
+import { formatVnd } from '@huspee/web-ui/lib/format';
 import { useApi } from '@huspee/web-ui/lib/use-api';
-import { call } from '../../_ops/api';
-import { ShopGuard } from '../../_ops/ShopGuard';
-import { ReturnStatusBadge } from '../../_ops/StatusBadge';
-import type {
-  AvailableSolutions,
-  DisputeReason,
-  ReturnDetail,
-  ReverseTrackingResponse,
-} from '../../_ops/types';
+import { Breadcrumb } from '@/components/commerce/Breadcrumb';
+import { formatDay, formatFullDateTime, formatShortDateTime } from '@/components/commerce/format';
+import { ListState } from '@/components/commerce/ListState';
+import { Facts, Panel } from '@/components/commerce/Panel';
+import { ReturnActions } from '@/components/commerce/returns/ReturnActions';
+import { loadReturn } from '@/components/commerce/returns/return-api';
+import { needsSellerAction } from '@/components/commerce/returns/return-filters';
+import { ReturnStatusLabel, useReturnReason } from '@/components/commerce/returns/ReturnStatusLabel';
+import { SOLUTION_REFUND_ONLY, type ReturnDetail } from '@/components/commerce/returns/types';
+import { ShopGuard } from '@/components/commerce/ShopGuard';
+import { Thumb } from '@/components/commerce/Thumb';
+import { sub, table } from '@/components/commerce/ui';
 import { returnMessages } from '../messages';
 
-export default function ReturnDetailPage() {
-  const params = useParams();
-  const returnSn = String(params.returnSn);
+type Loaded = NonNullable<Awaited<ReturnType<typeof loadReturn>>>;
 
-  return <ShopGuard>{(shop) => <ReturnDetailContent shopId={shop.shop_id} returnSn={returnSn} />}</ShopGuard>;
+export default function ReturnDetailPage() {
+  const returnSn = String(useParams().returnSn);
+  return <ShopGuard>{(shop) => <ReturnView shopId={shop.shop_id} returnSn={returnSn} />}</ShopGuard>;
 }
 
-function ReturnDetailContent({ shopId, returnSn }: { shopId: number; returnSn: string }) {
+function ReturnView({ shopId, returnSn }: { shopId: number; returnSn: string }) {
   const t = useT(returnMessages);
   const { lang } = useLang();
-  const toast = useToast();
-
-  // Modals state
-  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
-  const [offerModalOpen, setOfferModalOpen] = useState(false);
-  const [disputeModalOpen, setDisputeModalOpen] = useState(false);
-  const [cancelDisputeModalOpen, setCancelDisputeModalOpen] = useState(false);
-  const [pendingAction, setPendingAction] = useState(false);
-
-  // Offer form state
-  const [offerSolution, setOfferSolution] = useState<'refund' | 'return_refund'>('refund');
-  const [offerAmount, setOfferAmount] = useState<number>(0);
-
-  // Dispute form state
-  const [disputeReasons, setDisputeReasons] = useState<DisputeReason[]>([]);
-  const [selectedDisputeReasonId, setSelectedDisputeReasonId] = useState<number>(1);
-  const [disputeEmail, setDisputeEmail] = useState('');
-  const [disputeDescription, setDisputeDescription] = useState('');
-
-  const detailApi = useApi(async () => {
-    const detail = await call<ReturnDetail>(shopId, '/returns/get_return_detail', {
-      return_sn: returnSn,
-    });
-
-    let solutions: AvailableSolutions | null = null;
-    try {
-      solutions = await call<AvailableSolutions>(shopId, '/returns/get_available_solutions', {
-        return_sn: returnSn,
-      });
-      // Initialize offer amount to max refund
-      if (solutions?.offer_refund?.max_refund_amount) {
-        setOfferAmount(solutions.offer_refund.max_refund_amount);
-      }
-    } catch {
-      // Ignore if not applicable
-    }
-
-    let reverseTrackingInfo: ReverseTrackingResponse | null = null;
-    try {
-      reverseTrackingInfo = await call<ReverseTrackingResponse>(
-        shopId,
-        '/returns/get_reverse_tracking_info',
-        {
-          return_sn: returnSn,
-        },
-      );
-    } catch {
-      // Reverse tracking not started
-    }
-
-    return { detail, solutions, reverseTrackingInfo };
-  }, [shopId, returnSn]);
-
-  // Open dispute modal with reasons
-  async function handleOpenDispute() {
-    setDisputeModalOpen(true);
-    try {
-      const res = await call<{ dispute_reason_list: DisputeReason[] }>(
-        shopId,
-        '/returns/get_return_dispute_reason',
-        { return_sn: returnSn },
-      );
-      setDisputeReasons(res.dispute_reason_list ?? []);
-      if (res.dispute_reason_list?.[0]) {
-        setSelectedDisputeReasonId(res.dispute_reason_list[0].reason_id);
-      }
-    } catch (e) {
-      toast(e instanceof Error ? e.message : t('failed'));
-    }
-  }
-
-  // Submit confirm refund
-  async function handleConfirmRefund() {
-    setPendingAction(true);
-    try {
-      await call(shopId, '/returns/confirm', { return_sn: returnSn });
-      toast(t('confirmSuccess'));
-      setConfirmModalOpen(false);
-      detailApi.reload();
-    } catch (e) {
-      toast(e instanceof Error ? e.message : t('failed'));
-    } finally {
-      setPendingAction(false);
-    }
-  }
-
-  // Submit offer
-  async function handleSendOffer() {
-    setPendingAction(true);
-    try {
-      await call(shopId, '/returns/offer', {
-        return_sn: returnSn,
-        proposed_solution: offerSolution,
-        proposed_adjusted_refund_amount: offerSolution === 'refund' ? Number(offerAmount) : undefined,
-      });
-      toast(t('offerSuccess'));
-      setOfferModalOpen(false);
-      detailApi.reload();
-    } catch (e) {
-      toast(e instanceof Error ? e.message : t('failed'));
-    } finally {
-      setPendingAction(false);
-    }
-  }
-
-  // Submit dispute
-  async function handleSubmitDispute() {
-    if (!disputeEmail || !disputeEmail.includes('@')) {
-      toast(t('invalidEmailToast'));
-      return;
-    }
-    setPendingAction(true);
-    try {
-      await call(shopId, '/returns/dispute', {
-        return_sn: returnSn,
-        email: disputeEmail,
-        dispute_reason_id: selectedDisputeReasonId,
-        dispute_text_reason: disputeDescription,
-      });
-      toast(t('disputeSubmitted'));
-      setDisputeModalOpen(false);
-      detailApi.reload();
-    } catch (e) {
-      toast(e instanceof Error ? e.message : t('failed'));
-    } finally {
-      setPendingAction(false);
-    }
-  }
-
-  // Submit cancel dispute
-  async function handleCancelDispute() {
-    setPendingAction(true);
-    try {
-      await call(shopId, '/returns/cancel_dispute', { return_sn: returnSn });
-      toast(t('disputeCancelled'));
-      setCancelDisputeModalOpen(false);
-      detailApi.reload();
-    } catch (e) {
-      toast(e instanceof Error ? e.message : t('failed'));
-    } finally {
-      setPendingAction(false);
-    }
-  }
-
-  if (detailApi.loading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <Spinner />
-      </div>
-    );
-  }
-
-  if (detailApi.error) {
-    return <ErrorState message={t('failed')} onRetry={detailApi.reload} retryLabel={t('all')} />;
-  }
-
-  if (!detailApi.data?.detail) {
-    return <EmptyState title={t('noReturns')} />;
-  }
-
-  const { detail, solutions, reverseTrackingInfo } = detailApi.data;
-  const isRequested = detail.status === 'REQUESTED';
-  const isJudging = detail.status === 'JUDGING';
-  const canConfirm = isRequested;
-  const canOffer =
-    isRequested && (solutions?.offer_refund?.eligibility || solutions?.offer_return_refund?.eligibility);
-  const canDispute = isRequested;
-  const canCancelDispute = isJudging;
+  const data = useApi(() => loadReturn(shopId, returnSn), [shopId, returnSn]);
+  const ret = data.data?.detail;
 
   return (
-    <div className="space-y-5">
-      {/* Top Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <Link href="/returns">
-            <Button variant="outline" size="sm">
-              ← {t('returnsTitle')}
-            </Button>
-          </Link>
-          <h1 className="text-xl font-bold text-gray-900 md:text-2xl">
-            {t('returnDetailTitle')}: {detail.return_sn}
-          </h1>
-          <ReturnStatusBadge status={detail.status} />
-        </div>
+    <div className="space-y-4">
+      <Breadcrumb items={[{ label: t('title'), href: '/returns' }, { label: returnSn }]} />
+      <ListState
+        loading={data.loading}
+        error={data.error}
+        empty={false}
+        emptyTitle={t('notFound')}
+        onRetry={data.reload}
+      >
+        {data.data && ret ? (
+          <>
+            <div className="flex flex-wrap items-center gap-4">
+              <h1 className="text-xl font-semibold">{t('returnTitle', { sn: returnSn })}</h1>
+              <span className="flex items-center gap-1.5">
+                <ReturnStatusLabel status={ret.status} negotiation={ret.negotiation.negotiation_status} />
+                {needsSellerAction({
+                  status: ret.status,
+                  negotiation_status: ret.negotiation.negotiation_status,
+                }) && <span>· {t('dueAt', { date: formatShortDateTime(ret.due_date, lang) })}</span>}
+              </span>
+            </div>
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18.75rem]">
+              <div className="min-w-0 space-y-4">
+                <RequestPanel ret={ret} />
+                <ItemsPanel ret={ret} />
+                <OrderPanel data={data.data} />
+              </div>
+              <div className="space-y-4 self-start">
+                <ReturnActions
+                  shopId={shopId}
+                  ret={ret}
+                  solutions={data.data.solutions}
+                  onChanged={data.reload}
+                />
+                <HistoryPanel data={data.data} />
+              </div>
+            </div>
+          </>
+        ) : (
+          <EmptyState title={t('notFound')} />
+        )}
+      </ListState>
+    </div>
+  );
+}
 
-        {/* Action Buttons */}
-        <div className="flex flex-wrap items-center gap-2">
-          {canConfirm && (
-            <Button variant="primary" size="sm" onClick={() => setConfirmModalOpen(true)}>
-              {t('confirmRefundBtn')}
-            </Button>
-          )}
-          {canOffer && (
-            <Button variant="outline" size="sm" onClick={() => setOfferModalOpen(true)}>
-              {t('makeOfferBtn')}
-            </Button>
-          )}
-          {canDispute && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-amber-600 text-amber-700 hover:bg-amber-50"
-              onClick={() => void handleOpenDispute()}
-            >
-              {t('disputeBtn')}
-            </Button>
-          )}
-          {canCancelDispute && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-red-600 text-red-600 hover:bg-red-50"
-              onClick={() => setCancelDisputeModalOpen(true)}
-            >
-              {t('cancelDisputeBtn')}
-            </Button>
-          )}
-        </div>
-      </div>
+function RequestPanel({ ret }: { ret: ReturnDetail }) {
+  const t = useT(returnMessages);
+  const { lang } = useLang();
+  const reason = useReturnReason();
+  return (
+    <Panel title={t('buyerRequest')}>
+      <Facts
+        rows={[
+          { label: t('buyer'), value: ret.user.username },
+          { label: t('sentAt'), value: formatFullDateTime(ret.create_time, lang) },
+          { label: t('reason'), value: reason(ret.reason) },
+          {
+            label: t('solution'),
+            value:
+              ret.return_solution === SOLUTION_REFUND_ONLY ? t('solutionRefund') : t('solutionReturnRefund'),
+          },
+          ...(ret.text_reason ? [{ label: t('description'), value: ret.text_reason }] : []),
+          ...(ret.image.length
+            ? [
+                {
+                  label: t('photos'),
+                  value: (
+                    <div className="flex flex-wrap gap-2">
+                      {ret.image.map((src) => (
+                        <a key={src} href={src} target="_blank" rel="noreferrer">
+                          <Image
+                            src={src}
+                            alt={t('photos')}
+                            width={96}
+                            height={96}
+                            unoptimized
+                            className="h-24 w-24 rounded-[2px] object-cover"
+                          />
+                        </a>
+                      ))}
+                    </div>
+                  ),
+                },
+              ]
+            : []),
+        ]}
+      />
+    </Panel>
+  );
+}
 
-      {/* Simulated Refund Disclaimer Alert */}
-      <Card className="border border-blue-200 bg-blue-50/60 p-4">
-        <div className="flex items-start gap-3">
-          <span className="text-xl text-blue-600">ℹ️</span>
-          <div>
-            <h3 className="font-semibold text-blue-900 text-sm">{t('simulationEnvTitle')}</h3>
-            <p className="text-xs text-blue-800 mt-1">{t('simulatedDisclaimer')}</p>
-          </div>
-        </div>
-      </Card>
-
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-        {/* Left Column (2 cols) */}
-        <div className="space-y-5 lg:col-span-2">
-          {/* Items Card */}
-          <Card>
-            <h2 className="mb-4 text-base font-bold text-gray-900">{t('items')}</h2>
-            <div className="divide-y divide-gray-100">
-              {(detail.item ?? []).map((i, idx) => (
-                <div key={idx} className="flex items-center justify-between py-3">
+function ItemsPanel({ ret }: { ret: ReturnDetail }) {
+  const t = useT(returnMessages);
+  return (
+    <Panel title={t('items')}>
+      <div className="overflow-x-auto">
+        <table className={table.root}>
+          <thead>
+            <tr>
+              <th scope="col" className={table.th}>
+                {t('product')}
+              </th>
+              <th scope="col" className={`${table.th} text-right`}>
+                {t('unitPrice')}
+              </th>
+              <th scope="col" className={`${table.th} text-right`}>
+                {t('returnQty')}
+              </th>
+              <th scope="col" className={`${table.th} text-right`}>
+                {t('lineRefund')}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {ret.item.map((i) => (
+              <tr key={`${i.item_id}-${i.model_id}`}>
+                <td className={table.td}>
                   <div className="flex items-center gap-3">
-                    {i.images?.[0] ? (
-                      <Image
-                        src={i.images[0]}
-                        alt=""
-                        width={48}
-                        height={48}
-                        unoptimized
-                        className="h-12 w-12 rounded-lg object-cover"
-                      />
-                    ) : (
-                      <div className="h-12 w-12 rounded-lg bg-gray-100" />
-                    )}
+                    <Thumb src={i.images[0]} size={48} />
                     <div>
-                      <p className="font-medium text-gray-900">{i.name}</p>
-                      <p className="text-xs text-gray-500">SKU: {i.item_sku || i.variation_sku || '—'}</p>
+                      <p>{i.name}</p>
+                      {(i.variation_sku || i.item_sku) && (
+                        <p className={sub}>SKU {i.variation_sku || i.item_sku}</p>
+                      )}
                     </div>
                   </div>
-                  <div className="text-right text-sm">
-                    <p className="font-semibold text-gray-900">{formatVnd(i.item_price)}</p>
-                    <p className="text-xs text-gray-500">x{i.amount}</p>
-                    {i.refund_amount ? (
-                      <p className="text-xs font-semibold text-primary">
-                        {t('refundAmount')}: {formatVnd(i.refund_amount)}
-                      </p>
-                    ) : null}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
-
-          {/* Reason & Evidence Card */}
-          <Card>
-            <h2 className="mb-3 text-base font-bold text-gray-900">{t('reason')}</h2>
-            <div className="space-y-3 text-sm">
-              <div className="rounded-lg bg-gray-50 p-3">
-                <p className="font-semibold text-gray-800">{detail.reason}</p>
-                {detail.text_reason && <p className="mt-1 text-gray-600">{detail.text_reason}</p>}
-              </div>
-
-              <div>
-                <p className="text-xs font-semibold text-gray-600 mb-2">{t('buyerImages')}</p>
-                {detail.image?.length ? (
-                  <div className="flex flex-wrap gap-2">
-                    {detail.image.map((url, idx) => (
-                      <Image
-                        key={idx}
-                        src={url}
-                        alt={t('evidenceAlt')}
-                        width={80}
-                        height={80}
-                        unoptimized
-                        className="h-20 w-20 rounded border object-cover"
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-xs italic text-gray-400">{t('noImages')}</p>
-                )}
-              </div>
-            </div>
-          </Card>
-
-          {/* Reverse Tracking Card */}
-          <Card>
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-base font-bold text-gray-900">{t('reverseTracking')}</h2>
-              {reverseTrackingInfo?.reverse_logistics_status && (
-                <span className="rounded-lg bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
-                  {t('reverseLogisticsStatus', { status: reverseTrackingInfo.reverse_logistics_status })}
-                </span>
-              )}
-            </div>
-            {(reverseTrackingInfo?.tracking_number || detail.tracking_number) && (
-              <p className="mb-3 text-xs font-semibold text-primary">
-                {t('returnTrackingNumber', {
-                  number: reverseTrackingInfo?.tracking_number || detail.tracking_number,
-                })}
-              </p>
-            )}
-
-            {(reverseTrackingInfo?.tracking_info?.length ?? 0) > 0 ? (
-              <div className="relative border-l-2 border-primary/30 pl-4 space-y-4 my-2">
-                {reverseTrackingInfo!.tracking_info.map((ev, idx) => (
-                  <div key={idx} className="relative">
-                    <div className="absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full bg-primary" />
-                    <p className="text-xs text-gray-400">{formatDateTime(ev.update_time, lang)}</p>
-                    <p className="text-sm font-medium text-gray-800">{ev.tracking_description}</p>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-gray-500 py-3">{t('noReverseTracking')}</p>
-            )}
-          </Card>
-        </div>
-
-        {/* Right Column: Order info, summary & negotiation (1 col) */}
-        <div className="space-y-5">
-          {/* Order & Buyer Info Card */}
-          <Card>
-            <h2 className="mb-3 text-base font-bold text-gray-900">{t('orderInfo')}</h2>
-            <div className="space-y-2 text-sm text-gray-700">
-              <div>
-                <span className="text-xs font-semibold text-gray-500">{t('orderSn')}:</span>
-                <p>
-                  <Link
-                    href={`/orders/${detail.order_sn}`}
-                    className="font-medium text-primary hover:underline"
-                  >
-                    {detail.order_sn}
-                  </Link>
-                </p>
-              </div>
-              <div>
-                <span className="text-xs font-semibold text-gray-500">{t('buyerInfo')}:</span>
-                <p className="font-medium">{detail.user?.username || '—'}</p>
-              </div>
-              <div>
-                <span className="text-xs font-semibold text-gray-500">{t('createdAt')}:</span>
-                <p>{formatDateTime(detail.create_time, lang)}</p>
-              </div>
-              <div>
-                <span className="text-xs font-semibold text-gray-500">{t('dueDate')}:</span>
-                <p className="text-red-600 font-medium">{formatDateTime(detail.due_date, lang)}</p>
-              </div>
-              {detail.negotiation_status && (
-                <div>
-                  <span className="text-xs font-semibold text-gray-500">{t('negotiationStatus')}:</span>
-                  <p className="font-medium text-indigo-700">{detail.negotiation_status}</p>
-                </div>
-              )}
-            </div>
-          </Card>
-
-          {/* Refund Amount Card */}
-          <Card>
-            <h2 className="mb-3 text-base font-bold text-gray-900">{t('refundAmount')}</h2>
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm text-gray-600">
-                <span>{t('amountBeforeDiscount')}</span>
-                <span>{formatVnd(detail.amount_before_discount)}</span>
-              </div>
-              <div className="border-t pt-2 flex justify-between text-base font-bold text-gray-900">
-                <span>{t('refundAmount')}:</span>
-                <span className="text-primary">{formatVnd(detail.refund_amount)}</span>
-              </div>
-            </div>
-          </Card>
-
-          {/* Dispute info if existing */}
-          {detail.dispute_reason?.length > 0 && (
-            <Card className="border border-amber-200 bg-amber-50">
-              <h2 className="mb-2 text-sm font-bold text-amber-900">{t('currentDisputeInfo')}</h2>
-              <p className="text-xs text-amber-800">
-                {t('disputeReasonLabel', { reasons: detail.dispute_reason.join(', ') })}
-              </p>
-              {detail.dispute_text_reason?.length > 0 && (
-                <p className="mt-1 text-xs text-amber-700">{detail.dispute_text_reason.join(', ')}</p>
-              )}
-            </Card>
-          )}
-        </div>
+                </td>
+                <td className={`${table.td} text-right whitespace-nowrap`}>{formatVnd(i.item_price)}</td>
+                <td className={`${table.td} text-right`}>{i.amount}</td>
+                <td className={`${table.td} text-right whitespace-nowrap`}>
+                  {i.refund_amount !== undefined ? formatVnd(i.refund_amount) : '—'}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
+      <div className="flex items-baseline justify-end gap-6 pt-4">
+        <span className="text-muted">{t('refundSimulated')}</span>
+        <span className="text-lg font-semibold text-primary">{formatVnd(ret.refund_amount)}</span>
+      </div>
+    </Panel>
+  );
+}
 
-      {/* Confirm Refund Modal */}
-      <Modal
-        open={confirmModalOpen}
-        onClose={() => setConfirmModalOpen(false)}
-        title={t('confirmRefundTitle')}
-      >
-        <div className="space-y-4 py-2">
-          <p className="text-sm text-gray-700">
-            {t('confirmRefundDesc', { amount: formatVnd(detail.refund_amount) })}
-          </p>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="ghost" onClick={() => setConfirmModalOpen(false)} disabled={pendingAction}>
-              {t('cancel')}
-            </Button>
-            <Button variant="primary" loading={pendingAction} onClick={() => void handleConfirmRefund()}>
-              {t('confirmRefundBtn')}
-            </Button>
-          </div>
-        </div>
-      </Modal>
+function OrderPanel({ data }: { data: Loaded }) {
+  const t = useT(returnMessages);
+  const { lang } = useLang();
+  const { detail, deliveredAt, policy } = data;
+  return (
+    <Panel
+      title={t('originalOrder')}
+      aside={
+        <Link href={`/orders/${detail.order_sn}`} className="text-sm text-link hover:underline">
+          {t('viewOrder')}
+        </Link>
+      }
+    >
+      <Facts
+        rows={[
+          { label: t('orderSn'), value: detail.order_sn },
+          ...(deliveredAt ? [{ label: t('deliveredAt'), value: formatDay(deliveredAt, lang) }] : []),
+          { label: t('returnWindow'), value: t('days', { count: policy.return_window_days }) },
+          { label: t('shopPolicy'), value: policy.return_policy },
+        ]}
+      />
+    </Panel>
+  );
+}
 
-      {/* Offer Modal */}
-      <Modal open={offerModalOpen} onClose={() => setOfferModalOpen(false)} title={t('offerTitle')}>
-        <div className="space-y-4 py-2">
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">{t('solutionType')}</label>
-            <div className="space-y-2">
-              {solutions?.offer_refund?.eligibility && (
-                <label className="flex items-center gap-2 cursor-pointer text-sm">
-                  <input
-                    type="radio"
-                    name="offerSolution"
-                    checked={offerSolution === 'refund'}
-                    onChange={() => setOfferSolution('refund')}
-                  />
-                  <span>{t('offerRefundOnly')}</span>
-                </label>
-              )}
-              {solutions?.offer_return_refund?.eligibility && (
-                <label className="flex items-center gap-2 cursor-pointer text-sm">
-                  <input
-                    type="radio"
-                    name="offerSolution"
-                    checked={offerSolution === 'return_refund'}
-                    onChange={() => setOfferSolution('return_refund')}
-                  />
-                  <span>{t('offerReturnRefund')}</span>
-                </label>
-              )}
-            </div>
-          </div>
-
-          {offerSolution === 'refund' && (
+function HistoryPanel({ data }: { data: Loaded }) {
+  const t = useT(returnMessages);
+  const { lang } = useLang();
+  const { detail, reverseEvents, deliveredAt } = data;
+  const negotiation = detail.negotiation.negotiation_status;
+  const statusEvent =
+    detail.status === 'ACCEPTED'
+      ? t('evAccepted')
+      : detail.status === 'JUDGING'
+        ? t('evJudging')
+        : detail.status === 'CANCELLED'
+          ? t('evCancelled')
+          : detail.status === 'CLOSED'
+            ? t('evClosed')
+            : negotiation === 'PENDING_BUYER_RESPOND'
+              ? t('evOffer')
+              : null;
+  const events = [
+    ...reverseEvents.map((e) => ({ time: e.update_time, text: e.tracking_description })),
+    ...(statusEvent ? [{ time: detail.update_time, text: statusEvent }] : []),
+    { time: detail.create_time, text: t('evCreated') },
+    ...(deliveredAt ? [{ time: deliveredAt, text: t('evDelivered', { sn: detail.order_sn }) }] : []),
+  ].sort((a, b) => b.time - a.time);
+  return (
+    <Panel title={t('history')}>
+      <ol className="space-y-3 text-sm">
+        {events.map((e, i) => (
+          <li key={`${e.time}-${i}`} className="flex gap-2.5">
+            <span
+              aria-hidden="true"
+              className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${i === 0 ? 'bg-primary' : 'bg-gray-300'}`}
+            />
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">
-                {t('customRefundAmount')}
-              </label>
-              <Input
-                type="number"
-                min={solutions?.offer_refund?.min_refund_amount ?? 0}
-                max={solutions?.offer_refund?.max_refund_amount ?? detail.refund_amount}
-                value={offerAmount}
-                onChange={(e) => setOfferAmount(Number(e.target.value))}
-              />
-              <p className="mt-1 text-xs text-gray-500">
-                {t('minAmount', {
-                  min: formatVnd(solutions?.offer_refund?.min_refund_amount ?? 0),
-                })}{' '}
-                -{' '}
-                {t('maxAmount', {
-                  max: formatVnd(solutions?.offer_refund?.max_refund_amount ?? detail.refund_amount),
-                })}
-              </p>
+              <p>{e.text}</p>
+              <p className={sub}>{formatShortDateTime(e.time, lang)}</p>
             </div>
-          )}
-
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="ghost" onClick={() => setOfferModalOpen(false)} disabled={pendingAction}>
-              {t('cancel')}
-            </Button>
-            <Button variant="primary" loading={pendingAction} onClick={() => void handleSendOffer()}>
-              {t('sendOffer')}
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Dispute Modal */}
-      <Modal open={disputeModalOpen} onClose={() => setDisputeModalOpen(false)} title={t('disputeTitle')}>
-        <div className="space-y-4 py-2">
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">{t('disputeReason')}</label>
-            <Select
-              value={selectedDisputeReasonId}
-              onChange={(e) => setSelectedDisputeReasonId(Number(e.target.value))}
-            >
-              {disputeReasons.map((r) => (
-                <option key={r.reason_id} value={r.reason_id}>
-                  {r.reason_text}
-                </option>
-              ))}
-            </Select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">{t('disputeEmail')}</label>
-            <Input
-              type="email"
-              placeholder="seller@example.com"
-              value={disputeEmail}
-              onChange={(e) => setDisputeEmail(e.target.value)}
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">
-              {t('disputeDescription')}
-            </label>
-            <Textarea
-              rows={3}
-              value={disputeDescription}
-              onChange={(e) => setDisputeDescription(e.target.value)}
-            />
-          </div>
-
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="ghost" onClick={() => setDisputeModalOpen(false)} disabled={pendingAction}>
-              {t('cancel')}
-            </Button>
-            <Button
-              variant="primary"
-              className="bg-amber-600 hover:bg-amber-700"
-              loading={pendingAction}
-              onClick={() => void handleSubmitDispute()}
-            >
-              {t('disputeBtn')}
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Cancel Dispute Modal */}
-      <Modal
-        open={cancelDisputeModalOpen}
-        onClose={() => setCancelDisputeModalOpen(false)}
-        title={t('cancelDisputeBtn')}
-      >
-        <div className="space-y-4 py-2">
-          <p className="text-sm text-gray-700">{t('cancelDisputeConfirm')}</p>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="ghost" onClick={() => setCancelDisputeModalOpen(false)} disabled={pendingAction}>
-              {t('cancel')}
-            </Button>
-            <Button
-              variant="primary"
-              className="bg-red-600 hover:bg-red-700"
-              loading={pendingAction}
-              onClick={() => void handleCancelDispute()}
-            >
-              {t('cancelDisputeBtn')}
-            </Button>
-          </div>
-        </div>
-      </Modal>
-    </div>
+          </li>
+        ))}
+      </ol>
+    </Panel>
   );
 }

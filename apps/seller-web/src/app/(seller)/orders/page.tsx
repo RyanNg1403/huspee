@@ -1,389 +1,278 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
-import { Button, Card, Input, QueryState, Tabs } from '@huspee/web-ui/components/ui';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useMemo, useState, type FormEvent } from 'react';
+import type { SellerShop } from '@huspee/sdk';
 import { useLang, useT } from '@huspee/web-ui/i18n/client';
-import { formatDate, formatVnd } from '@huspee/web-ui/lib/format';
+import { formatVnd } from '@huspee/web-ui/lib/format';
 import { useApi } from '@huspee/web-ui/lib/use-api';
-import { call } from '../_ops/api';
-import { ShipModal } from '../_ops/ShipModal';
-import { ShopGuard } from '../_ops/ShopGuard';
-import { OrderStatusBadge } from '../_ops/StatusBadge';
-import type { OrderDetail } from '../_ops/types';
+import { call } from '@/lib/seller-api';
+import { formatShortDateTime } from '@/components/commerce/format';
+import { pageSlice } from '@/components/commerce/list';
+import { ListState } from '@/components/commerce/ListState';
+import { OrderStatusLabel, usePaymentLabel } from '@/components/commerce/orders/OrderStatusLabel';
+import { loadOrderDetails, loadOrderRefs } from '@/components/commerce/orders/order-api';
+import {
+  countOrderTabs,
+  DATE_RANGES,
+  filterOrders,
+  statusForTab,
+  tabFromStatus,
+  visibleOrderTabs,
+  type DateRange,
+  type OrderTab,
+} from '@/components/commerce/orders/order-filters';
+import { ShipModal } from '@/components/commerce/orders/ShipModal';
+import type { LogisticsChannel, OrderDetail } from '@/components/commerce/orders/types';
+import { PageTabs } from '@/components/commerce/PageTabs';
+import { Pager } from '@/components/commerce/Pager';
+import { ShopGuard } from '@/components/commerce/ShopGuard';
+import { Thumb } from '@/components/commerce/Thumb';
+import { btn, input, panel, sub, table } from '@/components/commerce/ui';
 import { orderMessages } from './messages';
 
-const FIFTEEN_DAYS_SECONDS = 15 * 86400;
+const PAGE_SIZE = 20;
+type Filters = { query: string; range: DateRange; channel: number };
+const DEFAULT_FILTERS: Filters = { query: '', range: '30d', channel: 0 };
+const TAB_LABEL = {
+  all: 'tabAll',
+  unpaid: 'tabUnpaid',
+  to_ship: 'tabToShip',
+  shipping: 'tabShipping',
+  delivered: 'tabDelivered',
+  cancelled: 'tabCancelled',
+  returns: 'tabReturns',
+} as const;
+const RANGE_LABEL = { today: 'rangeToday', '7d': 'range7d', '30d': 'range30d' } as const;
 
 export default function OrdersPage() {
-  return <ShopGuard>{(shop) => <OrdersContent shopId={shop.shop_id} />}</ShopGuard>;
+  return <ShopGuard>{(shop) => <Orders shop={shop} />}</ShopGuard>;
 }
 
-function OrdersContent({ shopId }: { shopId: number }) {
+function Orders({ shop }: { shop: SellerShop }) {
   const t = useT(orderMessages);
-  const { lang } = useLang();
+  const router = useRouter();
+  const pathname = usePathname();
+  const params = useSearchParams();
+  const tab = tabFromStatus(params.get('status'));
+  const [draft, setDraft] = useState(DEFAULT_FILTERS);
+  const [filters, setFilters] = useState(DEFAULT_FILTERS);
+  const [page, setPage] = useState(0);
+  const [shipping, setShipping] = useState<OrderDetail | null>(null);
+  const shopId = shop.shop_id;
 
-  // Status tab
-  const [selectedTab, setSelectedTab] = useState<string>('all');
+  const channels = useApi(
+    () =>
+      call<{ logistics_channel_list: LogisticsChannel[] }>(shopId, '/logistics/get_channel_list').then(
+        (r) => r.logistics_channel_list,
+      ),
+    [shopId],
+  );
+  const refs = useApi(
+    () => loadOrderRefs(shopId, filters.range, filters.channel),
+    [shopId, filters.range, filters.channel],
+  );
+  const counts = useMemo(() => countOrderTabs(refs.data ?? []), [refs.data]);
+  const filtered = useMemo(
+    () => filterOrders(refs.data ?? [], tab, filters.query),
+    [refs.data, tab, filters.query],
+  );
+  const pageKey = pageSlice(filtered, page, PAGE_SIZE)
+    .map((o) => o.order_sn)
+    .join(',');
+  const details = useApi(
+    () => loadOrderDetails(shopId, pageKey ? pageKey.split(',') : []),
+    [shopId, pageKey],
+  );
 
-  // Dates: default last 15 days
-  const defaultDates = useMemo(() => {
-    const end = new Date();
-    const start = new Date(end.getTime() - 14 * 86400 * 1000);
-    return {
-      start: start.toISOString().slice(0, 10),
-      end: end.toISOString().slice(0, 10),
-    };
-  }, []);
-
-  const [dateFrom, setDateFrom] = useState(defaultDates.start);
-  const [dateTo, setDateTo] = useState(defaultDates.end);
-  const [cursor, setCursor] = useState<string>('');
-  const [cursorHistory, setCursorHistory] = useState<string[]>([]);
-
-  // Shipping modal state
-  const [shippingOrderSn, setShippingOrderSn] = useState<string | null>(null);
-
-  // Time boundaries in unix seconds (clamped to 15 days)
-  const { fromUnix, toUnix, rangeError } = useMemo(() => {
-    const from = Math.floor(new Date(`${dateFrom}T00:00:00`).getTime() / 1000);
-    const to = Math.floor(new Date(`${dateTo}T23:59:59`).getTime() / 1000);
-    const diff = to - from;
-    if (diff < 0) return { fromUnix: from, toUnix: to, rangeError: t('dateRangeInvalid') };
-    if (diff > FIFTEEN_DAYS_SECONDS) {
-      return { fromUnix: from, toUnix: to, rangeError: t('dateRangeHint') };
-    }
-    return { fromUnix: from, toUnix: to, rangeError: null };
-  }, [dateFrom, dateTo, t]);
-
-  const ordersApi = useApi(async () => {
-    if (rangeError) return { orders: [], nextCursor: '', more: false };
-
-    const listRes = await call<{
-      more: boolean;
-      next_cursor: string;
-      order_list: Array<{ order_sn: string; order_status?: string }>;
-    }>(shopId, '/order/get_order_list', {
-      time_range_field: 'create_time',
-      time_from: fromUnix,
-      time_to: toUnix,
-      page_size: 20,
-      cursor: cursor || undefined,
-      ...(selectedTab !== 'all' ? { order_status: selectedTab } : {}),
-      response_optional_fields: 'order_status',
-    });
-
-    const snList = listRes.order_list.map((o) => o.order_sn);
-    if (!snList.length) {
-      return { orders: [], nextCursor: listRes.next_cursor, more: listRes.more };
-    }
-
-    const detailRes = await call<{ order_list: OrderDetail[] }>(shopId, '/order/get_order_detail', {
-      order_sn_list: snList,
-      response_optional_fields: [
-        'buyer_username',
-        'buyer_user_id',
-        'recipient_address',
-        'actual_shipping_fee',
-        'payment_info',
-        'item_list',
-        'package_list',
-        'pay_time',
-        'total_amount',
-      ],
-    });
-
-    return {
-      orders: detailRes.order_list ?? [],
-      nextCursor: listRes.next_cursor,
-      more: listRes.more,
-    };
-  }, [shopId, fromUnix, toUnix, selectedTab, cursor, rangeError]);
-
-  const tabs = [
-    { value: 'all', label: t('all') },
-    { value: 'READY_TO_SHIP', label: t('readyToShip') },
-    { value: 'PROCESSED', label: t('processed') },
-    { value: 'SHIPPED', label: t('shipped') },
-    { value: 'TO_CONFIRM_RECEIVE', label: t('toConfirmReceive') },
-    { value: 'COMPLETED', label: t('completed') },
-    { value: 'CANCELLED', label: t('cancelled') },
-    { value: 'TO_RETURN', label: t('toReturn') },
-  ];
-
-  function handleTabChange(value: string) {
-    setSelectedTab(value);
-    setCursor('');
-    setCursorHistory([]);
+  function selectTab(next: OrderTab) {
+    setPage(0);
+    const status = statusForTab(next);
+    router.replace(status ? `${pathname}?status=${status}` : pathname, { scroll: false });
   }
-
-  function handleNextPage() {
-    if (!ordersApi.data?.nextCursor) return;
-    setCursorHistory((prev) => [...prev, cursor]);
-    setCursor(ordersApi.data.nextCursor);
+  function apply(e: FormEvent) {
+    e.preventDefault();
+    setPage(0);
+    setFilters(draft);
   }
-
-  function handlePrevPage() {
-    if (cursorHistory.length === 0) return;
-    const prevCursor = cursorHistory[cursorHistory.length - 1] ?? '';
-    setCursorHistory((prev) => prev.slice(0, -1));
-    setCursor(prevCursor);
+  function reset() {
+    setPage(0);
+    setDraft(DEFAULT_FILTERS);
+    setFilters(DEFAULT_FILTERS);
+  }
+  function reload() {
+    refs.reload();
+    details.reload();
   }
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-bold text-gray-900">{t('ordersTitle')}</h1>
-      </div>
-
-      {/* Tabs */}
-      <div className="overflow-x-auto rounded-2xl border border-line bg-white shadow-card">
-        <Tabs items={tabs} value={selectedTab} onChange={handleTabChange} />
-      </div>
-
-      {/* Filters */}
-      <Card>
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-wrap items-end gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">{t('dateFrom')}</label>
-              <Input
-                type="date"
-                value={dateFrom}
-                onChange={(e) => {
-                  setDateFrom(e.target.value);
-                  setCursor('');
-                  setCursorHistory([]);
-                }}
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">{t('dateTo')}</label>
-              <Input
-                type="date"
-                value={dateTo}
-                onChange={(e) => {
-                  setDateTo(e.target.value);
-                  setCursor('');
-                  setCursorHistory([]);
-                }}
-              />
-            </div>
-          </div>
-          <p className="text-xs text-gray-500">{t('dateRangeHint')}</p>
-          {rangeError && <p className="text-xs font-medium text-red-600">{rangeError}</p>}
-        </div>
-      </Card>
-
-      {/* Orders List / Table */}
-      <QueryState
-        loading={ordersApi.loading}
-        error={ordersApi.error}
-        errorMessage={t('failed')}
-        retry={ordersApi.reload}
-        retryLabel={t('filter')}
-        empty={!ordersApi.data?.orders?.length}
-        emptyTitle={t('noOrders')}
-        card
-        spinner
-      >
-        {ordersApi.data && (
-          <div className="space-y-3">
-            {/* Desktop Table View */}
-            <div className="hidden overflow-x-auto rounded-2xl border border-line bg-white shadow-card md:block">
-              <table className="w-full text-left text-sm">
-                <thead className="border-b bg-gray-50 text-xs font-semibold uppercase text-gray-600">
-                  <tr>
-                    <th className="px-4 py-3">{t('orderSn')}</th>
-                    <th className="px-4 py-3">{t('buyer')}</th>
-                    <th className="px-4 py-3">{t('items')}</th>
-                    <th className="px-4 py-3">{t('total')}</th>
-                    <th className="px-4 py-3">{t('payment')}</th>
-                    <th className="px-4 py-3">{t('status')}</th>
-                    <th className="px-4 py-3">{t('shipByDate')}</th>
-                    <th className="px-4 py-3 text-right">{t('actions')}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {ordersApi.data.orders.map((order) => {
-                    const itemCount = (order.item_list ?? []).reduce(
-                      (sum, i) => sum + i.model_quantity_purchased,
-                      0,
-                    );
-                    return (
-                      <tr key={order.order_sn} className="hover:bg-gray-50/50">
-                        <td className="px-4 py-3 font-medium text-primary">
-                          <Link href={`/orders/${order.order_sn}`}>{order.order_sn}</Link>
-                        </td>
-                        <td className="px-4 py-3 text-gray-700">{order.buyer_username || '—'}</td>
-                        <td className="px-4 py-3">
-                          <div className="flex flex-col gap-1 max-w-xs">
-                            {(order.item_list ?? []).slice(0, 2).map((item) => (
-                              <div
-                                key={`${item.item_id}-${item.model_id}`}
-                                className="flex items-center gap-2 truncate"
-                              >
-                                {item.image_info?.image_url && (
-                                  <Image
-                                    src={item.image_info.image_url}
-                                    alt=""
-                                    width={28}
-                                    height={28}
-                                    unoptimized
-                                    className="h-7 w-7 rounded-lg object-cover"
-                                  />
-                                )}
-                                <span className="truncate text-xs text-gray-800">
-                                  {item.item_name}
-                                  {item.model_name ? ` (${item.model_name})` : ''} x
-                                  {item.model_quantity_purchased}
-                                </span>
-                              </div>
-                            ))}
-                            {(order.item_list ?? []).length > 2 && (
-                              <span className="text-xs text-gray-500">
-                                {t('moreItems', { count: order.item_list!.length - 2 })}
-                              </span>
-                            )}
-                            <span className="text-xs text-gray-400">
-                              {t('itemCount', { count: itemCount })}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 font-semibold text-gray-900">
-                          {formatVnd(order.total_amount)}
-                        </td>
-                        <td className="px-4 py-3 text-xs text-gray-600">
-                          <div>{order.payment_method}</div>
-                          <div className="text-gray-400">
-                            {order.cod ? 'COD' : order.pay_time ? t('paid') : t('unpaid')}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <OrderStatusBadge status={order.order_status} />
-                        </td>
-                        <td className="px-4 py-3 text-xs text-gray-600">
-                          {order.ship_by_date ? formatDate(order.ship_by_date, lang) : '—'}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <div className="flex justify-end gap-2">
-                            {order.order_status === 'READY_TO_SHIP' && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => setShippingOrderSn(order.order_sn)}
-                              >
-                                {t('shipNow')}
-                              </Button>
-                            )}
-                            <Link href={`/orders/${order.order_sn}`}>
-                              <Button size="sm" variant="ghost">
-                                {t('viewDetail')}
-                              </Button>
-                            </Link>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Mobile Card View (375px) */}
-            <div className="space-y-3 md:hidden">
-              {ordersApi.data.orders.map((order) => (
-                <Card key={order.order_sn} className="space-y-3 text-sm">
-                  <div className="flex items-center justify-between border-b pb-2">
-                    <Link href={`/orders/${order.order_sn}`} className="font-bold text-primary">
-                      {order.order_sn}
-                    </Link>
-                    <OrderStatusBadge status={order.order_status} />
-                  </div>
-                  <div className="text-xs text-gray-600">
-                    <p>
-                      <span className="font-semibold">{t('buyer')}:</span> {order.buyer_username || '—'}
-                    </p>
-                    <p>
-                      <span className="font-semibold">{t('shipByDate')}:</span>{' '}
-                      {order.ship_by_date ? formatDate(order.ship_by_date, lang) : '—'}
-                    </p>
-                  </div>
-                  <div className="space-y-2 border-y py-2">
-                    {(order.item_list ?? []).map((item) => (
-                      <div key={`${item.item_id}-${item.model_id}`} className="flex items-center gap-2">
-                        {item.image_info?.image_url && (
-                          <Image
-                            src={item.image_info.image_url}
-                            alt=""
-                            width={36}
-                            height={36}
-                            unoptimized
-                            className="h-9 w-9 rounded-lg object-cover"
-                          />
-                        )}
-                        <div className="min-w-0 flex-1 text-xs">
-                          <p className="truncate font-medium">{item.item_name}</p>
-                          <p className="text-gray-500">
-                            {item.model_name ? `${item.model_name} · ` : ''}x{item.model_quantity_purchased} ·{' '}
-                            {formatVnd(item.model_discounted_price)}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="font-semibold">{t('total')}:</span>
-                    <span className="text-base font-bold text-primary">{formatVnd(order.total_amount)}</span>
-                  </div>
-                  <div className="flex justify-end gap-2 pt-1">
-                    {order.order_status === 'READY_TO_SHIP' && (
-                      <Button size="sm" variant="outline" onClick={() => setShippingOrderSn(order.order_sn)}>
-                        {t('shipNow')}
-                      </Button>
-                    )}
-                    <Link href={`/orders/${order.order_sn}`}>
-                      <Button size="sm" variant="ghost">
-                        {t('viewDetail')}
-                      </Button>
-                    </Link>
-                  </div>
-                </Card>
+      <h1 className="text-xl font-semibold">{t('title')}</h1>
+      <section aria-label={t('title')} className={`${panel} px-6 pb-4`}>
+        <PageTabs
+          label={t('statusTabs')}
+          value={tab}
+          onChange={selectTab}
+          items={visibleOrderTabs(refs.data ? counts : null, tab).map((value) => ({
+            value,
+            label: t(TAB_LABEL[value]),
+            count: refs.data ? counts[value] : undefined,
+            accent: value === 'to_ship' || value === 'returns',
+          }))}
+        />
+        <form onSubmit={apply} onReset={reset} className="flex flex-wrap items-end gap-3 py-4">
+          <label className="flex min-w-60 flex-[2] flex-col gap-1.5 text-[13px] text-muted">
+            {t('search')}
+            <input
+              type="search"
+              className={input}
+              placeholder={t('searchPlaceholder')}
+              value={draft.query}
+              onChange={(e) => setDraft({ ...draft, query: e.target.value })}
+            />
+          </label>
+          <label className="flex min-w-40 flex-1 flex-col gap-1.5 text-[13px] text-muted">
+            {t('orderDate')}
+            <select
+              className={input}
+              value={draft.range}
+              onChange={(e) => setDraft({ ...draft, range: e.target.value as DateRange })}
+            >
+              {DATE_RANGES.map((r) => (
+                <option key={r} value={r}>
+                  {t(RANGE_LABEL[r])}
+                </option>
               ))}
-            </div>
-
-            {/* Cursor Pagination */}
-            <div className="flex items-center justify-between rounded-2xl border border-line bg-white p-3 shadow-card">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={cursorHistory.length === 0}
-                onClick={handlePrevPage}
-              >
-                ← {t('prevPage')}
-              </Button>
-              <span className="text-xs text-gray-500">
-                {t('pageNumber', { page: cursorHistory.length + 1 })}
-              </span>
-              <Button variant="outline" size="sm" disabled={!ordersApi.data.more} onClick={handleNextPage}>
-                {t('nextPage')} →
-              </Button>
-            </div>
+            </select>
+          </label>
+          <label className="flex min-w-40 flex-1 flex-col gap-1.5 text-[13px] text-muted">
+            {t('carrier')}
+            <select
+              className={input}
+              value={draft.channel}
+              onChange={(e) => setDraft({ ...draft, channel: Number(e.target.value) })}
+            >
+              <option value={0}>{t('all')}</option>
+              {(channels.data ?? []).map((c) => (
+                <option key={c.logistics_channel_id} value={c.logistics_channel_id}>
+                  {c.logistics_channel_name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="flex gap-2">
+            <button type="submit" className={btn.primary}>
+              {t('apply')}
+            </button>
+            <button type="reset" className={btn.outline}>
+              {t('reset')}
+            </button>
           </div>
+        </form>
+        {refs.data && (
+          <p className="pb-2 text-base font-semibold">{t('count', { count: filtered.length })}</p>
         )}
-      </QueryState>
-
-      {/* Ship Modal */}
-      {shippingOrderSn && (
+        <ListState
+          loading={refs.loading || (details.loading && filtered.length > 0)}
+          error={refs.error ?? details.error}
+          empty={!filtered.length}
+          emptyTitle={t('empty')}
+          onRetry={reload}
+        >
+          <div className="overflow-x-auto">
+            <table className={table.root}>
+              <thead>
+                <tr>
+                  <th scope="col" className={table.th}>
+                    {t('orderSn')}
+                  </th>
+                  <th scope="col" className={table.th}>
+                    {t('buyer')}
+                  </th>
+                  <th scope="col" className={table.th}>
+                    {t('product')}
+                  </th>
+                  <th scope="col" className={`${table.th} text-right`}>
+                    {t('total')}
+                  </th>
+                  <th scope="col" className={table.th}>
+                    {t('status')}
+                  </th>
+                  <th scope="col" className={`${table.th} text-right`}>
+                    {t('actions')}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {(details.data ?? []).map((order) => (
+                  <OrderRow key={order.order_sn} order={order} onShip={() => setShipping(order)} />
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <Pager page={page} pageSize={PAGE_SIZE} total={filtered.length} onPage={setPage} />
+        </ListState>
+      </section>
+      {shipping && (
         <ShipModal
-          open={Boolean(shippingOrderSn)}
-          shopId={shopId}
-          orderSn={shippingOrderSn}
-          onClose={() => setShippingOrderSn(null)}
-          onSuccess={() => ordersApi.reload()}
+          shop={shop}
+          orderSn={shipping.order_sn}
+          carrier={shipping.shipping_carrier}
+          onClose={() => setShipping(null)}
+          onShipped={reload}
         />
       )}
     </div>
+  );
+}
+
+function OrderRow({ order, onShip }: { order: OrderDetail; onShip: () => void }) {
+  const t = useT(orderMessages);
+  const { lang } = useLang();
+  const payment = usePaymentLabel();
+  const [first, ...rest] = order.item_list ?? [];
+  return (
+    <tr>
+      <td className={table.td}>
+        <Link href={`/orders/${order.order_sn}`} className="text-link hover:underline">
+          {order.order_sn}
+        </Link>
+        <div className={sub}>{formatShortDateTime(order.create_time, lang)}</div>
+      </td>
+      <td className={table.td}>{order.buyer_username}</td>
+      <td className={table.td}>
+        {first && (
+          <div className="flex items-center gap-2.5">
+            <Thumb src={first.image_info?.image_url} />
+            <div className="min-w-0">
+              <p className="line-clamp-2 max-w-64">{first.item_name}</p>
+              <p className={sub}>
+                {[first.model_name, `× ${first.model_quantity_purchased}`].filter(Boolean).join(' ')}
+                {rest.length > 0 && ` · ${t('moreItems', { count: rest.length })}`}
+              </p>
+            </div>
+          </div>
+        )}
+      </td>
+      <td className={`${table.td} text-right whitespace-nowrap`}>
+        {formatVnd(order.total_amount)}
+        <div className={sub}>{payment(order.payment_method, order.cod, true)}</div>
+      </td>
+      <td className={table.td}>
+        <OrderStatusLabel status={order.order_status} />
+      </td>
+      <td className={`${table.td} text-right`}>
+        {order.order_status === 'READY_TO_SHIP' ? (
+          <button type="button" className={btn.accentSm} onClick={onShip}>
+            {t('prepare')}
+          </button>
+        ) : (
+          <Link href={`/orders/${order.order_sn}`} className="whitespace-nowrap text-link hover:underline">
+            {t('view')}
+          </Link>
+        )}
+      </td>
+    </tr>
   );
 }
