@@ -72,6 +72,17 @@ export function modelName(item: { tierVariation: Prisma.JsonValue }, tierIndex: 
     .join(', ');
 }
 
+/** Selected variant media is authoritative; unillustrated variants retain the product hero. */
+export function modelImage(item: { tierVariation: Prisma.JsonValue; images: ReadonlyArray<{ url: string }> }, tierIndex: number[] = []): string | null {
+  const options = tierVariations(item).map((tier, index) => ({
+    name: tier.name,
+    imageId: tier.option_list?.[tierIndex[index] ?? -1]?.image_id,
+  }));
+  const color = options.find((option) => /màu|colou?r/i.test(option.name) && option.imageId);
+  const imageId = color?.imageId ?? options.find((option) => option.imageId)?.imageId;
+  return imageId ? mediaUrl(mediaPath(imageId)) : item.images[0] ? mediaUrl(item.images[0].url) : null;
+}
+
 /** Sellable models: the default model for items without variations, otherwise the real variants. */
 export function sellableModels(item: ItemWithRelations): ModelWithDiscounts[] {
   return item.models.filter((m) => (item.hasModel ? !m.isDefault : m.isDefault));

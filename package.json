@@ -8,6 +8,7 @@
     "db:migrate": "pnpm --filter @huspee/api run db:migrate",
     "db:reset": "pnpm --filter @huspee/api run db:reset",
     "db:seed": "pnpm --filter @huspee/api run db:seed",
+    "db:catalog:sync": "pnpm --filter @huspee/api run db:catalog:sync",
     "typecheck": "pnpm -r run typecheck",
     "test": "pnpm build && pnpm --filter @huspee/tests run test",
     "test:upstream": "pnpm --filter @huspee/tests run test:upstream",

@@ -80,8 +80,20 @@ Every account's password is `Password123!`.
 | Seller | `tuan.saigonstyle@example.com` | Saigon Style (fashion) |
 | Seller | `trang.nhaxinh@example.com` | Nhà Xinh Home (home and living) |
 
-There are 4 shops and 15 products with variants, photos, reviews, vouchers, shipping options,
+There are 4 shops and 80 products (20 per shop) with variants, photos, reviews, vouchers, shipping options,
 policies, past orders and assistant FAQs. Prices are in VND.
+
+Each product has at least two Image Gen images, every offered color has a matching image, and each shop has a generated avatar. Electronics,
+skincare and makeup, clothing and bags, and kitchenware and home accessories have distinct
+catalogs. The 170 images total about 4.3 MiB in compact WebP files: product images are at most 1024×1024 and
+200 KB; avatars are at most 512×512 and 75 KB. Large original renders are excluded from Git.
+Prompts and provenance: [`apps/api/prisma/generated-images/README.md`](apps/api/prisma/generated-images/README.md).
+
+To add the expanded fixtures and refresh their images in an existing database while preserving
+orders, carts, login state and seller edits, run `pnpm db:catalog:sync`. It preserves custom uploaded
+images. With Docker, run `docker compose exec api pnpm db:catalog:sync` after rebuilding the image;
+use `HUSPEE_SEED_ON_START=false docker compose up -d --build` to preserve existing data on restart.
+`pnpm db:seed` and the default Compose startup reset the demo database.
 
 A seller must link their shop once before managing it: sign in, open `/seller/shops`, click Connect
 and approve.

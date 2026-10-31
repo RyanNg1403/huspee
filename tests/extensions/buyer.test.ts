@@ -24,7 +24,7 @@ describe('public marketplace', () => {
     const tree = await anon.marketplace.categories();
     const phones = tree.find((c) => c.category_id === 100001)!;
     expect(phones.display_name).toBe('Điện Thoại & Phụ Kiện');
-    expect(phones.children.map((c) => c.category_id)).toEqual([100010, 100011, 100012]);
+    expect(phones.children.map((c) => c.category_id)).toEqual([100010, 100011, 100012, 100013, 100014]);
   });
 
   it('lists shops and shop detail with collections', async () => {
@@ -42,7 +42,9 @@ describe('public marketplace', () => {
 
     const fashion = await anon.marketplace.searchProducts({ category_id: 100004, sort: 'price_asc' });
     // Other suites may add products; only assert on seeded fixtures (ids below 2100000).
-    expect(fashion.data.map((p) => p.item_id).filter((id) => id < 2100000)).toEqual([SEED.items.tee.itemId, 2000302]);
+    expect(fashion.data.map((p) => p.item_id)).toEqual(expect.arrayContaining([SEED.items.tee.itemId, 2000305, 2000304, 2000302, 2000310, 2000317]));
+    for (const womensItem of [2000303, 2000306, 2000313, 2000315]) expect(fashion.data.map((p) => p.item_id)).not.toContain(womensItem);
+    for (let i = 1; i < fashion.data.length; i++) expect(fashion.data[i - 1]!.price_min).toBeLessThanOrEqual(fashion.data[i]!.price_min);
 
     const all = await anon.marketplace.searchProducts({ page_size: 100 });
     expect(new Set(all.data.map((p) => p.shop.shop_id)).size).toBeGreaterThanOrEqual(4);

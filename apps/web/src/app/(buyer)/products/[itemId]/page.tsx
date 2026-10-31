@@ -309,12 +309,25 @@ function Product({ product }: { product: ProductDetail }) {
                     <button
                       key={j}
                       disabled={!enabled}
+                      aria-pressed={selected[i] === j}
                       onClick={() => {
                         setSelected(selected.map((n, k) => (k === i ? j : n)));
                         setQuantity(1);
+                        const colorImage = product.images.indexOf(option.image_url ?? '');
+                        if (colorImage >= 0) setImage(colorImage);
                       }}
-                      className={`rounded-xl border px-4 py-2 text-sm transition disabled:cursor-not-allowed disabled:opacity-35 ${selected[i] === j ? 'border-primary bg-primary-soft font-medium text-primary' : 'border-line bg-white text-gray-800 hover:border-gray-400'}`}
+                      className={`flex items-center gap-2 rounded-xl border px-4 py-2 text-sm transition disabled:cursor-not-allowed disabled:opacity-35 ${selected[i] === j ? 'border-primary bg-primary-soft font-medium text-primary' : 'border-line bg-white text-gray-800 hover:border-gray-400'}`}
                     >
+                      {option.image_url && (
+                        <Image
+                          unoptimized
+                          width={32}
+                          height={32}
+                          src={option.image_url}
+                          alt=""
+                          className="h-8 w-8 rounded object-cover"
+                        />
+                      )}
                       {option.option}
                     </button>
                   );
