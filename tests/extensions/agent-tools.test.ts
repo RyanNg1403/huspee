@@ -19,6 +19,27 @@ beforeAll(async () => {
 });
 
 describe('agent tools without speech guessing', () => {
+  it('lists public vouchers without claiming basket eligibility or hiding redemption restrictions', async () => {
+    const voucher = (await db().query<{ id: number; start_time: Date; end_time: Date; current_usage: number; display_channels: number[] }>("SELECT id, start_time, end_time, current_usage, display_channels FROM vouchers WHERE shop_id = $1 AND code = 'STYLE30K'", [shopId])).rows[0]!;
+    const listed = async () => JSON.parse((await run<Result>('get_vouchers', {})).text) as Array<Record<string, unknown>>;
+    const style = (rows: Array<Record<string, unknown>>) => rows.find((row) => row.code === 'STYLE30K');
+    try {
+      expect(style(await listed())).toMatchObject({ discount_amount: 30000, min_spend: 300000, buyer_has_used: false, buyer_redemption_status: 'requires_basket_check', voucher_status: 'ongoing', per_buyer_limit: 1 });
+      expect(style(await listed())).not.toHaveProperty('eligible');
+      await db().query('UPDATE vouchers SET current_usage = usage_quantity WHERE id = $1', [voucher.id]);
+      expect(style(await listed())).toMatchObject({ fully_redeemed: true, buyer_redemption_status: 'fully_redeemed' });
+      expect(JSON.parse((await run<Result>('check_voucher', { voucher_code: 'STYLE30K' })).text)).toMatchObject({ status: 'not_redeemable', eligible: false, buyer_redemption_status: 'fully_redeemed', shortfall: null });
+      await db().query("UPDATE vouchers SET current_usage = $1, start_time = NOW() + INTERVAL '1 day', end_time = NOW() + INTERVAL '2 days' WHERE id = $2", [voucher.current_usage, voucher.id]);
+      expect(style(await listed())).toMatchObject({ voucher_status: 'upcoming', buyer_redemption_status: 'not_started' });
+      expect(JSON.parse((await run<Result>('check_voucher', { voucher_code: 'STYLE30K' })).text)).toMatchObject({ status: 'not_redeemable', eligible: false, buyer_redemption_status: 'not_started' });
+      await db().query("UPDATE vouchers SET start_time = TIMESTAMP '1999-01-01', end_time = TIMESTAMP '2000-01-01' WHERE id = $1", [voucher.id]);
+      expect(style(await listed())).toBeUndefined();
+      await db().query('UPDATE vouchers SET start_time = $1, end_time = $2, display_channels = ARRAY[3]::integer[] WHERE id = $3', [voucher.start_time, voucher.end_time, voucher.id]);
+      expect(style(await listed())).toBeUndefined();
+    } finally {
+      await db().query('UPDATE vouchers SET start_time = $1, end_time = $2, current_usage = $3, display_channels = $4 WHERE id = $5', [voucher.start_time, voucher.end_time, voucher.current_usage, voucher.display_channels, voucher.id]);
+    }
+  });
   it('evaluates one versus two black XL shirts using their actual variant price', async () => {
     const one = await run<Result>('check_voucher', { voucher_code: 'STYLE30K', lines: [{ ...tee, quantity: 1 }] });
     expect(one.success).toBe(true);
@@ -44,13 +65,17 @@ describe('agent tools without speech guessing', () => {
     const quote = await run<Result>('check_voucher', { voucher_code: 'STYLE30K' });
     expect(JSON.parse(quote.text)).toMatchObject({ scope: 'current_shop_cart', eligible: true, items_subtotal: 378000 });
     const voucher = (await db().query<{ id: number }>("SELECT id FROM vouchers WHERE shop_id = $1 AND code = 'STYLE30K'", [shopId])).rows[0]!;
-    const order = await db().query<{ order_sn: string }>("SELECT order_sn FROM orders WHERE shop_id = $1 LIMIT 1", [shopId]);
+    const order = await db().query<{ order_sn: string }>("SELECT order_sn FROM orders WHERE shop_id = $1 AND status <> 'CANCELLED' LIMIT 1", [shopId]);
     if (!order.rows[0]) throw new Error('Seeded shop order required');
     const previous = await db().query<{ buyer_id: number; voucher_id: number | null }>('SELECT buyer_id, voucher_id FROM orders WHERE order_sn = $1', [order.rows[0].order_sn]);
     try {
       await db().query('UPDATE orders SET buyer_id = $1, voucher_id = $2 WHERE order_sn = $3', [buyerId, voucher.id, order.rows[0].order_sn]);
       const used = await run<Result>('check_voucher', { voucher_code: 'STYLE30K' });
-      expect(JSON.parse(used.text)).toMatchObject({ eligible: false, discount: 0, reason: 'This buyer has already used the voucher' });
+      expect(JSON.parse(used.text)).toMatchObject({ eligible: false, discount: 0, buyer_has_used: true, buyer_redemption_status: 'already_used', reason: 'This buyer has already used the voucher' });
+      const listed = JSON.parse((await run<Result>('get_vouchers', {})).text);
+      expect(listed).toEqual(expect.arrayContaining([expect.objectContaining({ code: 'STYLE30K', discount_amount: 30000, min_spend: 300000, buyer_has_used: true, buyer_redemption_status: 'already_used', per_buyer_limit: 1 })]));
+      for (const line of (await client.cart.get()).shops.flatMap((shop) => shop.items)) await client.cart.removeItem(line.cart_item_id);
+      expect(JSON.parse((await run<Result>('check_voucher', { voucher_code: 'STYLE30K' })).text)).toMatchObject({ status: 'not_redeemable', eligible: false, buyer_redemption_status: 'already_used', shortfall: null });
     } finally {
       await db().query('UPDATE orders SET buyer_id = $1, voucher_id = $2 WHERE order_sn = $3', [previous.rows[0]!.buyer_id, previous.rows[0]!.voucher_id, order.rows[0].order_sn]);
       const cart = await client.cart.get();

@@ -7,7 +7,7 @@ import { RETURN_REASONS } from '../../domain/return.service';
 import { LogisticsService } from '../../domain/logistics.service';
 import { PAYMENT_METHODS } from '../../domain/order.service';
 import { purchaseIssue } from '../../domain/purchase-availability';
-import { VoucherService, VOUCHER_PRODUCT } from '../../domain/voucher.service';
+import { VoucherService, VOUCHER_PRODUCT, voucherRedemption } from '../../domain/voucher.service';
 import { toNumber } from '../../common/money';
 import { PrismaService } from '../../common/prisma.service';
 import { CatalogService, itemInclude, mediaUrl, modelImage, modelName, resolveModelPrice, sellableModels, tierVariations, type ItemWithRelations } from '../../domain/catalog.service';
@@ -235,7 +235,7 @@ const descriptions: Record<string, string> = {
   search_products: 'Find public products in this shop by literal words across product name, brand and persisted category names (Vietnamese or English), plus optional price range. An empty query lists the catalog (default 50, stable order); total and has_more indicate remaining pages. Results are candidates, not an automatic interpretation of speech. Try a shorter keyword or list the catalog when unsure, then clarify with the buyer.',
   get_product_details: 'Get public product details, exact tier names/options, and each variant ID, attributes, live price and stock. Use these choices to interpret the buyer request; requested_attributes must use those exact strings.',
   compare_products: 'Compare two to four public products from this shop.',
-  get_vouchers: 'List currently public, unexpired shop vouchers that this buyer has not used; eligibility rules still apply.',
+  get_vouchers: 'List this shop\'s public, unexpired vouchers, including already-used, fully-redeemed and upcoming codes, with buyer redemption status and reasons. Report that a voucher exists even when this buyer cannot use it. Listing does not establish basket eligibility; use check_voucher for an exact basket.',
   get_shipping_info: 'Get the shop shipping policy and, when a product is specified, its eligible channels and fees.',
   get_return_policy: 'Get the persisted shop return policy.',
   get_shop_faqs: 'Search enabled seller-written FAQs for this shop. Returns the FAQs sharing the most words with the query first, or every FAQ when none match.',
@@ -319,11 +319,17 @@ export class AssistantToolRegistry {
       const code = (input.voucher_code as string).toUpperCase();
       const voucher = await this.prisma.voucher.findFirst({ where: { shopId: ctx.shopId, code, displayChannels: { has: 1 } } });
       if (!voucher) return { success: false, text: 'Voucher is not publicly available in this shop. Call get_vouchers for exact available codes.' };
+      const used = await this.vouchers.alreadyUsedBy(ctx.buyerId, voucher.id);
+      const redemption = voucherRedemption(voucher, used);
       const scope = input.lines ? 'proposed_basket' : 'current_shop_cart';
       const lines = input.lines as Array<{ item_id: number; model_id: number; quantity: number }> | undefined
         ?? (await this.prisma.cartItem.findMany({ where: { userId: ctx.buyerId, model: { item: { shopId: ctx.shopId } } }, include: { model: true } }))
           .map((line) => ({ item_id: line.model.itemId, model_id: line.modelId, quantity: line.quantity }));
-      if (!lines.length) return { success: true, text: JSON.stringify({ code, scope, status: 'needs_basket', reason: 'Choose the exact variants and quantities to evaluate eligibility.' }) };
+      if (!lines.length) return { success: true, text: JSON.stringify({ code, scope, ...redemption,
+        ...(redemption.buyer_redemption_status === 'requires_basket_check'
+          ? { status: 'needs_basket', reason: 'Choose the exact variants and quantities to evaluate eligibility.' }
+          : { status: 'not_redeemable', eligible: false, discount: 0, shortfall: null, reason: redemption.buyer_redemption_reason }),
+      }) };
       const models = await this.prisma.model.findMany({
         where: { id: { in: lines.map((line) => line.model_id) }, item: { shopId: ctx.shopId, status: 'NORMAL', shop: { status: 'NORMAL' } } },
         include: { item: { include: { shop: true } }, discountModels: { include: { discount: true } } },
@@ -339,9 +345,8 @@ export class AssistantToolRegistry {
       }
       const available = basket.filter((line) => line.available);
       const evaluation = this.vouchers.assess(voucher, available.map((line) => ({ itemId: line.item_id, lineTotal: line.line_total })));
-      const used = await this.vouchers.alreadyUsedBy(ctx.buyerId, voucher.id);
       return { success: true, text: JSON.stringify({
-        code, scope, status: 'evaluated', lines: basket,
+        code, scope, status: 'evaluated', lines: basket, ...redemption,
         requested_items_subtotal: basket.reduce((sum, line) => sum + line.line_total, 0),
         items_subtotal: available.reduce((sum, line) => sum + line.line_total, 0),
         eligible_subtotal: evaluation.eligibleSubtotal, min_spend: toNumber(voucher.minBasketPrice),
@@ -671,7 +676,8 @@ export class AssistantToolRegistry {
     }
     const now = new Date();
     const vouchers = await this.prisma.voucher.findMany({
-      where: { shopId: ctx.shopId, startTime: { lte: now }, endTime: { gt: now }, displayChannels: { has: 1 } },
+      where: { shopId: ctx.shopId, endTime: { gt: now }, displayChannels: { has: 1 } },
+      orderBy: [{ startTime: 'asc' }, { id: 'asc' }],
       select: {
         id: true,
         code: true,
@@ -685,6 +691,7 @@ export class AssistantToolRegistry {
         usageQuantity: true,
         currentUsage: true,
         itemIds: true,
+        startTime: true,
         endTime: true,
       },
     });
@@ -693,9 +700,7 @@ export class AssistantToolRegistry {
       select: { voucherId: true },
     });
     const usedIds = new Set(used.map((order) => order.voucherId));
-    const visible = vouchers
-      .filter((v) => v.currentUsage < v.usageQuantity && !usedIds.has(v.id))
-      .map((v) => ({
+    const visible = vouchers.map((v) => ({
         code: v.code,
         name: v.name,
         voucher_type: v.voucherType,
@@ -705,7 +710,9 @@ export class AssistantToolRegistry {
         max_discount: v.maxPrice === null ? null : toNumber(v.maxPrice),
         min_spend: toNumber(v.minBasketPrice),
         item_ids: v.itemIds,
+        start_time: Math.floor(v.startTime.getTime() / 1000),
         end_time: Math.floor(v.endTime.getTime() / 1000),
+        ...voucherRedemption(v, usedIds.has(v.id), now),
       }));
     return { success: true, text: JSON.stringify(visible) };
   }

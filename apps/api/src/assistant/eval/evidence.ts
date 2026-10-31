@@ -107,6 +107,7 @@ export function indexEvidence(tools: ToolRecord[], facts: Fact[]): Evidence[] {
         const entity = String(row.code ?? "");
         const aliases = [entity, String(row.name ?? "")].filter(Boolean);
         add("voucher_code", entity, row.code, { aliases });
+        add("voucher_redemption_status", entity, row.buyer_redemption_status, { aliases });
         add("discount", entity, row.discount_amount, { aliases });
         add("discount", entity, row.percentage, { aliases });
         add("discount", entity, row.max_discount, {

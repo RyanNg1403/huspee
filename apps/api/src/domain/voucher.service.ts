@@ -20,6 +20,32 @@ export function voucherState(v: Pick<Voucher, 'startTime' | 'endTime'>, at = new
   return 'ongoing';
 }
 
+/** Public existence and buyer redemption restrictions are separate from basket eligibility. */
+export function voucherRedemption(v: Pick<Voucher, 'startTime' | 'endTime' | 'currentUsage' | 'usageQuantity'>, buyerHasUsed: boolean, at = new Date()) {
+  const state = voucherState(v, at);
+  const fullyRedeemed = v.currentUsage >= v.usageQuantity;
+  const status = buyerHasUsed ? 'already_used' as const
+    : state === 'expired' ? 'expired' as const
+    : state === 'upcoming' ? 'not_started' as const
+    : fullyRedeemed ? 'fully_redeemed' as const
+    : 'requires_basket_check' as const;
+  const reasons = {
+    already_used: 'This buyer has already used the voucher (one use per buyer).',
+    expired: 'The voucher has expired.',
+    not_started: 'The voucher has not started yet.',
+    fully_redeemed: 'The voucher has been fully redeemed.',
+    requires_basket_check: 'Check the exact basket against the voucher coverage and minimum spend before claiming eligibility.',
+  };
+  return {
+    voucher_status: state,
+    buyer_has_used: buyerHasUsed,
+    fully_redeemed: fullyRedeemed,
+    per_buyer_limit: 1,
+    buyer_redemption_status: status,
+    buyer_redemption_reason: reasons[status],
+  };
+}
+
 export interface VoucherLine {
   itemId: number;
   lineTotal: number;
