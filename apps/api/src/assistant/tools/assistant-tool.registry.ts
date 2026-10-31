@@ -1,4 +1,4 @@
-import { closestProducts, distance, matchProducts, resolveVoucher, spokenNumber, words } from './speech-resolution';
+import { closestProducts, distance, matchProducts, rankFaqs, resolveVoucher, spokenNumber, words } from './speech-resolution';
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
@@ -240,13 +240,13 @@ const definitions = {
 } as const;
 const descriptions: Record<string, string> = {
   get_viewed_product: 'Read the product the buyer is currently viewing in this shop, with fresh details and a product card. Check every time the buyer refers to this product, this item or the product on screen; the buyer may navigate between turns. Returns no product when they leave its page.',
-  search_products: 'Find public products in this shop by query and optional price range; an empty query lists everything the shop sells.',
+  search_products: 'Find public products in this shop by name, brand or category (Vietnamese or English) and optional price range; an empty query lists everything the shop sells.',
   get_product_details: 'Get verified public product details and available variants for this shop.',
   compare_products: 'Compare two to four public products from this shop.',
   get_vouchers: 'List currently public, unexpired shop vouchers that this buyer has not used; eligibility rules still apply.',
   get_shipping_info: 'Get the shop shipping policy and, when a product is specified, its eligible channels and fees.',
   get_return_policy: 'Get the persisted shop return policy.',
-  get_shop_faqs: 'Search enabled seller-written FAQs for this shop.',
+  get_shop_faqs: 'Search enabled seller-written FAQs for this shop. Returns the FAQs sharing the most words with the query first, or every FAQ when none match.',
   get_cart: 'Get this buyer’s cart for this shop with calculated totals.',
   get_order_status: 'Get this buyer’s own order with its items and tracking for this shop, or the latest five orders. Use the item and model ids from here for open_return.',
   add_to_cart: 'Prepare a cart addition and read its exact summary aloud. Ask for spoken confirmation before calling confirm_action.',
@@ -484,8 +484,10 @@ export class AssistantToolRegistry {
         include: itemInclude,
       });
       if (name === 'search_products') {
-        const matches = (input.query as string).trim() ? matchProducts(input.query as string, items) : items.slice();
-        const nearest = matches.length ? [] : closestProducts(input.query as string, items);
+        // Buyers also name a product by its brand or category, in Vietnamese or English ("Anker charger").
+        const searchable = items.map((item) => ({ item, name: item.name, brand: item.brand?.name, category: item.category.name, categoryVi: item.category.displayName }));
+        const matches = (input.query as string).trim() ? matchProducts(input.query as string, searchable).map(({ item }) => item) : items.slice();
+        const nearest = matches.length ? [] : closestProducts(input.query as string, searchable).map(({ item }) => item);
         closest = nearest.length > 0;
         items.splice(0, items.length, ...(matches.length ? matches : nearest));
       }
@@ -605,21 +607,11 @@ export class AssistantToolRegistry {
     }
     if (name === 'get_shop_faqs') {
       const faqs = await this.prisma.assistantFaq.findMany({
-        where: {
-          shopId: ctx.shopId,
-          enabled: true,
-          ...(input.query
-            ? {
-                OR: [
-                  { question: { contains: input.query as string, mode: 'insensitive' } },
-                  { answer: { contains: input.query as string, mode: 'insensitive' } },
-                ],
-              }
-            : {}),
-        },
+        where: { shopId: ctx.shopId, enabled: true },
         select: { question: true, answer: true, lang: true },
+        orderBy: { id: 'asc' },
       });
-      return { success: true, text: JSON.stringify(faqs) };
+      return { success: true, text: JSON.stringify(input.query ? rankFaqs(input.query as string, faqs) : faqs) };
     }
     if (name === 'get_return_policy' || name === 'get_shipping_info') {
       const product = input.item_id

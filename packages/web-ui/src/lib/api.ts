@@ -1,14 +1,15 @@
 import { HuspeeApiError, HuspeeClient } from '@huspee/sdk';
-let client: HuspeeClient | undefined;
+// Each app sets its surface at build time (seller-web: next.config `env`), so server and browser agree.
+const surface = process.env.NEXT_PUBLIC_HUSPEE_SURFACE === 'seller' ? 'seller' : undefined;
+let browserClient: HuspeeClient | undefined;
+/** Browsers call their own app origin; server renders get a fresh client so no state is shared. */
 export function getApiClient() {
-  return (client ??= new HuspeeClient({
-    baseUrl: typeof window === 'undefined' ? 'http://localhost:3001' : window.location.origin,
-    // The app's server layout declares its surface before any client component runs.
-    surface:
-      typeof document !== 'undefined' && document.documentElement.dataset.huspeeSurface === 'seller'
-        ? 'seller'
-        : undefined,
-  }));
+  if (typeof window === 'undefined')
+    return new HuspeeClient({
+      baseUrl: process.env.API_INTERNAL_URL || 'http://127.0.0.1:3000',
+      surface,
+    });
+  return (browserClient ??= new HuspeeClient({ baseUrl: window.location.origin, surface }));
 }
 export function isApiError(e: unknown): e is HuspeeApiError {
   return e instanceof HuspeeApiError;

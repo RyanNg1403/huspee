@@ -6,7 +6,7 @@ import { randomToken, sha256Hex } from '../common/crypto';
 import { PrismaService } from '../common/prisma.service';
 import { addSeconds } from '../common/time';
 
-import { requestSurface, sessionCookie, type SessionSurface } from './session-surface';
+import { dbSurface, requestSurface, sessionCookie, type SessionSurface } from './session-surface';
 
 @Injectable()
 export class SessionService {
@@ -16,7 +16,7 @@ export class SessionService {
     const cfg = loadConfig();
     const token = randomToken(32);
     const expiresAt = addSeconds(new Date(), cfg.SESSION_TTL_SECONDS);
-    await this.prisma.webSession.create({ data: { id: sha256Hex(token), userId, expiresAt, surface: surface === 'seller' ? 'SELLER' : 'BUYER' } });
+    await this.prisma.webSession.create({ data: { id: sha256Hex(token), userId, expiresAt, surface: dbSurface(surface) } });
     res.cookie(sessionCookie(surface), token, {
       httpOnly: true,
       secure: cfg.COOKIE_SECURE,
@@ -30,7 +30,7 @@ export class SessionService {
     const token = req.cookies?.[sessionCookie(surface)];
     if (typeof token !== 'string' || token.length === 0) return null;
     const session = await this.prisma.webSession.findUnique({ where: { id: sha256Hex(token) }, include: { user: true } });
-    if (!session || session.surface !== (surface === 'seller' ? 'SELLER' : 'BUYER') || session.revokedAt || session.expiresAt <= new Date()) return null;
+    if (!session || session.surface !== dbSurface(surface) || session.revokedAt || session.expiresAt <= new Date()) return null;
     return session.user;
   }
 
@@ -46,7 +46,7 @@ export class SessionService {
   async destroy(req: Request, res: Response, surface: SessionSurface = requestSurface(req)): Promise<void> {
     const token = req.cookies?.[sessionCookie(surface)];
     if (typeof token === 'string' && token.length > 0) {
-      await this.prisma.webSession.updateMany({ where: { id: sha256Hex(token), surface: surface === 'seller' ? 'SELLER' : 'BUYER', revokedAt: null }, data: { revokedAt: new Date() } });
+      await this.prisma.webSession.updateMany({ where: { id: sha256Hex(token), surface: dbSurface(surface), revokedAt: null }, data: { revokedAt: new Date() } });
     }
     res.clearCookie(sessionCookie(surface), { path: '/', httpOnly: true, secure: loadConfig().COOKIE_SECURE, sameSite: 'lax' });
   }

@@ -66,26 +66,127 @@ export function resolveVoucher(heard: string, codes: string[]): { resolution?: R
   if (best.length !== 1) return { candidates: best.map(({ code }) => code) };
   return { candidates: [], resolution: { resolved_from: heard, resolved_to: best[0]!.code, confidence: 1 - best[0]!.d / Math.max(normalized.length, voucherForm(best[0]!.code).length) } };
 }
-function tokenMatches(token: string, target: string[]): boolean {
-  return target.some((word) => word === token || (token.length >= 4 && distance(token, word) <= Math.min(2, Math.floor(token.length / 4))));
+function tokenMatches(token: string, target: string[], misheard = true): boolean {
+  return target.some(
+    (word) =>
+      word === token ||
+      // Plural and longer forms: "charger" finds "chargers", "dresses" finds "dress".
+      (Math.min(token.length, word.length) >= 4 && (word.startsWith(token) || token.startsWith(word))) ||
+      (misheard && token.length >= 4 && distance(token, word) <= Math.min(2, Math.floor(token.length / 4))),
+  );
 }
-export function matchProducts<T extends { name: string }>(heard: string, products: T[]): T[] {
+const split = (value: string | null | undefined): string[] => (value ? words(value).split(' ').filter(Boolean) : []);
+/**
+ * Everyday names buyers use for the platform's categories that the category names leave out, keyed by
+ * the English name of the category (or of one kind in a category such as "Mice & Keyboards").
+ */
+const CATEGORY_ALIASES: Record<string, string[]> = {
+  Laptops: ['máy tính xách tay', 'máy tính', 'notebook', 'computer'],
+  'Mobile Phones': ['điện thoại di động', 'smartphone'],
+  Headphones: ['earbuds', 'earphones', 'headset'],
+  Chargers: ['cục sạc', 'adapter'],
+  Cables: ['dây sạc', 'dây cáp'],
+  Mice: ['mouse'],
+  Wearables: ['smartwatch'],
+  Storage: ['ổ cứng'],
+  'T-Shirts': ['áo phông', 'tee'],
+  Jeans: ['quần bò', 'denim'],
+  Outerwear: ['jacket'],
+  Dresses: ['váy'],
+  Kitchenware: ['đồ dùng nhà bếp', 'cookware'],
+  Lighting: ['lamp'],
+};
+const VIETNAMESE = /[àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]/i;
+/** The word a category phrase is named by: first in Vietnamese ("Phụ kiện máy tính"), last in English ("Computer Accessories"). */
+function head(phrase: string): string {
+  const parts = split(phrase);
+  return (VIETNAMESE.test(phrase) ? parts[0] : parts.at(-1)) ?? '';
+}
+/** The phrases whose head word the query names, as words: "máy tính" does not find "Phụ kiện máy tính". */
+function namedPhrases(phrases: string[], tokens: string[]): string[] {
+  return phrases.filter((phrase) => tokens.some((token) => tokenMatches(token, [head(phrase)], false))).flatMap(split);
+}
+/** A product as search sees it: its name and brand, and its category in English and Vietnamese. */
+export interface SearchableProduct {
+  name: string;
+  brand?: string | null;
+  category?: string;
+  categoryVi?: string;
+}
+/**
+ * Which kind of a two-kind category ("Sạc & Cáp") the product is: the one its name mentions first ("Cáp
+ * USB-C … sạc 100W" is a cable), or the only one whose head word it contains; -1 when unclear.
+ */
+function kindOf(own: string[], kinds: string[]): number {
+  if (kinds.length < 2) return 0;
+  const text = ` ${own.join(' ')} `;
+  const mentioned = kinds
+    .map((kind, index) => ({ index, at: text.indexOf(` ${split(kind).join(' ')} `) }))
+    .filter(({ at }) => at >= 0)
+    .sort((a, b) => a.at - b.at);
+  if (mentioned.length) return mentioned[0]!.index;
+  const heads = kinds.map((kind, index) => ({ index, word: head(kind) })).filter(({ word }) => word && own.includes(word));
+  return heads.length === 1 ? heads[0]!.index : -1;
+}
+/**
+ * Name and brand words tolerate misheard spelling; category words must match as written, since short
+ * Vietnamese syllables are one letter apart ("chảo" and "chăm"), and only from a category phrase whose
+ * head word the query names. A category such as "Chargers & Cables" / "Sạc & Cáp" covers two kinds of
+ * product, so only the product's own kind finds it; the other kind only suggests it, as does one brand
+ * or English category word alone.
+ */
+function productWords({ name, brand, category, categoryVi }: SearchableProduct, tokens: string[]) {
+  const own = split(`${name} ${brand ?? ''}`);
+  const en = (category ?? '').split('&').filter((part) => part.trim());
+  const vi = (categoryVi ?? '').split('&').filter((part) => part.trim());
+  const kind = kindOf(own, vi.length > 1 ? vi : en);
+  const enOf = (index: number) => (en.length > 1 ? en[index] : en[0]) ?? '';
+  const aliases = (part: string) => CATEGORY_ALIASES[part.trim()] ?? [];
+  const phrases = kind < 0 ? [] : [enOf(kind), vi.length > 1 ? (vi[kind] ?? '') : (vi[0] ?? ''), ...aliases(enOf(kind))];
+  return {
+    own,
+    category: namedPhrases(phrases, tokens),
+    related: namedPhrases([...en, ...vi, ...en.flatMap(aliases)], tokens),
+    named: split(`${brand ?? ''} ${category ?? ''}`),
+  };
+}
+export function matchProducts<T extends SearchableProduct>(heard: string, products: T[]): T[] {
   const query = words(heard);
   if (!query) return [];
   const tokens = query.split(' ');
-  return products.filter(({ name }) => tokens.every((token) => tokenMatches(token, words(name).split(' '))));
+  return products.filter((product) => {
+    const { own, category } = productWords(product, tokens);
+    return tokens.every((token) => tokenMatches(token, own) || tokenMatches(token, category, false));
+  });
 }
 /**
- * Fallback when speech recognition garbles part of a name ("Xiaomi ZP4N5"): the products sharing the
- * most query words, if they share at least two and at least half. The buyer is asked to confirm.
+ * Fallback when speech recognition garbles part of a name ("Xiaomi ZP4N5") or the buyer uses a word the
+ * catalog lacks ("Logitech mouse"): the products sharing the most query words, if they share at least
+ * two and at least half, or one brand or English category word. The buyer is asked to confirm.
  */
-export function closestProducts<T extends { name: string }>(heard: string, products: T[]): T[] {
+export function closestProducts<T extends SearchableProduct>(heard: string, products: T[]): T[] {
   const tokens = words(heard).split(' ').filter((token) => token.length > 1);
   const scored = products.map((product) => {
-    const target = words(product.name).split(' ');
-    return { product, score: tokens.filter((token) => tokenMatches(token, target)).length };
+    const { own, related, named } = productWords(product, tokens);
+    const shared = tokens.filter((token) => tokenMatches(token, own) || tokenMatches(token, related, false));
+    return { product, score: shared.length, named: shared.some((token) => token.length >= 4 && tokenMatches(token, named, false)) };
   });
   const best = Math.max(0, ...scored.map(({ score }) => score));
-  if (best < 2 || best * 2 < tokens.length) return [];
-  return scored.filter(({ score }) => score === best).map(({ product }) => product);
+  const top = scored.filter(({ score }) => score === best);
+  if (best === 0 || (best === 1 ? !top.every(({ named }) => named) : best * 2 < tokens.length)) return [];
+  return top.map(({ product }) => product);
+}
+/**
+ * Seller FAQs for a question, the ones sharing the most words first ("bảo hành sạc Anker" finds
+ * "Chính sách bảo hành là gì?"). Shops keep few FAQs, so when none match all are returned for the
+ * model to choose from: an empty list would make it tell the buyer the shop has no answer.
+ */
+export function rankFaqs<T extends { question: string; answer: string }>(heard: string, faqs: T[]): T[] {
+  const tokens = [...new Set(words(heard).split(' ').filter((token) => token.length > 1))];
+  const scored = faqs.map((faq) => {
+    const target = words(`${faq.question} ${faq.answer}`).split(' ');
+    return { faq, score: tokens.filter((token) => tokenMatches(token, target)).length };
+  });
+  if (!scored.some(({ score }) => score > 0)) return faqs;
+  return scored.filter(({ score }) => score > 0).sort((a, b) => b.score - a.score).map(({ faq }) => faq);
 }

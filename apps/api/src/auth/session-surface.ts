@@ -1,3 +1,4 @@
+import type { WebSessionSurface } from '@prisma/client';
 import type { Request } from 'express';
 import { DomainError } from '../common/errors';
 
@@ -7,6 +8,10 @@ export const SELLER_SESSION_COOKIE = 'huspee_seller_sid';
 
 export function sessionCookie(surface: SessionSurface): string {
   return surface === 'seller' ? SELLER_SESSION_COOKIE : SESSION_COOKIE;
+}
+
+export function dbSurface(surface: SessionSurface): WebSessionSurface {
+  return surface === 'seller' ? 'SELLER' : 'BUYER';
 }
 
 /** Absence preserves the original Phase 1 browser/SDK contract. */

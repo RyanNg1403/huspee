@@ -10,10 +10,12 @@ const browser = await chromium.launch({
 let checks = 0;
 function check(condition, message) { assert.ok(condition, message); checks++; console.log(`PASS ${message}`); }
 async function identity(page) {
-  return page.evaluate(async () => {
-    const response = await fetch('/api/v1/auth/me', { headers: document.documentElement.dataset.huspeeSurface === 'seller' ? { 'X-Huspee-Surface': 'seller' } : {} });
+  // Seller Centre pages send the seller surface header, as the app's API client does.
+  const headers = new URL(page.url()).origin === new URL(SELLER_URL).origin ? { 'X-Huspee-Surface': 'seller' } : {};
+  return page.evaluate(async (headers) => {
+    const response = await fetch('/api/v1/auth/me', { headers });
     return { status: response.status, body: await response.json() };
-  });
+  }, headers);
 }
 async function login(page, url, email) {
   await page.goto(`${url}/login`, { waitUntil: 'networkidle' });
