@@ -1,10 +1,11 @@
 import { Suspense } from 'react';
-import { AuthForm } from '@huspee/web-ui/components/session/AuthForm';
 import { Spinner } from '@huspee/web-ui/components/ui';
+import { SellerAuthForm } from '../_components/SellerAuthForm';
+
 export default function Login() {
   return (
     <Suspense fallback={<Spinner />}>
-      <AuthForm seller />
+      <SellerAuthForm mode="login" />
     </Suspense>
   );
 }

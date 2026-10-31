@@ -60,6 +60,8 @@ try {
   check(new URL(buyer.url()).pathname === '/cart', 'buyer cart remains accessible');
   const blocked = await seller.evaluate(async () => (await fetch('/api/v1/cart', { headers: { 'X-Huspee-Surface': 'seller' } })).status);
   check(blocked === 403, 'backend blocks buyer cart for seller surface');
+  // Sign-out lives in the account menu of the Seller Centre header.
+  await seller.getByRole('button', { name: /^(Tài khoản|Account):/ }).click();
   await seller.getByRole('button', { name: /Đăng xuất|Log out|Logout/ }).click();
   await seller.waitForURL((url) => url.pathname === '/login');
   await buyer.reload({ waitUntil: 'networkidle' });
