@@ -3,6 +3,8 @@
  * IDs and timestamps are fixed so every reset reproduces the same demonstration state.
  */
 
+import { EXPANDED_ITEMS } from './seed-expanded';
+
 export const SEED_BASE_TIME = new Date('2026-10-01T02:00:00.000Z');
 export const DEMO_PASSWORD = 'Password123!';
 
@@ -28,10 +30,31 @@ export const CATEGORIES = [
   { id: 100004, parentId: null, name: "Men's Fashion", displayName: 'Thời Trang Nam', sortOrder: 4 },
   { id: 100040, parentId: 100004, name: 'T-Shirts', displayName: 'Áo thun', sortOrder: 1 },
   { id: 100041, parentId: 100004, name: 'Jeans', displayName: 'Quần jeans', sortOrder: 2 },
+  { id: 100042, parentId: 100004, name: 'Shirts', displayName: 'Áo sơ mi', sortOrder: 3 },
+  { id: 100043, parentId: 100004, name: 'Bags', displayName: 'Túi & phụ kiện', sortOrder: 4 },
   { id: 100005, parentId: null, name: "Women's Fashion", displayName: 'Thời Trang Nữ', sortOrder: 5 },
   { id: 100050, parentId: 100005, name: 'Dresses', displayName: 'Đầm', sortOrder: 1 },
+  { id: 100051, parentId: 100005, name: 'Cardigans', displayName: 'Áo khoác cardigan', sortOrder: 2 },
   { id: 100006, parentId: null, name: 'Home & Living', displayName: 'Nhà Cửa & Đời Sống', sortOrder: 6 },
   { id: 100060, parentId: 100006, name: 'Kitchenware', displayName: 'Dụng cụ nhà bếp', sortOrder: 1 },
+  { id: 100061, parentId: 100006, name: 'Drinkware', displayName: 'Bình & ly uống nước', sortOrder: 2 },
+  { id: 100062, parentId: 100006, name: 'Home Textiles', displayName: 'Đồ vải gia đình', sortOrder: 3 },
+  { id: 100063, parentId: 100006, name: 'Lighting', displayName: 'Đèn trang trí', sortOrder: 4 },
+  {"id":100013,"parentId":100001,"name":"Speakers","displayName":"Loa","sortOrder":4},
+  {"id":100014,"parentId":100001,"name":"Wearables","displayName":"Thiết bị đeo","sortOrder":5},
+  {"id":100022,"parentId":100002,"name":"Computer Accessories","displayName":"Phụ kiện máy tính","sortOrder":3},
+  {"id":100023,"parentId":100002,"name":"Storage","displayName":"Thiết bị lưu trữ","sortOrder":4},
+  {"id":100024,"parentId":100002,"name":"Tablets","displayName":"Máy tính bảng","sortOrder":5},
+  {"id":100032,"parentId":100003,"name":"Body Care","displayName":"Chăm sóc cơ thể","sortOrder":3},
+  {"id":100033,"parentId":100003,"name":"Hair Care","displayName":"Chăm sóc tóc","sortOrder":4},
+  {"id":100034,"parentId":100003,"name":"Beauty Tools","displayName":"Dụng cụ làm đẹp","sortOrder":5},
+  {"id":100044,"parentId":100004,"name":"Trousers & Shorts","displayName":"Quần dài & quần short","sortOrder":5},
+  {"id":100045,"parentId":100004,"name":"Outerwear","displayName":"Áo khoác","sortOrder":6},
+  {"id":100046,"parentId":100004,"name":"Accessories","displayName":"Phụ kiện thời trang","sortOrder":7},
+  {"id":100052,"parentId":100005,"name":"Tops","displayName":"Áo nữ","sortOrder":3},
+  {"id":100053,"parentId":100005,"name":"Bottoms","displayName":"Quần & chân váy","sortOrder":4},
+  {"id":100064,"parentId":100006,"name":"Storage & Organization","displayName":"Lưu trữ & sắp xếp","sortOrder":5},
+  {"id":100065,"parentId":100006,"name":"Home Decor","displayName":"Trang trí nhà cửa","sortOrder":6},
 ] as const;
 
 const v = (value_id: number, name: string, display_name = name) => ({ value_id, name, display_name });
@@ -49,8 +72,14 @@ export const ATTRIBUTES = [
   { id: 200311, categoryId: 100031, name: 'Finish', displayName: 'Hiệu ứng', isMandatory: false, values: [v(1, 'Matte', 'Lì'), v(2, 'Glossy', 'Bóng')] },
   { id: 200401, categoryId: 100040, name: 'Material', displayName: 'Chất liệu', isMandatory: true, values: [v(1, 'Cotton'), v(2, 'Polyester'), v(3, 'Linen', 'Vải lanh')] },
   { id: 200411, categoryId: 100041, name: 'Material', displayName: 'Chất liệu', isMandatory: true, values: [v(1, 'Denim')] },
+  { id: 200421, categoryId: 100042, name: 'Material', displayName: 'Chất liệu', isMandatory: true, values: [v(1, 'Linen', 'Vải lanh'), v(2, 'Cotton')] },
+  { id: 200431, categoryId: 100043, name: 'Material', displayName: 'Chất liệu', isMandatory: true, values: [v(1, 'Canvas', 'Vải canvas')] },
   { id: 200501, categoryId: 100050, name: 'Material', displayName: 'Chất liệu', isMandatory: true, values: [v(1, 'Silk', 'Lụa'), v(2, 'Linen', 'Vải lanh'), v(3, 'Chiffon', 'Voan')] },
-  { id: 200601, categoryId: 100060, name: 'Material', displayName: 'Chất liệu', isMandatory: false, values: [v(1, 'Stainless Steel', 'Thép không gỉ'), v(2, 'Glass', 'Thủy tinh'), v(3, 'Plastic', 'Nhựa')] },
+  { id: 200511, categoryId: 100051, name: 'Material', displayName: 'Chất liệu', isMandatory: true, values: [v(1, 'Cotton knit', 'Cotton dệt kim')] },
+  { id: 200601, categoryId: 100060, name: 'Material', displayName: 'Chất liệu', isMandatory: false, values: [v(1, 'Stainless Steel', 'Thép không gỉ'), v(2, 'Glass', 'Thủy tinh'), v(3, 'Plastic', 'Nhựa'), v(4, 'Ceramic', 'Gốm sứ')] },
+  { id: 200611, categoryId: 100061, name: 'Material', displayName: 'Chất liệu', isMandatory: true, values: [v(1, 'Stainless Steel', 'Thép không gỉ'), v(2, 'Glass', 'Thủy tinh')] },
+  { id: 200621, categoryId: 100062, name: 'Material', displayName: 'Chất liệu', isMandatory: true, values: [v(1, 'Cotton')] },
+  { id: 200631, categoryId: 100063, name: 'Light Source', displayName: 'Nguồn sáng', isMandatory: true, values: [v(1, 'LED')] },
 ];
 
 export const BRANDS = [
@@ -288,6 +317,24 @@ export const ITEMS: SeedItem[] = [
       { id: 3000234, tierIndex: [3], sku: 'GU-MB-220', price: 259000, stock: 33 },
     ],
   },
+  {
+    id: 2000205, shopId: 880002, categoryId: 100030, brandId: null, name: 'Kem chống nắng GlowUp Daily SPF50+ PA++++', short: 'GlowUp Daily SPF50+',
+    description: 'Kem chống nắng dùng hằng ngày, kết cấu nhẹ, lớp nền tự nhiên. Thoa lại sau khi lau mặt hoặc tiếp xúc với nước; có hai dung tích để lựa chọn.', sku: 'GU-SUN-DAILY',
+    weightKg: 0.12, sales: 680, views: 7400, likes: 530, attributes: [attr(200301, 1), attr(200302, 1)],
+    tiers: [{ name: 'Dung tích', options: ['50ml', '80ml'] }],
+    models: [
+      { id: 3000241, tierIndex: [0], sku: 'GU-SUN-50', price: 219000, stock: 85, promo: 199000 },
+      { id: 3000242, tierIndex: [1], sku: 'GU-SUN-80', price: 299000, stock: 25 },
+    ],
+    collections: ['Chăm sóc da', 'Chăm sóc hằng ngày'],
+  },
+  {
+    id: 2000206, shopId: 880002, categoryId: 100031, brandId: null, name: 'Bộ cọ trang điểm GlowUp Essential 5 món', short: 'Bộ cọ Essential',
+    description: 'Bộ 5 cọ gồm cọ phấn phủ, cọ má, cọ nền và hai cọ mắt. Lông cọ sợi tổng hợp mềm, cán gỗ phủ màu kem; kèm túi vải đựng cọ.', sku: 'GU-BRUSH-5',
+    weightKg: 0.2, sales: 430, views: 5200, likes: 390, attributes: [],
+    models: [{ id: 3000251, tierIndex: [], sku: 'GU-BRUSH-5', price: 159000, stock: 70 }],
+    collections: ['Trang điểm mỗi ngày'],
+  },
   // ----- Saigon Style -----
   {
     id: 2000301, shopId: 880003, categoryId: 100040, brandId: 3011, name: 'Áo thun nam Cotton Compact Coolmate', short: 'Áo thun Cotton',
@@ -331,6 +378,45 @@ export const ITEMS: SeedItem[] = [
     ],
     collections: ['Bộ sưu tập Thu'],
   },
+  {
+    id: 2000304, shopId: 880003, categoryId: 100042, brandId: null, name: 'Áo sơ mi nam linen Saigon Style tay ngắn', short: 'Sơ mi linen',
+    description: 'Áo sơ mi cổ mở, tay ngắn, chất linen thoáng nhẹ. Form relaxed, đường may gọn; có màu be và xanh sage.', sku: 'SS-LINEN-SHIRT',
+    weightKg: 0.28, sales: 570, views: 8400, likes: 690, attributes: [attr(200421, 1)],
+    tiers: [{ name: 'Màu sắc', options: ['Be', 'Xanh sage'] }, { name: 'Size', options: ['M', 'L', 'XL'] }],
+    models: [
+      { id: 3000331, tierIndex: [0, 0], sku: 'SS-LINEN-BE-M', price: 329000, stock: 28 },
+      { id: 3000332, tierIndex: [0, 1], sku: 'SS-LINEN-BE-L', price: 329000, stock: 32 },
+      { id: 3000333, tierIndex: [0, 2], sku: 'SS-LINEN-BE-XL', price: 329000, stock: 12 },
+      { id: 3000334, tierIndex: [1, 0], sku: 'SS-LINEN-SG-M', price: 329000, stock: 18 },
+      { id: 3000335, tierIndex: [1, 1], sku: 'SS-LINEN-SG-L', price: 329000, stock: 16 },
+      { id: 3000336, tierIndex: [1, 2], sku: 'SS-LINEN-SG-XL', price: 329000, stock: 0 },
+    ],
+    collections: ['Basic hằng ngày'],
+  },
+  {
+    id: 2000305, shopId: 880003, categoryId: 100043, brandId: null, name: 'Túi tote canvas Saigon Style có khóa kéo', short: 'Tote canvas',
+    description: 'Túi canvas dày có khóa kéo miệng túi, quai đeo vai và một ngăn nhỏ bên trong. Kích thước 36 × 32 × 10cm, phù hợp mang đồ dùng đi học hoặc đi làm.', sku: 'SS-TOTE-CV',
+    weightKg: 0.35, sales: 820, views: 9900, likes: 770, attributes: [attr(200431, 1)],
+    tiers: [{ name: 'Màu sắc', options: ['Kem', 'Đen'] }],
+    models: [
+      { id: 3000341, tierIndex: [0], sku: 'SS-TOTE-CREAM', price: 169000, stock: 55 },
+      { id: 3000342, tierIndex: [1], sku: 'SS-TOTE-BLACK', price: 169000, stock: 38 },
+    ],
+    collections: ['Phụ kiện đi phố'],
+  },
+  {
+    id: 2000306, shopId: 880003, categoryId: 100051, brandId: null, name: 'Áo cardigan nữ cotton dệt kim Saigon Style', short: 'Cardigan cotton',
+    description: 'Cardigan cổ tròn cài nút, cotton dệt kim mềm nhẹ, phù hợp khoác ngoài khi đi làm. Màu kem và xanh sage; hai size S/M và L/XL.', sku: 'SS-CARDIGAN',
+    weightKg: 0.4, sales: 360, views: 6100, likes: 420, attributes: [attr(200511, 1)],
+    tiers: [{ name: 'Màu sắc', options: ['Kem', 'Xanh sage'] }, { name: 'Size', options: ['S/M', 'L/XL'] }],
+    models: [
+      { id: 3000351, tierIndex: [0, 0], sku: 'SS-CARD-CREAM-SM', price: 389000, stock: 22, promo: 349000 },
+      { id: 3000352, tierIndex: [0, 1], sku: 'SS-CARD-CREAM-LX', price: 389000, stock: 19 },
+      { id: 3000353, tierIndex: [1, 0], sku: 'SS-CARD-SAGE-SM', price: 389000, stock: 15 },
+      { id: 3000354, tierIndex: [1, 1], sku: 'SS-CARD-SAGE-LX', price: 389000, stock: 9 },
+    ],
+    collections: ['Bộ sưu tập Thu'],
+  },
   // ----- Nhà Xinh Home -----
   {
     id: 2000401, shopId: 880004, categoryId: 100060, brandId: 3013, name: 'Bộ 3 hộp thủy tinh Lock&Lock chịu nhiệt', short: 'Hộp Lock&Lock',
@@ -349,6 +435,48 @@ export const ITEMS: SeedItem[] = [
       { id: 3000413, tierIndex: [2], sku: 'NX-SH-28', price: 279000, stock: 16 },
     ],
   },
+  {
+    id: 2000403, shopId: 880004, categoryId: 100061, brandId: null, name: 'Bình giữ nhiệt inox Nhà Xinh 500ml', short: 'Bình giữ nhiệt 500ml',
+    description: 'Bình inox hai lớp, nắp vặn kín với gioăng silicone, dung tích 500ml. Miệng rộng dễ vệ sinh, thân sơn nhám; không dùng trong lò vi sóng.', sku: 'NX-BOTTLE-500',
+    weightKg: 0.4, sales: 640, views: 8700, likes: 610, attributes: [attr(200611, 1)],
+    tiers: [{ name: 'Màu sắc', options: ['Kem', 'Xanh sage', 'Đen'] }],
+    models: [
+      { id: 3000421, tierIndex: [0], sku: 'NX-BTL-CREAM', price: 249000, stock: 48 },
+      { id: 3000422, tierIndex: [1], sku: 'NX-BTL-SAGE', price: 249000, stock: 34 },
+      { id: 3000423, tierIndex: [2], sku: 'NX-BTL-BLACK', price: 249000, stock: 7 },
+    ],
+    collections: ['Góc sống xanh'],
+  },
+  {
+    id: 2000404, shopId: 880004, categoryId: 100060, brandId: null, name: 'Bộ bát đĩa gốm men mờ Nhà Xinh 4 món', short: 'Bộ gốm men mờ',
+    description: 'Bộ gồm hai đĩa và hai bát bằng gốm sứ phủ men mờ màu kem. Dùng được trong máy rửa bát và lò vi sóng; tránh thay đổi nhiệt độ đột ngột.', sku: 'NX-CERAMIC-4',
+    weightKg: 2.1, sales: 290, views: 4600, likes: 380, attributes: [attr(200601, 4)],
+    models: [{ id: 3000431, tierIndex: [], sku: 'NX-CERAMIC-CREAM', price: 389000, stock: 24, promo: 359000 }],
+    collections: ['Bếp gọn đẹp'],
+  },
+  {
+    id: 2000405, shopId: 880004, categoryId: 100062, brandId: null, name: 'Bộ 2 khăn tắm cotton Nhà Xinh 70 × 140cm', short: 'Khăn tắm cotton',
+    description: 'Hai khăn tắm cotton dệt vòng, mỗi khăn 70 × 140cm, mềm và thấm hút. Giặt riêng ở lần đầu; tránh dùng chất tẩy mạnh.', sku: 'NX-TOWEL-2',
+    weightKg: 0.9, sales: 480, views: 6200, likes: 460, attributes: [attr(200621, 1)],
+    tiers: [{ name: 'Màu sắc', options: ['Kem', 'Xám'] }],
+    models: [
+      { id: 3000441, tierIndex: [0], sku: 'NX-TOWEL-CREAM', price: 279000, stock: 42 },
+      { id: 3000442, tierIndex: [1], sku: 'NX-TOWEL-GREY', price: 279000, stock: 31 },
+    ],
+    collections: ['Chăm chút tổ ấm'],
+  },
+  {
+    id: 2000406, shopId: 880004, categoryId: 100063, brandId: null, name: 'Đèn bàn LED Nhà Xinh cổ ngỗng 3 chế độ sáng', short: 'Đèn bàn LED',
+    description: 'Đèn bàn LED cắm USB, cổ đèn linh hoạt, điều khiển cảm ứng với ba chế độ ánh sáng. Công suất 5W, kèm cáp USB; không kèm củ sạc.', sku: 'NX-DESK-LED',
+    weightKg: 0.65, sales: 350, views: 5700, likes: 320, attributes: [attr(200631, 1)],
+    tiers: [{ name: 'Màu sắc', options: ['Trắng', 'Đen'] }],
+    models: [
+      { id: 3000451, tierIndex: [0], sku: 'NX-LED-WHITE', price: 319000, stock: 37 },
+      { id: 3000452, tierIndex: [1], sku: 'NX-LED-BLACK', price: 319000, stock: 18 },
+    ],
+    collections: ['Góc làm việc'],
+  },
+  ...EXPANDED_ITEMS,
 ];
 
 export const VOUCHERS = [

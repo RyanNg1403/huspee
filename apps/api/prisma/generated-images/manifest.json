@@ -1,0 +1,1687 @@
+{
+  "generator": "Built-in Image Gen",
+  "version": "v1",
+  "format": "webp",
+  "product_max_dimension": 1024,
+  "avatar_max_dimension": 512,
+  "product_max_bytes": 200000,
+  "avatar_max_bytes": 75000,
+  "assets": [
+    {
+      "key": "2000101-0",
+      "kind": "product",
+      "item_id": 2000101,
+      "shop_id": 880001,
+      "title": "Apple iPhone 15",
+      "file": "2000101-0.webp",
+      "prompt": "Create ONE SQUARE image containing a precise 2 by 2 grid of FOUR EQUAL SQUARE PANELS. This is a coordinated color-variant product photography sheet for Apple iPhone 15 128GB Chính Hãng VN/A. Use the supplied product reference to lock the exact physical design. Arrange TOP LEFT: Đen (black); TOP RIGHT: Hồng (pastel pink); BOTTOM LEFT: Xanh dương (pastel blue). Any remaining panels must be empty plain white. No borders, dividing lines, labels or text. In all occupied panels show IDENTICAL product silhouette, geometry, dimensions, scale, pose, construction, camera angle, folds, seams, accessories, lighting, white background and shadow, with ONLY the offered color or cosmetic pigment changed. Treat the product as one duplicated photographic template with different color treatments, NOT separate product designs. Each product must fit fully inside its own quadrant with equal safe margins, no objects crossing panel boundaries. No extra products, no redesign, no style differences between quadrants.   Generate this single matched sheet in one render.",
+      "color": "Đen",
+      "reference_file": "2000101-0.webp",
+      "sheet": {
+        "group": "product-2000101-colors-v2",
+        "cell": 0,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000101-1",
+      "kind": "product",
+      "item_id": 2000101,
+      "shop_id": 880001,
+      "title": "Apple iPhone 15",
+      "file": "2000101-1.webp",
+      "prompt": "Create ONE SQUARE image containing a precise 2 by 2 grid of FOUR EQUAL SQUARE PANELS. This is a coordinated color-variant product photography sheet for Apple iPhone 15 128GB Chính Hãng VN/A. Use the supplied product reference to lock the exact physical design. Arrange TOP LEFT: Đen (black); TOP RIGHT: Hồng (pastel pink); BOTTOM LEFT: Xanh dương (pastel blue). Any remaining panels must be empty plain white. No borders, dividing lines, labels or text. In all occupied panels show IDENTICAL product silhouette, geometry, dimensions, scale, pose, construction, camera angle, folds, seams, accessories, lighting, white background and shadow, with ONLY the offered color or cosmetic pigment changed. Treat the product as one duplicated photographic template with different color treatments, NOT separate product designs. Each product must fit fully inside its own quadrant with equal safe margins, no objects crossing panel boundaries. No extra products, no redesign, no style differences between quadrants.   Generate this single matched sheet in one render.",
+      "color": "Hồng",
+      "reference_file": "2000101-0.webp",
+      "sheet": {
+        "group": "product-2000101-colors-v2",
+        "cell": 1,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000102-0",
+      "kind": "product",
+      "item_id": 2000102,
+      "shop_id": 880001,
+      "title": "Samsung Galaxy A55 5G",
+      "file": "2000102-0.webp",
+      "prompt": "Create ONE SQUARE image containing a precise 2 by 2 grid of FOUR EQUAL SQUARE PANELS. This is a coordinated color-variant product photography sheet for Samsung Galaxy A55 5G 8GB/128GB. Use the supplied product reference to lock the exact physical design. Arrange TOP LEFT: Xanh Navy (navy blue); TOP RIGHT: Tím Lilac (pale lilac). Any remaining panels must be empty plain white. No borders, dividing lines, labels or text. In all occupied panels show IDENTICAL product silhouette, geometry, dimensions, scale, pose, construction, camera angle, folds, seams, accessories, lighting, white background and shadow, with ONLY the offered color or cosmetic pigment changed. Treat the product as one duplicated photographic template with different color treatments, NOT separate product designs. Each product must fit fully inside its own quadrant with equal safe margins, no objects crossing panel boundaries. No extra products, no redesign, no style differences between quadrants.   Generate this single matched sheet in one render.",
+      "color": "Xanh Navy",
+      "reference_file": "2000102-0.webp",
+      "sheet": {
+        "group": "product-2000102-colors-v2",
+        "cell": 0,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000102-1",
+      "kind": "product",
+      "item_id": 2000102,
+      "shop_id": 880001,
+      "title": "Samsung Galaxy A55 5G",
+      "file": "2000102-1.webp",
+      "prompt": "Create ONE SQUARE image containing a precise 2 by 2 grid of FOUR EQUAL SQUARE PANELS. This is a coordinated color-variant product photography sheet for Samsung Galaxy A55 5G 8GB/128GB. Use the supplied product reference to lock the exact physical design. Arrange TOP LEFT: Xanh Navy (navy blue); TOP RIGHT: Tím Lilac (pale lilac). Any remaining panels must be empty plain white. No borders, dividing lines, labels or text. In all occupied panels show IDENTICAL product silhouette, geometry, dimensions, scale, pose, construction, camera angle, folds, seams, accessories, lighting, white background and shadow, with ONLY the offered color or cosmetic pigment changed. Treat the product as one duplicated photographic template with different color treatments, NOT separate product designs. Each product must fit fully inside its own quadrant with equal safe margins, no objects crossing panel boundaries. No extra products, no redesign, no style differences between quadrants.   Generate this single matched sheet in one render.",
+      "color": "Tím Lilac",
+      "reference_file": "2000102-0.webp",
+      "sheet": {
+        "group": "product-2000102-colors-v2",
+        "cell": 1,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000103-0",
+      "kind": "product",
+      "item_id": 2000103,
+      "shop_id": 880001,
+      "title": "Xiaomi Redmi Buds 5",
+      "file": "2000103-0.webp",
+      "prompt": "Create ONE SQUARE 2-by-2 photography sheet of Xiaomi Redmi Buds 5. TOP LEFT: complete product at the exact angle of the reference. TOP RIGHT: SAME product, only a slight camera viewpoint adjustment. Bottom two quadrants entirely blank white. Four equally sized square quadrants; no dividing lines or labels. Lock the EXACT product design, material, physical shape, part count, packaging, printed label artwork and lettering, accessories and construction from the reference. Do not redesign or add components. Both views must be the SAME PHYSICAL PRODUCT with matching dimensions and styling, including exactly the same brush heads, pouch type, dress bodice seams and floral print scale, container or bottle labels, logos and hardware where applicable. Preserve the reference product size/capacity in both views.   Studio white backgrounds, matching soft lighting and shadows, complete product and accessories fit within each square quadrant with safe margins. One coordinated render, never unrelated alternatives.",
+      "reference_file": "2000103-0.webp",
+      "sheet": {
+        "group": "product-2000103-views-v2",
+        "cell": 0,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000103-1",
+      "kind": "product",
+      "item_id": 2000103,
+      "shop_id": 880001,
+      "title": "Xiaomi Redmi Buds 5",
+      "file": "2000103-1.webp",
+      "prompt": "Create ONE SQUARE 2-by-2 photography sheet of Xiaomi Redmi Buds 5. TOP LEFT: complete product at the exact angle of the reference. TOP RIGHT: SAME product, only a slight camera viewpoint adjustment. Bottom two quadrants entirely blank white. Four equally sized square quadrants; no dividing lines or labels. Lock the EXACT product design, material, physical shape, part count, packaging, printed label artwork and lettering, accessories and construction from the reference. Do not redesign or add components. Both views must be the SAME PHYSICAL PRODUCT with matching dimensions and styling, including exactly the same brush heads, pouch type, dress bodice seams and floral print scale, container or bottle labels, logos and hardware where applicable. Preserve the reference product size/capacity in both views.   Studio white backgrounds, matching soft lighting and shadows, complete product and accessories fit within each square quadrant with safe margins. One coordinated render, never unrelated alternatives.",
+      "reference_file": "2000103-0.webp",
+      "sheet": {
+        "group": "product-2000103-views-v2",
+        "cell": 1,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000104-0",
+      "kind": "product",
+      "item_id": 2000104,
+      "shop_id": 880001,
+      "title": "Anker 65W GaN 3-port charger",
+      "file": "2000104-0.webp",
+      "prompt": "Create ONE SQUARE 2-by-2 photography sheet of Anker 65W GaN 3-port charger. TOP LEFT: complete product at the exact angle of the reference. TOP RIGHT: SAME product, only a slight camera viewpoint adjustment. Bottom two quadrants entirely blank white. Four equally sized square quadrants; no dividing lines or labels. Lock the EXACT product design, material, physical shape, part count, packaging, printed label artwork and lettering, accessories and construction from the reference. Do not redesign or add components. Both views must be the SAME PHYSICAL PRODUCT with matching dimensions and styling, including exactly the same brush heads, pouch type, dress bodice seams and floral print scale, container or bottle labels, logos and hardware where applicable. Preserve the reference product size/capacity in both views.   Studio white backgrounds, matching soft lighting and shadows, complete product and accessories fit within each square quadrant with safe margins. One coordinated render, never unrelated alternatives.",
+      "reference_file": "2000104-0.webp",
+      "sheet": {
+        "group": "product-2000104-views-v2",
+        "cell": 0,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000104-1",
+      "kind": "product",
+      "item_id": 2000104,
+      "shop_id": 880001,
+      "title": "Anker 65W GaN 3-port charger",
+      "file": "2000104-1.webp",
+      "prompt": "Create ONE SQUARE 2-by-2 photography sheet of Anker 65W GaN 3-port charger. TOP LEFT: complete product at the exact angle of the reference. TOP RIGHT: SAME product, only a slight camera viewpoint adjustment. Bottom two quadrants entirely blank white. Four equally sized square quadrants; no dividing lines or labels. Lock the EXACT product design, material, physical shape, part count, packaging, printed label artwork and lettering, accessories and construction from the reference. Do not redesign or add components. Both views must be the SAME PHYSICAL PRODUCT with matching dimensions and styling, including exactly the same brush heads, pouch type, dress bodice seams and floral print scale, container or bottle labels, logos and hardware where applicable. Preserve the reference product size/capacity in both views.   Studio white backgrounds, matching soft lighting and shadows, complete product and accessories fit within each square quadrant with safe margins. One coordinated render, never unrelated alternatives.",
+      "reference_file": "2000104-0.webp",
+      "sheet": {
+        "group": "product-2000104-views-v2",
+        "cell": 1,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000105-0",
+      "kind": "product",
+      "item_id": 2000105,
+      "shop_id": 880001,
+      "title": "ASUS Vivobook 15 OLED",
+      "file": "2000105-0.webp",
+      "prompt": "Use case: product-mockup. Asset: one standalone square premium ecommerce catalog photograph for the simulated Huspee marketplace. Photorealistic, accurate materials, refined soft commercial studio lighting, seamless off-white background, gentle contact shadow, complete product centered with generous safe margins for thumbnail crops. No people, promotional copy, prices, spec callouts, watermarks, or contact sheet. A silver ASUS Vivobook 15 OLED laptop, complete open 15.6-inch display and full keyboard WITH numeric keypad, thin silver chassis, understated ASUS Vivobook logo under screen, centered webcam. Three-quarter frontal view, vibrant but tasteful blue-violet abstract OLED display, realistic laptop geometry and hinge."
+    },
+    {
+      "key": "2000105-1",
+      "kind": "product",
+      "item_id": 2000105,
+      "shop_id": 880001,
+      "title": "ASUS Vivobook 15 OLED",
+      "file": "2000105-1.webp",
+      "prompt": "Use case: product-mockup. Asset: one standalone square premium ecommerce catalog photograph for the simulated Huspee marketplace. Photorealistic, accurate materials, refined soft commercial studio lighting, seamless off-white background, gentle contact shadow, complete product centered with generous safe margins for thumbnail crops. No people, promotional copy, prices, spec callouts, watermarks, or contact sheet. A silver ASUS Vivobook 15 OLED laptop viewed from rear three-quarter angle, partially open so silver lid and slim profile are the focus. Complete 15.6-inch laptop visible with understated ASUS Vivobook wordmark on lid, realistic hinge and side ports, clean premium metal surface."
+    },
+    {
+      "key": "2000106-0",
+      "kind": "product",
+      "item_id": 2000106,
+      "shop_id": 880001,
+      "title": "Logitech M331 Silent Plus mouse",
+      "file": "2000106-0.webp",
+      "prompt": "Create ONE SQUARE image containing a precise 2 by 2 grid of FOUR EQUAL SQUARE PANELS. This is a coordinated color-variant product photography sheet for Chuột không dây Logitech M331 Silent Plus. Use the supplied product reference to lock the exact physical design. Arrange TOP LEFT: Đen (black); TOP RIGHT: Đỏ (red); BOTTOM LEFT: Xanh (blue). Any remaining panels must be empty plain white. No borders, dividing lines, labels or text. In all occupied panels show IDENTICAL product silhouette, geometry, dimensions, scale, pose, construction, camera angle, folds, seams, accessories, lighting, white background and shadow, with ONLY the offered color or cosmetic pigment changed. Treat the product as one duplicated photographic template with different color treatments, NOT separate product designs. Each product must fit fully inside its own quadrant with equal safe margins, no objects crossing panel boundaries. No extra products, no redesign, no style differences between quadrants.   Generate this single matched sheet in one render.",
+      "color": "Đen",
+      "reference_file": "2000106-0.webp",
+      "sheet": {
+        "group": "product-2000106-colors-v2",
+        "cell": 0,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000106-1",
+      "kind": "product",
+      "item_id": 2000106,
+      "shop_id": 880001,
+      "title": "Logitech M331 Silent Plus mouse",
+      "file": "2000106-1.webp",
+      "prompt": "Create ONE SQUARE image containing a precise 2 by 2 grid of FOUR EQUAL SQUARE PANELS. This is a coordinated color-variant product photography sheet for Chuột không dây Logitech M331 Silent Plus. Use the supplied product reference to lock the exact physical design. Arrange TOP LEFT: Đen (black); TOP RIGHT: Đỏ (red); BOTTOM LEFT: Xanh (blue). Any remaining panels must be empty plain white. No borders, dividing lines, labels or text. In all occupied panels show IDENTICAL product silhouette, geometry, dimensions, scale, pose, construction, camera angle, folds, seams, accessories, lighting, white background and shadow, with ONLY the offered color or cosmetic pigment changed. Treat the product as one duplicated photographic template with different color treatments, NOT separate product designs. Each product must fit fully inside its own quadrant with equal safe margins, no objects crossing panel boundaries. No extra products, no redesign, no style differences between quadrants.   Generate this single matched sheet in one render.",
+      "color": "Đỏ",
+      "reference_file": "2000106-0.webp",
+      "sheet": {
+        "group": "product-2000106-colors-v2",
+        "cell": 1,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000201-0",
+      "kind": "product",
+      "item_id": 2000201,
+      "shop_id": 880002,
+      "title": "La Roche-Posay Effaclar Gel cleanser",
+      "file": "2000201-0.webp",
+      "prompt": "Use case: product-mockup. Asset: one standalone square premium ecommerce catalog photograph for the simulated Huspee marketplace. Photorealistic, accurate materials, refined soft commercial studio lighting, seamless off-white background, gentle contact shadow, complete product centered with generous safe margins for thumbnail crops. No people, promotional copy, prices, spec callouts, watermarks, or contact sheet. A La Roche-Posay EFFACLAR purifying foaming gel cleanser 400ml: translucent blue tall pump bottle filled with clear blue gel, dark blue pump, white rectangular label with blue square emblem and restrained black text LA ROCHE-POSAY and EFFACLAR. One complete bottle upright, elegant pharmacy skincare product photography, no invented claims on label."
+    },
+    {
+      "key": "2000201-1",
+      "kind": "product",
+      "item_id": 2000201,
+      "shop_id": 880002,
+      "title": "La Roche-Posay Effaclar Gel cleanser",
+      "file": "2000201-1.webp",
+      "prompt": "Use case: product-mockup. Asset: one standalone square premium ecommerce catalog photograph for the simulated Huspee marketplace. Photorealistic, accurate materials, refined soft commercial studio lighting, seamless off-white background, gentle contact shadow, complete product centered with generous safe margins for thumbnail crops. No people, promotional copy, prices, spec callouts, watermarks, or contact sheet. A La Roche-Posay EFFACLAR gel cleanser 200ml: translucent blue upright squeeze tube with dark blue flip-top base, white label with small blue square emblem and simple LA ROCHE-POSAY and EFFACLAR typography. Single complete tube on pale stone, close three-quarter lighting, no invented therapeutic claims."
+    },
+    {
+      "key": "2000202-0",
+      "kind": "product",
+      "item_id": 2000202,
+      "shop_id": 880002,
+      "title": "Cocoon winter melon toner 310ml",
+      "file": "2000202-0.webp",
+      "prompt": "Create ONE SQUARE 2-by-2 photography sheet of Cocoon winter melon toner 310ml. TOP LEFT: complete product at the exact angle of the reference. TOP RIGHT: SAME product, only a slight camera viewpoint adjustment. Bottom two quadrants entirely blank white. Four equally sized square quadrants; no dividing lines or labels. Lock the EXACT product design, material, physical shape, part count, packaging, printed label artwork and lettering, accessories and construction from the reference. Do not redesign or add components. Both views must be the SAME PHYSICAL PRODUCT with matching dimensions and styling, including exactly the same brush heads, pouch type, dress bodice seams and floral print scale, container or bottle labels, logos and hardware where applicable. Preserve the reference product size/capacity in both views.   Studio white backgrounds, matching soft lighting and shadows, complete product and accessories fit within each square quadrant with safe margins. One coordinated render, never unrelated alternatives.",
+      "reference_file": "2000202-0.webp",
+      "sheet": {
+        "group": "product-2000202-views-v2",
+        "cell": 0,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000202-1",
+      "kind": "product",
+      "item_id": 2000202,
+      "shop_id": 880002,
+      "title": "Cocoon winter melon toner 310ml",
+      "file": "2000202-1.webp",
+      "prompt": "Create ONE SQUARE 2-by-2 photography sheet of Cocoon winter melon toner 310ml. TOP LEFT: complete product at the exact angle of the reference. TOP RIGHT: SAME product, only a slight camera viewpoint adjustment. Bottom two quadrants entirely blank white. Four equally sized square quadrants; no dividing lines or labels. Lock the EXACT product design, material, physical shape, part count, packaging, printed label artwork and lettering, accessories and construction from the reference. Do not redesign or add components. Both views must be the SAME PHYSICAL PRODUCT with matching dimensions and styling, including exactly the same brush heads, pouch type, dress bodice seams and floral print scale, container or bottle labels, logos and hardware where applicable. Preserve the reference product size/capacity in both views.   Studio white backgrounds, matching soft lighting and shadows, complete product and accessories fit within each square quadrant with safe margins. One coordinated render, never unrelated alternatives.",
+      "reference_file": "2000202-0.webp",
+      "sheet": {
+        "group": "product-2000202-views-v2",
+        "cell": 1,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000203-0",
+      "kind": "product",
+      "item_id": 2000203,
+      "shop_id": 880002,
+      "title": "Innisfree Green Tea Seed serum 80ml",
+      "file": "2000203-0.webp",
+      "prompt": "Create ONE SQUARE 2-by-2 photography sheet of Innisfree Green Tea Seed serum 80ml. TOP LEFT: complete product at the exact angle of the reference. TOP RIGHT: SAME product, only a slight camera viewpoint adjustment. Bottom two quadrants entirely blank white. Four equally sized square quadrants; no dividing lines or labels. Lock the EXACT product design, material, physical shape, part count, packaging, printed label artwork and lettering, accessories and construction from the reference. Do not redesign or add components. Both views must be the SAME PHYSICAL PRODUCT with matching dimensions and styling, including exactly the same brush heads, pouch type, dress bodice seams and floral print scale, container or bottle labels, logos and hardware where applicable. Preserve the reference product size/capacity in both views.   Studio white backgrounds, matching soft lighting and shadows, complete product and accessories fit within each square quadrant with safe margins. One coordinated render, never unrelated alternatives.",
+      "reference_file": "2000203-0.webp",
+      "sheet": {
+        "group": "product-2000203-views-v2",
+        "cell": 0,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000203-1",
+      "kind": "product",
+      "item_id": 2000203,
+      "shop_id": 880002,
+      "title": "Innisfree Green Tea Seed serum 80ml",
+      "file": "2000203-1.webp",
+      "prompt": "Create ONE SQUARE 2-by-2 photography sheet of Innisfree Green Tea Seed serum 80ml. TOP LEFT: complete product at the exact angle of the reference. TOP RIGHT: SAME product, only a slight camera viewpoint adjustment. Bottom two quadrants entirely blank white. Four equally sized square quadrants; no dividing lines or labels. Lock the EXACT product design, material, physical shape, part count, packaging, printed label artwork and lettering, accessories and construction from the reference. Do not redesign or add components. Both views must be the SAME PHYSICAL PRODUCT with matching dimensions and styling, including exactly the same brush heads, pouch type, dress bodice seams and floral print scale, container or bottle labels, logos and hardware where applicable. Preserve the reference product size/capacity in both views.   Studio white backgrounds, matching soft lighting and shadows, complete product and accessories fit within each square quadrant with safe margins. One coordinated render, never unrelated alternatives.",
+      "reference_file": "2000203-0.webp",
+      "sheet": {
+        "group": "product-2000203-views-v2",
+        "cell": 1,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000204-0",
+      "kind": "product",
+      "item_id": 2000204,
+      "shop_id": 880002,
+      "title": "Maybelline SuperStay Matte Ink",
+      "file": "2000204-0.webp",
+      "prompt": "Create ONE SQUARE image containing a precise 2 by 2 grid of FOUR EQUAL SQUARE PANELS. This is a coordinated color-variant product photography sheet for Son kem lì Maybelline SuperStay Matte Ink. Use the supplied product reference to lock the exact physical design. Arrange TOP LEFT: 115 Founder (115 Founder); TOP RIGHT: 118 Dancer (118 Dancer); BOTTOM LEFT: 210 Versatile (210 Versatile); BOTTOM RIGHT: 220 Ambitious (220 Ambitious). Any remaining panels must be empty plain white. No borders, dividing lines, labels or text. In all occupied panels show IDENTICAL product silhouette, geometry, dimensions, scale, pose, construction, camera angle, folds, seams, accessories, lighting, white background and shadow, with ONLY the offered color or cosmetic pigment changed. Treat the product as one duplicated photographic template with different color treatments, NOT separate product designs. Each product must fit fully inside its own quadrant with equal safe margins, no objects crossing panel boundaries. No extra products, no redesign, no style differences between quadrants.  All four lipsticks CLOSED with white rectangular caps, same tube geometry, only shade-colored body changes. Generate this single matched sheet in one render.",
+      "color": "118 Dancer",
+      "reference_file": "2000204-0.webp",
+      "sheet": {
+        "group": "product-2000204-colors-v2",
+        "cell": 1,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000204-1",
+      "kind": "product",
+      "item_id": 2000204,
+      "shop_id": 880002,
+      "title": "Maybelline SuperStay Matte Ink",
+      "file": "2000204-1.webp",
+      "prompt": "Create ONE SQUARE image containing a precise 2 by 2 grid of FOUR EQUAL SQUARE PANELS. This is a coordinated color-variant product photography sheet for Son kem lì Maybelline SuperStay Matte Ink. Use the supplied product reference to lock the exact physical design. Arrange TOP LEFT: 115 Founder (115 Founder); TOP RIGHT: 118 Dancer (118 Dancer); BOTTOM LEFT: 210 Versatile (210 Versatile); BOTTOM RIGHT: 220 Ambitious (220 Ambitious). Any remaining panels must be empty plain white. No borders, dividing lines, labels or text. In all occupied panels show IDENTICAL product silhouette, geometry, dimensions, scale, pose, construction, camera angle, folds, seams, accessories, lighting, white background and shadow, with ONLY the offered color or cosmetic pigment changed. Treat the product as one duplicated photographic template with different color treatments, NOT separate product designs. Each product must fit fully inside its own quadrant with equal safe margins, no objects crossing panel boundaries. No extra products, no redesign, no style differences between quadrants.  All four lipsticks CLOSED with white rectangular caps, same tube geometry, only shade-colored body changes. Generate this single matched sheet in one render.",
+      "color": "115 Founder",
+      "reference_file": "2000204-0.webp",
+      "sheet": {
+        "group": "product-2000204-colors-v2",
+        "cell": 0,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000301-0",
+      "kind": "product",
+      "item_id": 2000301,
+      "shop_id": 880003,
+      "title": "Coolmate Cotton Compact T-shirt",
+      "file": "2000301-0.webp",
+      "prompt": "Create ONE SQUARE image containing a precise 2 by 2 grid of FOUR EQUAL SQUARE PANELS. This is a coordinated color-variant product photography sheet for Áo thun nam Cotton Compact Coolmate. Use the supplied product reference to lock the exact physical design. Arrange TOP LEFT: Trắng (white); TOP RIGHT: Đen (black); BOTTOM LEFT: Xanh rêu (moss green). Any remaining panels must be empty plain white. No borders, dividing lines, labels or text. In all occupied panels show IDENTICAL product silhouette, geometry, dimensions, scale, pose, construction, camera angle, folds, seams, accessories, lighting, white background and shadow, with ONLY the offered color or cosmetic pigment changed. Treat the product as one duplicated photographic template with different color treatments, NOT separate product designs. Each product must fit fully inside its own quadrant with equal safe margins, no objects crossing panel boundaries. No extra products, no redesign, no style differences between quadrants. T-SHIRT: all shirts must have exactly the same ghost-mannequin volume, identical crew neck, sleeve angle, shoulder and waist width, seam placement, drape folds and curved bottom hem.  Generate this single matched sheet in one render.",
+      "color": "Trắng",
+      "reference_file": "2000301-0.webp",
+      "sheet": {
+        "group": "product-2000301-colors-v2",
+        "cell": 0,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000301-1",
+      "kind": "product",
+      "item_id": 2000301,
+      "shop_id": 880003,
+      "title": "Coolmate Cotton Compact T-shirt",
+      "file": "2000301-1.webp",
+      "prompt": "Create ONE SQUARE image containing a precise 2 by 2 grid of FOUR EQUAL SQUARE PANELS. This is a coordinated color-variant product photography sheet for Áo thun nam Cotton Compact Coolmate. Use the supplied product reference to lock the exact physical design. Arrange TOP LEFT: Trắng (white); TOP RIGHT: Đen (black); BOTTOM LEFT: Xanh rêu (moss green). Any remaining panels must be empty plain white. No borders, dividing lines, labels or text. In all occupied panels show IDENTICAL product silhouette, geometry, dimensions, scale, pose, construction, camera angle, folds, seams, accessories, lighting, white background and shadow, with ONLY the offered color or cosmetic pigment changed. Treat the product as one duplicated photographic template with different color treatments, NOT separate product designs. Each product must fit fully inside its own quadrant with equal safe margins, no objects crossing panel boundaries. No extra products, no redesign, no style differences between quadrants. T-SHIRT: all shirts must have exactly the same ghost-mannequin volume, identical crew neck, sleeve angle, shoulder and waist width, seam placement, drape folds and curved bottom hem.  Generate this single matched sheet in one render.",
+      "color": "Đen",
+      "reference_file": "2000301-0.webp",
+      "sheet": {
+        "group": "product-2000301-colors-v2",
+        "cell": 1,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000302-0",
+      "kind": "product",
+      "item_id": 2000302,
+      "shop_id": 880003,
+      "title": "Routine mens slim-fit jeans",
+      "file": "2000302-0.webp",
+      "prompt": "Use case: product-mockup. Asset: one standalone square premium ecommerce catalog photograph for the simulated Huspee marketplace. Photorealistic, accurate materials, refined soft commercial studio lighting, seamless off-white background, gentle contact shadow, complete product centered with generous safe margins for thumbnail crops. No people, promotional copy, prices, spec callouts, watermarks, or contact sheet. One pair of mens ROUTINE slim-fit medium-blue jeans, natural subtle washed denim, five-pocket design, clean hem and belt loops, realistic narrow straight legs without distressed holes. Full-length invisible mannequin front view, waistband through both hems visible, exact garment proportions, warm off-white fashion studio backdrop."
+    },
+    {
+      "key": "2000302-1",
+      "kind": "product",
+      "item_id": 2000302,
+      "shop_id": 880003,
+      "title": "Routine mens slim-fit jeans",
+      "file": "2000302-1.webp",
+      "prompt": "Use case: product-mockup. Asset: one standalone square premium ecommerce catalog photograph for the simulated Huspee marketplace. Photorealistic, accurate materials, refined soft commercial studio lighting, seamless off-white background, gentle contact shadow, complete product centered with generous safe margins for thumbnail crops. No people, promotional copy, prices, spec callouts, watermarks, or contact sheet. One pair of mens ROUTINE slim-fit medium-blue denim jeans, full garment shown in a premium neatly folded flat lay. One back pocket and waist area visible, subtle small leather waistband patch, detailed authentic denim twill, copper stitching and natural washed texture, no accessories or text overlays."
+    },
+    {
+      "key": "2000303-0",
+      "kind": "product",
+      "item_id": 2000303,
+      "shop_id": 880003,
+      "title": "Saigon Style floral silk dress",
+      "file": "2000303-0.webp",
+      "prompt": "Create ONE SQUARE 2-by-2 photography sheet of Saigon Style floral silk dress. TOP LEFT: complete product at the exact angle of the reference. TOP RIGHT: SAME product, only a slight camera viewpoint adjustment. Bottom two quadrants entirely blank white. Four equally sized square quadrants; no dividing lines or labels. Lock the EXACT product design, material, physical shape, part count, packaging, printed label artwork and lettering, accessories and construction from the reference. Do not redesign or add components. Both views must be the SAME PHYSICAL PRODUCT with matching dimensions and styling, including exactly the same brush heads, pouch type, dress bodice seams and floral print scale, container or bottle labels, logos and hardware where applicable. Preserve the reference product size/capacity in both views.   Studio white backgrounds, matching soft lighting and shadows, complete product and accessories fit within each square quadrant with safe margins. One coordinated render, never unrelated alternatives.",
+      "reference_file": "2000303-0.webp",
+      "sheet": {
+        "group": "product-2000303-views-v2",
+        "cell": 0,
+        "columns": 2,
+        "rows": 2,
+        "crop_height": 740,
+        "pad_to_square": true
+      }
+    },
+    {
+      "key": "2000303-1",
+      "kind": "product",
+      "item_id": 2000303,
+      "shop_id": 880003,
+      "title": "Saigon Style floral silk dress",
+      "file": "2000303-1.webp",
+      "prompt": "Create ONE SQUARE 2-by-2 photography sheet of Saigon Style floral silk dress. TOP LEFT: complete product at the exact angle of the reference. TOP RIGHT: SAME product, only a slight camera viewpoint adjustment. Bottom two quadrants entirely blank white. Four equally sized square quadrants; no dividing lines or labels. Lock the EXACT product design, material, physical shape, part count, packaging, printed label artwork and lettering, accessories and construction from the reference. Do not redesign or add components. Both views must be the SAME PHYSICAL PRODUCT with matching dimensions and styling, including exactly the same brush heads, pouch type, dress bodice seams and floral print scale, container or bottle labels, logos and hardware where applicable. Preserve the reference product size/capacity in both views.   Studio white backgrounds, matching soft lighting and shadows, complete product and accessories fit within each square quadrant with safe margins. One coordinated render, never unrelated alternatives.",
+      "reference_file": "2000303-0.webp",
+      "sheet": {
+        "group": "product-2000303-views-v2",
+        "cell": 1,
+        "columns": 2,
+        "rows": 2,
+        "crop_height": 740,
+        "pad_to_square": true
+      }
+    },
+    {
+      "key": "2000401-0",
+      "kind": "product",
+      "item_id": 2000401,
+      "shop_id": 880004,
+      "title": "Lock&Lock set of three glass containers",
+      "file": "2000401-0.webp",
+      "prompt": "Use case: product-mockup. Asset: one standalone square premium ecommerce catalog photograph for the simulated Huspee marketplace. Photorealistic, accurate materials, refined soft commercial studio lighting, seamless off-white background, gentle contact shadow, complete product centered with generous safe margins for thumbnail crops. No people, promotional copy, prices, spec callouts, watermarks, or contact sheet. EXACTLY THREE rectangular clear borosilicate glass Lock&Lock food-storage containers in three nesting sizes, each with a transparent lid and four blue-green snap-lock tabs, one clip on each side. Largest behind, medium and smallest in front, all three fully visible, glass rim refractions and pale seals realistic, no food, packaging, or extra containers."
+    },
+    {
+      "key": "2000401-1",
+      "kind": "product",
+      "item_id": 2000401,
+      "shop_id": 880004,
+      "title": "Lock&Lock set of three glass containers",
+      "file": "2000401-1.webp",
+      "prompt": "Use case: product-mockup. Asset: one standalone square premium ecommerce catalog photograph for the simulated Huspee marketplace. Photorealistic, accurate materials, refined soft commercial studio lighting, seamless off-white background, gentle contact shadow, complete product centered with generous safe margins for thumbnail crops. No people, promotional copy, prices, spec callouts, watermarks, or contact sheet. EXACTLY THREE rectangular borosilicate glass Lock&Lock food storage containers of three sizes arranged neatly in a high overhead view. Two lids secured and one largest lid resting alongside its matching container to reveal thick clear glass and teal silicone seal, four teal latches on each lid. No food or additional containers, premium kitchen studio image."
+    },
+    {
+      "key": "2000402-0",
+      "kind": "product",
+      "item_id": 2000402,
+      "shop_id": 880004,
+      "title": "Sunhouse induction nonstick frying pan",
+      "file": "2000402-0.webp",
+      "prompt": "Generate ONE SQUARE two-by-two product photography sheet. TOP LEFT: a full hero photograph of the exact shallow SUNHOUSE frying pan in the reference. TOP RIGHT: the SAME physical pan photographed from a slightly different top three-quarter angle. BOTTOM TWO CELLS: plain white empty. Each quadrant is an equal square; no borders or labels. Lock the product design across both occupied cells: shallow round black pan with straight gently sloped sides, thin silver rim, distinct white-speckled black nonstick interior, one long matte-black handle with an oval hanging hole, SUNHOUSE lettering on the HANDLE only, short concealed metal handle collar, NO exposed interior rivets. Both views must show that exact same handle, shallow depth, speckled interior and construction. Do not show an underside or invent a metal induction disc or sidewall logo. White studio backgrounds, matching light and scale, complete pan including handle fully inside each cell with safe margins. This is one product photographed twice, never two pan designs.",
+      "reference_file": "2000402-0.webp",
+      "sheet": {
+        "group": "product-2000402-views-v2",
+        "cell": 0,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000402-1",
+      "kind": "product",
+      "item_id": 2000402,
+      "shop_id": 880004,
+      "title": "Sunhouse induction nonstick frying pan",
+      "file": "2000402-1.webp",
+      "prompt": "Generate ONE SQUARE two-by-two product photography sheet. TOP LEFT: a full hero photograph of the exact shallow SUNHOUSE frying pan in the reference. TOP RIGHT: the SAME physical pan photographed from a slightly different top three-quarter angle. BOTTOM TWO CELLS: plain white empty. Each quadrant is an equal square; no borders or labels. Lock the product design across both occupied cells: shallow round black pan with straight gently sloped sides, thin silver rim, distinct white-speckled black nonstick interior, one long matte-black handle with an oval hanging hole, SUNHOUSE lettering on the HANDLE only, short concealed metal handle collar, NO exposed interior rivets. Both views must show that exact same handle, shallow depth, speckled interior and construction. Do not show an underside or invent a metal induction disc or sidewall logo. White studio backgrounds, matching light and scale, complete pan including handle fully inside each cell with safe margins. This is one product photographed twice, never two pan designs.",
+      "reference_file": "2000402-0.webp",
+      "sheet": {
+        "group": "product-2000402-views-v2",
+        "cell": 1,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "shop-880001",
+      "kind": "shop",
+      "shop_id": 880001,
+      "title": "TechZone Official",
+      "file": "shop-880001.webp",
+      "prompt": "Use case: logo-brand. Asset: standalone square raster shop avatar for the simulated Huspee marketplace. A premium polished 3D brand avatar for TechZone Official, an electronics shop. A compact futuristic cobalt-blue robot head with a friendly minimal face and small lightning-shaped ear detail, matte blue shell, silver trim, subtle cyan accents, studio-quality materials. Centered circular emblem occupying the middle 65 percent, clean pale ice-blue square background, distinctive at 48px. No letters, words, numbers, watermark, extra objects, or manufacturer logos."
+    },
+    {
+      "key": "shop-880002",
+      "kind": "shop",
+      "shop_id": 880002,
+      "title": "GlowUp Beauty",
+      "file": "shop-880002.webp",
+      "prompt": "Use case: logo-brand. Asset: standalone square raster shop avatar for the simulated Huspee marketplace. A premium 3D brand avatar for GlowUp Beauty skincare shop: a sculptural blush-pink flower bud with one softly glowing pearl-like drop at its heart and a small glossy leaf. Ceramic petals, subtle rose-gold material accents, centered emblem in middle 65 percent on a pale blush square, elegant beauty identity legible at 48px, delicate studio light. No people, text, letters, words, watermark, packaging or other brand logos."
+    },
+    {
+      "key": "shop-880003",
+      "kind": "shop",
+      "shop_id": 880003,
+      "title": "Saigon Style",
+      "file": "shop-880003.webp",
+      "prompt": "Use case: logo-brand. Asset: standalone square raster shop avatar for the simulated Huspee marketplace. A sophisticated fashion shop avatar for Saigon Style: sculptural interwoven emerald-green silk ribbons forming a stylized flowing S-shaped garment fold, with subtle couture stitch detail. Three-dimensional satin material and premium editorial lighting, centered compact emblem in middle 65 percent, warm ivory square background, recognizable at tiny circular 48px crop. No person, text, readable letters, words, watermark, hanger clutter, or other brand logos."
+    },
+    {
+      "key": "shop-880004",
+      "kind": "shop",
+      "shop_id": 880004,
+      "title": "Nhà Xinh Home",
+      "file": "shop-880004.webp",
+      "prompt": "Use case: logo-brand. Asset: standalone square raster shop avatar for the simulated Huspee marketplace. A premium welcoming 3D shop avatar for Nha Xinh Home, a Vietnamese home and kitchenware store. A tiny terracotta-orange ceramic house silhouette with rounded roof and a warm cream doorway, nestled with a small sage-green leaf and a smooth cream ceramic bowl. Cohesive tactile clay materials, centered compact emblem in middle 65 percent, pale warm sand square backdrop, soft morning studio lighting, legible at 48px circular crop. No text, letters, words, people, watermark or other brand logos."
+    },
+    {
+      "key": "2000205-0",
+      "kind": "product",
+      "item_id": 2000205,
+      "shop_id": 880002,
+      "title": "GlowUp Daily sunscreen",
+      "file": "2000205-0.webp",
+      "prompt": "Create ONE SQUARE 2-by-2 photography sheet of GlowUp Daily sunscreen. TOP LEFT: complete product at the exact angle of the reference. TOP RIGHT: SAME product, only a slight camera viewpoint adjustment. Bottom two quadrants entirely blank white. Four equally sized square quadrants; no dividing lines or labels. Lock the EXACT product design, material, physical shape, part count, packaging, printed label artwork and lettering, accessories and construction from the reference. Do not redesign or add components. Both views must be the SAME PHYSICAL PRODUCT with matching dimensions and styling, including exactly the same brush heads, pouch type, dress bodice seams and floral print scale, container or bottle labels, logos and hardware where applicable. Preserve the reference product size/capacity in both views.   Studio white backgrounds, matching soft lighting and shadows, complete product and accessories fit within each square quadrant with safe margins. One coordinated render, never unrelated alternatives.",
+      "reference_file": "2000205-0.webp",
+      "sheet": {
+        "group": "product-2000205-views-v2",
+        "cell": 0,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000205-1",
+      "kind": "product",
+      "item_id": 2000205,
+      "shop_id": 880002,
+      "title": "GlowUp Daily sunscreen",
+      "file": "2000205-1.webp",
+      "prompt": "Create ONE SQUARE 2-by-2 photography sheet of GlowUp Daily sunscreen. TOP LEFT: complete product at the exact angle of the reference. TOP RIGHT: SAME product, only a slight camera viewpoint adjustment. Bottom two quadrants entirely blank white. Four equally sized square quadrants; no dividing lines or labels. Lock the EXACT product design, material, physical shape, part count, packaging, printed label artwork and lettering, accessories and construction from the reference. Do not redesign or add components. Both views must be the SAME PHYSICAL PRODUCT with matching dimensions and styling, including exactly the same brush heads, pouch type, dress bodice seams and floral print scale, container or bottle labels, logos and hardware where applicable. Preserve the reference product size/capacity in both views.   Studio white backgrounds, matching soft lighting and shadows, complete product and accessories fit within each square quadrant with safe margins. One coordinated render, never unrelated alternatives.",
+      "reference_file": "2000205-0.webp",
+      "sheet": {
+        "group": "product-2000205-views-v2",
+        "cell": 1,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000206-0",
+      "kind": "product",
+      "item_id": 2000206,
+      "shop_id": 880002,
+      "title": "GlowUp Essential makeup brush set",
+      "file": "2000206-0.webp",
+      "prompt": "Create ONE SQUARE 2-by-2 photography sheet of GlowUp Essential makeup brush set. TOP LEFT: complete product at the exact angle of the reference. TOP RIGHT: SAME product, only a slight camera viewpoint adjustment. Bottom two quadrants entirely blank white. Four equally sized square quadrants; no dividing lines or labels. Lock the EXACT product design, material, physical shape, part count, packaging, printed label artwork and lettering, accessories and construction from the reference. Do not redesign or add components. Both views must be the SAME PHYSICAL PRODUCT with matching dimensions and styling, including exactly the same brush heads, pouch type, dress bodice seams and floral print scale, container or bottle labels, logos and hardware where applicable. Preserve the reference product size/capacity in both views. Exactly five brushes AND the same drawstring cloth pouch; no roll-up case.  Studio white backgrounds, matching soft lighting and shadows, complete product and accessories fit within each square quadrant with safe margins. One coordinated render, never unrelated alternatives.",
+      "reference_file": "2000206-0.webp",
+      "sheet": {
+        "group": "product-2000206-views-v2",
+        "cell": 0,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000206-1",
+      "kind": "product",
+      "item_id": 2000206,
+      "shop_id": 880002,
+      "title": "GlowUp Essential makeup brush set",
+      "file": "2000206-1.webp",
+      "prompt": "Create ONE SQUARE 2-by-2 photography sheet of GlowUp Essential makeup brush set. TOP LEFT: complete product at the exact angle of the reference. TOP RIGHT: SAME product, only a slight camera viewpoint adjustment. Bottom two quadrants entirely blank white. Four equally sized square quadrants; no dividing lines or labels. Lock the EXACT product design, material, physical shape, part count, packaging, printed label artwork and lettering, accessories and construction from the reference. Do not redesign or add components. Both views must be the SAME PHYSICAL PRODUCT with matching dimensions and styling, including exactly the same brush heads, pouch type, dress bodice seams and floral print scale, container or bottle labels, logos and hardware where applicable. Preserve the reference product size/capacity in both views. Exactly five brushes AND the same drawstring cloth pouch; no roll-up case.  Studio white backgrounds, matching soft lighting and shadows, complete product and accessories fit within each square quadrant with safe margins. One coordinated render, never unrelated alternatives.",
+      "reference_file": "2000206-0.webp",
+      "sheet": {
+        "group": "product-2000206-views-v2",
+        "cell": 1,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000304-0",
+      "kind": "product",
+      "item_id": 2000304,
+      "shop_id": 880003,
+      "title": "Saigon Style linen shirt",
+      "file": "2000304-0.webp",
+      "prompt": "Create ONE SQUARE image containing a precise 2 by 2 grid of FOUR EQUAL SQUARE PANELS. This is a coordinated color-variant product photography sheet for Áo sơ mi nam linen Saigon Style tay ngắn. Use the supplied product reference to lock the exact physical design. Arrange TOP LEFT: Be (beige); TOP RIGHT: Xanh sage (sage green). Any remaining panels must be empty plain white. No borders, dividing lines, labels or text. In all occupied panels show IDENTICAL product silhouette, geometry, dimensions, scale, pose, construction, camera angle, folds, seams, accessories, lighting, white background and shadow, with ONLY the offered color or cosmetic pigment changed. Treat the product as one duplicated photographic template with different color treatments, NOT separate product designs. Each product must fit fully inside its own quadrant with equal safe margins, no objects crossing panel boundaries. No extra products, no redesign, no style differences between quadrants.   Generate this single matched sheet in one render.",
+      "color": "Be",
+      "reference_file": "2000304-0.webp",
+      "sheet": {
+        "group": "product-2000304-colors-v2",
+        "cell": 0,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000304-1",
+      "kind": "product",
+      "item_id": 2000304,
+      "shop_id": 880003,
+      "title": "Saigon Style linen shirt",
+      "file": "2000304-1.webp",
+      "prompt": "Create ONE SQUARE image containing a precise 2 by 2 grid of FOUR EQUAL SQUARE PANELS. This is a coordinated color-variant product photography sheet for Áo sơ mi nam linen Saigon Style tay ngắn. Use the supplied product reference to lock the exact physical design. Arrange TOP LEFT: Be (beige); TOP RIGHT: Xanh sage (sage green). Any remaining panels must be empty plain white. No borders, dividing lines, labels or text. In all occupied panels show IDENTICAL product silhouette, geometry, dimensions, scale, pose, construction, camera angle, folds, seams, accessories, lighting, white background and shadow, with ONLY the offered color or cosmetic pigment changed. Treat the product as one duplicated photographic template with different color treatments, NOT separate product designs. Each product must fit fully inside its own quadrant with equal safe margins, no objects crossing panel boundaries. No extra products, no redesign, no style differences between quadrants.   Generate this single matched sheet in one render.",
+      "color": "Xanh sage",
+      "reference_file": "2000304-0.webp",
+      "sheet": {
+        "group": "product-2000304-colors-v2",
+        "cell": 1,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000305-0",
+      "kind": "product",
+      "item_id": 2000305,
+      "shop_id": 880003,
+      "title": "Saigon Style canvas tote bag",
+      "file": "2000305-0.webp",
+      "prompt": "Create ONE SQUARE image containing a precise 2 by 2 grid of FOUR EQUAL SQUARE PANELS. This is a coordinated color-variant product photography sheet for Túi tote canvas Saigon Style có khóa kéo. Use the supplied product reference to lock the exact physical design. Arrange TOP LEFT: Kem (ivory cream); TOP RIGHT: Đen (black). Any remaining panels must be empty plain white. No borders, dividing lines, labels or text. In all occupied panels show IDENTICAL product silhouette, geometry, dimensions, scale, pose, construction, camera angle, folds, seams, accessories, lighting, white background and shadow, with ONLY the offered color or cosmetic pigment changed. Treat the product as one duplicated photographic template with different color treatments, NOT separate product designs. Each product must fit fully inside its own quadrant with equal safe margins, no objects crossing panel boundaries. No extra products, no redesign, no style differences between quadrants.   Generate this single matched sheet in one render.",
+      "color": "Kem",
+      "reference_file": "2000305-0.webp",
+      "sheet": {
+        "group": "product-2000305-colors-v2",
+        "cell": 0,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000305-1",
+      "kind": "product",
+      "item_id": 2000305,
+      "shop_id": 880003,
+      "title": "Saigon Style canvas tote bag",
+      "file": "2000305-1.webp",
+      "prompt": "Create ONE SQUARE image containing a precise 2 by 2 grid of FOUR EQUAL SQUARE PANELS. This is a coordinated color-variant product photography sheet for Túi tote canvas Saigon Style có khóa kéo. Use the supplied product reference to lock the exact physical design. Arrange TOP LEFT: Kem (ivory cream); TOP RIGHT: Đen (black). Any remaining panels must be empty plain white. No borders, dividing lines, labels or text. In all occupied panels show IDENTICAL product silhouette, geometry, dimensions, scale, pose, construction, camera angle, folds, seams, accessories, lighting, white background and shadow, with ONLY the offered color or cosmetic pigment changed. Treat the product as one duplicated photographic template with different color treatments, NOT separate product designs. Each product must fit fully inside its own quadrant with equal safe margins, no objects crossing panel boundaries. No extra products, no redesign, no style differences between quadrants.   Generate this single matched sheet in one render.",
+      "color": "Đen",
+      "reference_file": "2000305-0.webp",
+      "sheet": {
+        "group": "product-2000305-colors-v2",
+        "cell": 1,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000306-0",
+      "kind": "product",
+      "item_id": 2000306,
+      "shop_id": 880003,
+      "title": "Saigon Style cotton cardigan",
+      "file": "2000306-0.webp",
+      "prompt": "Create ONE SQUARE image containing a precise 2 by 2 grid of FOUR EQUAL SQUARE PANELS. This is a coordinated color-variant product photography sheet for Áo cardigan nữ cotton dệt kim Saigon Style. Use the supplied product reference to lock the exact physical design. Arrange TOP LEFT: Kem (ivory cream); TOP RIGHT: Xanh sage (sage green). Any remaining panels must be empty plain white. No borders, dividing lines, labels or text. In all occupied panels show IDENTICAL product silhouette, geometry, dimensions, scale, pose, construction, camera angle, folds, seams, accessories, lighting, white background and shadow, with ONLY the offered color or cosmetic pigment changed. Treat the product as one duplicated photographic template with different color treatments, NOT separate product designs. Each product must fit fully inside its own quadrant with equal safe margins, no objects crossing panel boundaries. No extra products, no redesign, no style differences between quadrants.   Generate this single matched sheet in one render.",
+      "color": "Kem",
+      "reference_file": "2000306-0.webp",
+      "sheet": {
+        "group": "product-2000306-colors-v2",
+        "cell": 0,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000306-1",
+      "kind": "product",
+      "item_id": 2000306,
+      "shop_id": 880003,
+      "title": "Saigon Style cotton cardigan",
+      "file": "2000306-1.webp",
+      "prompt": "Create ONE SQUARE image containing a precise 2 by 2 grid of FOUR EQUAL SQUARE PANELS. This is a coordinated color-variant product photography sheet for Áo cardigan nữ cotton dệt kim Saigon Style. Use the supplied product reference to lock the exact physical design. Arrange TOP LEFT: Kem (ivory cream); TOP RIGHT: Xanh sage (sage green). Any remaining panels must be empty plain white. No borders, dividing lines, labels or text. In all occupied panels show IDENTICAL product silhouette, geometry, dimensions, scale, pose, construction, camera angle, folds, seams, accessories, lighting, white background and shadow, with ONLY the offered color or cosmetic pigment changed. Treat the product as one duplicated photographic template with different color treatments, NOT separate product designs. Each product must fit fully inside its own quadrant with equal safe margins, no objects crossing panel boundaries. No extra products, no redesign, no style differences between quadrants.   Generate this single matched sheet in one render.",
+      "color": "Xanh sage",
+      "reference_file": "2000306-0.webp",
+      "sheet": {
+        "group": "product-2000306-colors-v2",
+        "cell": 1,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000403-0",
+      "kind": "product",
+      "item_id": 2000403,
+      "shop_id": 880004,
+      "title": "Nha Xinh insulated bottle 500ml",
+      "file": "2000403-0.webp",
+      "prompt": "Create ONE SQUARE image containing a precise 2 by 2 grid of FOUR EQUAL SQUARE PANELS. This is a coordinated color-variant product photography sheet for Bình giữ nhiệt inox Nhà Xinh 500ml. Use the supplied product reference to lock the exact physical design. Arrange TOP LEFT: Kem (ivory cream); TOP RIGHT: Xanh sage (sage green); BOTTOM LEFT: Đen (black). Any remaining panels must be empty plain white. No borders, dividing lines, labels or text. In all occupied panels show IDENTICAL product silhouette, geometry, dimensions, scale, pose, construction, camera angle, folds, seams, accessories, lighting, white background and shadow, with ONLY the offered color or cosmetic pigment changed. Treat the product as one duplicated photographic template with different color treatments, NOT separate product designs. Each product must fit fully inside its own quadrant with equal safe margins, no objects crossing panel boundaries. No extra products, no redesign, no style differences between quadrants.   Generate this single matched sheet in one render.",
+      "color": "Kem",
+      "reference_file": "2000403-0.webp",
+      "sheet": {
+        "group": "product-2000403-colors-v2",
+        "cell": 0,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000403-1",
+      "kind": "product",
+      "item_id": 2000403,
+      "shop_id": 880004,
+      "title": "Nha Xinh insulated bottle 500ml",
+      "file": "2000403-1.webp",
+      "prompt": "Create ONE SQUARE image containing a precise 2 by 2 grid of FOUR EQUAL SQUARE PANELS. This is a coordinated color-variant product photography sheet for Bình giữ nhiệt inox Nhà Xinh 500ml. Use the supplied product reference to lock the exact physical design. Arrange TOP LEFT: Kem (ivory cream); TOP RIGHT: Xanh sage (sage green); BOTTOM LEFT: Đen (black). Any remaining panels must be empty plain white. No borders, dividing lines, labels or text. In all occupied panels show IDENTICAL product silhouette, geometry, dimensions, scale, pose, construction, camera angle, folds, seams, accessories, lighting, white background and shadow, with ONLY the offered color or cosmetic pigment changed. Treat the product as one duplicated photographic template with different color treatments, NOT separate product designs. Each product must fit fully inside its own quadrant with equal safe margins, no objects crossing panel boundaries. No extra products, no redesign, no style differences between quadrants.   Generate this single matched sheet in one render.",
+      "color": "Xanh sage",
+      "reference_file": "2000403-0.webp",
+      "sheet": {
+        "group": "product-2000403-colors-v2",
+        "cell": 1,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000404-0",
+      "kind": "product",
+      "item_id": 2000404,
+      "shop_id": 880004,
+      "title": "Nha Xinh matte ceramic dinnerware",
+      "file": "2000404-0.webp",
+      "prompt": "Create ONE SQUARE 2-by-2 photography sheet of Nha Xinh matte ceramic dinnerware. TOP LEFT: complete product at the exact angle of the reference. TOP RIGHT: SAME product, only a slight camera viewpoint adjustment. Bottom two quadrants entirely blank white. Four equally sized square quadrants; no dividing lines or labels. Lock the EXACT product design, material, physical shape, part count, packaging, printed label artwork and lettering, accessories and construction from the reference. Do not redesign or add components. Both views must be the SAME PHYSICAL PRODUCT with matching dimensions and styling, including exactly the same brush heads, pouch type, dress bodice seams and floral print scale, container or bottle labels, logos and hardware where applicable. Preserve the reference product size/capacity in both views.  Exactly two plates and two bowls in each view; identical relative sizes and profiles. Studio white backgrounds, matching soft lighting and shadows, complete product and accessories fit within each square quadrant with safe margins. One coordinated render, never unrelated alternatives.",
+      "reference_file": "2000404-0.webp",
+      "sheet": {
+        "group": "product-2000404-views-v2",
+        "cell": 0,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000404-1",
+      "kind": "product",
+      "item_id": 2000404,
+      "shop_id": 880004,
+      "title": "Nha Xinh matte ceramic dinnerware",
+      "file": "2000404-1.webp",
+      "prompt": "Create ONE SQUARE 2-by-2 photography sheet of Nha Xinh matte ceramic dinnerware. TOP LEFT: complete product at the exact angle of the reference. TOP RIGHT: SAME product, only a slight camera viewpoint adjustment. Bottom two quadrants entirely blank white. Four equally sized square quadrants; no dividing lines or labels. Lock the EXACT product design, material, physical shape, part count, packaging, printed label artwork and lettering, accessories and construction from the reference. Do not redesign or add components. Both views must be the SAME PHYSICAL PRODUCT with matching dimensions and styling, including exactly the same brush heads, pouch type, dress bodice seams and floral print scale, container or bottle labels, logos and hardware where applicable. Preserve the reference product size/capacity in both views.  Exactly two plates and two bowls in each view; identical relative sizes and profiles. Studio white backgrounds, matching soft lighting and shadows, complete product and accessories fit within each square quadrant with safe margins. One coordinated render, never unrelated alternatives.",
+      "reference_file": "2000404-0.webp",
+      "sheet": {
+        "group": "product-2000404-views-v2",
+        "cell": 1,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000405-0",
+      "kind": "product",
+      "item_id": 2000405,
+      "shop_id": 880004,
+      "title": "Nha Xinh cotton bath towel set",
+      "file": "2000405-0.webp",
+      "prompt": "Create ONE SQUARE image containing a precise 2 by 2 grid of FOUR EQUAL SQUARE PANELS. This is a coordinated color-variant product photography sheet for Bộ 2 khăn tắm cotton Nhà Xinh 70 × 140cm. Use the supplied product reference to lock the exact physical design. Arrange TOP LEFT: Kem (ivory cream); TOP RIGHT: Xám (gray). Any remaining panels must be empty plain white. No borders, dividing lines, labels or text. In all occupied panels show IDENTICAL product silhouette, geometry, dimensions, scale, pose, construction, camera angle, folds, seams, accessories, lighting, white background and shadow, with ONLY the offered color or cosmetic pigment changed. Treat the product as one duplicated photographic template with different color treatments, NOT separate product designs. Each product must fit fully inside its own quadrant with equal safe margins, no objects crossing panel boundaries. No extra products, no redesign, no style differences between quadrants.   Generate this single matched sheet in one render.",
+      "color": "Kem",
+      "reference_file": "2000405-0.webp",
+      "sheet": {
+        "group": "product-2000405-colors-v2",
+        "cell": 0,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000405-1",
+      "kind": "product",
+      "item_id": 2000405,
+      "shop_id": 880004,
+      "title": "Nha Xinh cotton bath towel set",
+      "file": "2000405-1.webp",
+      "prompt": "Create ONE SQUARE image containing a precise 2 by 2 grid of FOUR EQUAL SQUARE PANELS. This is a coordinated color-variant product photography sheet for Bộ 2 khăn tắm cotton Nhà Xinh 70 × 140cm. Use the supplied product reference to lock the exact physical design. Arrange TOP LEFT: Kem (ivory cream); TOP RIGHT: Xám (gray). Any remaining panels must be empty plain white. No borders, dividing lines, labels or text. In all occupied panels show IDENTICAL product silhouette, geometry, dimensions, scale, pose, construction, camera angle, folds, seams, accessories, lighting, white background and shadow, with ONLY the offered color or cosmetic pigment changed. Treat the product as one duplicated photographic template with different color treatments, NOT separate product designs. Each product must fit fully inside its own quadrant with equal safe margins, no objects crossing panel boundaries. No extra products, no redesign, no style differences between quadrants.   Generate this single matched sheet in one render.",
+      "color": "Xám",
+      "reference_file": "2000405-0.webp",
+      "sheet": {
+        "group": "product-2000405-colors-v2",
+        "cell": 1,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000406-0",
+      "kind": "product",
+      "item_id": 2000406,
+      "shop_id": 880004,
+      "title": "Nha Xinh LED desk lamp",
+      "file": "2000406-0.webp",
+      "prompt": "Create ONE SQUARE image containing a precise 2 by 2 grid of FOUR EQUAL SQUARE PANELS. This is a coordinated color-variant product photography sheet for Đèn bàn LED Nhà Xinh cổ ngỗng 3 chế độ sáng. Use the supplied product reference to lock the exact physical design. Arrange TOP LEFT: Trắng (white); TOP RIGHT: Đen (black). Any remaining panels must be empty plain white. No borders, dividing lines, labels or text. In all occupied panels show IDENTICAL product silhouette, geometry, dimensions, scale, pose, construction, camera angle, folds, seams, accessories, lighting, white background and shadow, with ONLY the offered color or cosmetic pigment changed. Treat the product as one duplicated photographic template with different color treatments, NOT separate product designs. Each product must fit fully inside its own quadrant with equal safe margins, no objects crossing panel boundaries. No extra products, no redesign, no style differences between quadrants.   Generate this single matched sheet in one render.",
+      "color": "Trắng",
+      "reference_file": "2000406-0.webp",
+      "sheet": {
+        "group": "product-2000406-colors-v2",
+        "cell": 0,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000406-1",
+      "kind": "product",
+      "item_id": 2000406,
+      "shop_id": 880004,
+      "title": "Nha Xinh LED desk lamp",
+      "file": "2000406-1.webp",
+      "prompt": "Create ONE SQUARE image containing a precise 2 by 2 grid of FOUR EQUAL SQUARE PANELS. This is a coordinated color-variant product photography sheet for Đèn bàn LED Nhà Xinh cổ ngỗng 3 chế độ sáng. Use the supplied product reference to lock the exact physical design. Arrange TOP LEFT: Trắng (white); TOP RIGHT: Đen (black). Any remaining panels must be empty plain white. No borders, dividing lines, labels or text. In all occupied panels show IDENTICAL product silhouette, geometry, dimensions, scale, pose, construction, camera angle, folds, seams, accessories, lighting, white background and shadow, with ONLY the offered color or cosmetic pigment changed. Treat the product as one duplicated photographic template with different color treatments, NOT separate product designs. Each product must fit fully inside its own quadrant with equal safe margins, no objects crossing panel boundaries. No extra products, no redesign, no style differences between quadrants.   Generate this single matched sheet in one render.",
+      "color": "Đen",
+      "reference_file": "2000406-0.webp",
+      "sheet": {
+        "group": "product-2000406-colors-v2",
+        "cell": 1,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000107-0",
+      "kind": "product",
+      "item_id": 2000107,
+      "shop_id": 880001,
+      "title": "Bàn phím Compact",
+      "file": "2000107-0.webp",
+      "prompt": "Create ONE SQUARE image containing a precise 2 by 2 grid of FOUR EQUAL SQUARE PANELS. This is a coordinated color-variant product photography sheet for Bàn phím cơ TechZone Compact 68 phím. Use the supplied product reference to lock the exact physical design. Arrange TOP LEFT: Kem (ivory cream); TOP RIGHT: Đen (black). Any remaining panels must be empty plain white. No borders, dividing lines, labels or text. In all occupied panels show IDENTICAL product silhouette, geometry, dimensions, scale, pose, construction, camera angle, folds, seams, accessories, lighting, white background and shadow, with ONLY the offered color or cosmetic pigment changed. Treat the product as one duplicated photographic template with different color treatments, NOT separate product designs. Each product must fit fully inside its own quadrant with equal safe margins, no objects crossing panel boundaries. No extra products, no redesign, no style differences between quadrants.   Generate this single matched sheet in one render.",
+      "color": "Kem",
+      "reference_file": "2000107-0.webp",
+      "sheet": {
+        "group": "product-2000107-colors-v2",
+        "cell": 0,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000108-0",
+      "kind": "product",
+      "item_id": 2000108,
+      "shop_id": 880001,
+      "title": "Hub USB-C 6 trong 1",
+      "file": "2000108-0.webp",
+      "prompt": "Use case: product-mockup. Create one standalone square premium ecommerce catalog photograph for the simulated Huspee marketplace. Subject: A silver aluminum six-in-one USB-C hub with short attached braided cable, HDMI port, two USB-A ports, USB-C PD port, SD and microSD slots. Match the listing exactly; included items only. Photorealistic accurate materials, refined soft studio lighting, seamless warm off-white background and gentle contact shadow. Entire product centered with generous safe margins for square thumbnail crops. Crisp useful product detail and tasteful editorial polish. No people, promotional slogans, prices, specification callouts, watermarks, or contact sheet. Fictional shop-owned product; no real manufacturer logos. Output a single hero photograph."
+    },
+    {
+      "key": "2000109-0",
+      "kind": "product",
+      "item_id": 2000109,
+      "shop_id": 880001,
+      "title": "Cáp USB-C 100W",
+      "file": "2000109-0.webp",
+      "prompt": "Use case: product-mockup. Create one standalone square premium ecommerce catalog photograph for the simulated Huspee marketplace. Subject: A single one-meter braided charcoal USB-C to USB-C cable neatly coiled, two metallic USB-C connectors visible, simple reusable paper strap. Match the listing exactly; included items only. Photorealistic accurate materials, refined soft studio lighting, seamless warm off-white background and gentle contact shadow. Entire product centered with generous safe margins for square thumbnail crops. Crisp useful product detail and tasteful editorial polish. No people, promotional slogans, prices, specification callouts, watermarks, or contact sheet. Fictional shop-owned product; no real manufacturer logos. Output a single hero photograph."
+    },
+    {
+      "key": "2000110-0",
+      "kind": "product",
+      "item_id": 2000110,
+      "shop_id": 880001,
+      "title": "Pin dự phòng Pocket",
+      "file": "2000110-0.webp",
+      "prompt": "Use case: product-mockup. Create one standalone square premium ecommerce catalog photograph for the simulated Huspee marketplace. Subject: One compact matte black 10000mAh power bank, small four-dot charge indicator, one USB-A and one USB-C port, short USB-C cable beside it. Match the listing exactly; included items only. Photorealistic accurate materials, refined soft studio lighting, seamless warm off-white background and gentle contact shadow. Entire product centered with generous safe margins for square thumbnail crops. Crisp useful product detail and tasteful editorial polish. No people, promotional slogans, prices, specification callouts, watermarks, or contact sheet. Fictional shop-owned product; no real manufacturer logos. Output a single hero photograph."
+    },
+    {
+      "key": "2000111-0",
+      "kind": "product",
+      "item_id": 2000111,
+      "shop_id": 880001,
+      "title": "Loa Mini 10W",
+      "file": "2000111-0.webp",
+      "prompt": "Create ONE SQUARE image containing a precise 2 by 2 grid of FOUR EQUAL SQUARE PANELS. This is a coordinated color-variant product photography sheet for Loa Bluetooth TechZone Mini 10W. Use the supplied product reference to lock the exact physical design. Arrange TOP LEFT: Xanh navy (navy blue); TOP RIGHT: Xám (gray). Any remaining panels must be empty plain white. No borders, dividing lines, labels or text. In all occupied panels show IDENTICAL product silhouette, geometry, dimensions, scale, pose, construction, camera angle, folds, seams, accessories, lighting, white background and shadow, with ONLY the offered color or cosmetic pigment changed. Treat the product as one duplicated photographic template with different color treatments, NOT separate product designs. Each product must fit fully inside its own quadrant with equal safe margins, no objects crossing panel boundaries. No extra products, no redesign, no style differences between quadrants.   Generate this single matched sheet in one render.",
+      "color": "Xanh navy",
+      "reference_file": "2000111-0.webp",
+      "sheet": {
+        "group": "product-2000111-colors-v2",
+        "cell": 0,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000112-0",
+      "kind": "product",
+      "item_id": 2000112,
+      "shop_id": 880001,
+      "title": "Tai nghe Studio",
+      "file": "2000112-0.webp",
+      "prompt": "Create ONE SQUARE image containing a precise 2 by 2 grid of FOUR EQUAL SQUARE PANELS. This is a coordinated color-variant product photography sheet for Tai nghe chụp tai TechZone Studio Wireless. Use the supplied product reference to lock the exact physical design. Arrange TOP LEFT: Đen (black); TOP RIGHT: Kem (ivory cream). Any remaining panels must be empty plain white. No borders, dividing lines, labels or text. In all occupied panels show IDENTICAL product silhouette, geometry, dimensions, scale, pose, construction, camera angle, folds, seams, accessories, lighting, white background and shadow, with ONLY the offered color or cosmetic pigment changed. Treat the product as one duplicated photographic template with different color treatments, NOT separate product designs. Each product must fit fully inside its own quadrant with equal safe margins, no objects crossing panel boundaries. No extra products, no redesign, no style differences between quadrants.   Generate this single matched sheet in one render.",
+      "color": "Đen",
+      "reference_file": "2000112-0.webp",
+      "sheet": {
+        "group": "product-2000112-colors-v2",
+        "cell": 0,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000113-0",
+      "kind": "product",
+      "item_id": 2000113,
+      "shop_id": 880001,
+      "title": "Webcam Full HD",
+      "file": "2000113-0.webp",
+      "prompt": "Use case: product-mockup. Create one standalone square premium ecommerce catalog photograph for the simulated Huspee marketplace. Subject: A black rectangular computer webcam with round central glass lens, visible sliding privacy cover open, hinged monitor mounting clip and neatly coiled USB-A cable. Match the listing exactly; included items only. Photorealistic accurate materials, refined soft studio lighting, seamless warm off-white background and gentle contact shadow. Entire product centered with generous safe margins for square thumbnail crops. Crisp useful product detail and tasteful editorial polish. No people, promotional slogans, prices, specification callouts, watermarks, or contact sheet. Fictional shop-owned product; no real manufacturer logos. Output a single hero photograph."
+    },
+    {
+      "key": "2000114-0",
+      "kind": "product",
+      "item_id": 2000114,
+      "shop_id": 880001,
+      "title": "Tấm lót bàn Felt",
+      "file": "2000114-0.webp",
+      "prompt": "Create ONE SQUARE image containing a precise 2 by 2 grid of FOUR EQUAL SQUARE PANELS. This is a coordinated color-variant product photography sheet for Tấm lót bàn TechZone Felt 80 × 40cm. Use the supplied product reference to lock the exact physical design. Arrange TOP LEFT: Xám (gray); TOP RIGHT: Be (beige). Any remaining panels must be empty plain white. No borders, dividing lines, labels or text. In all occupied panels show IDENTICAL product silhouette, geometry, dimensions, scale, pose, construction, camera angle, folds, seams, accessories, lighting, white background and shadow, with ONLY the offered color or cosmetic pigment changed. Treat the product as one duplicated photographic template with different color treatments, NOT separate product designs. Each product must fit fully inside its own quadrant with equal safe margins, no objects crossing panel boundaries. No extra products, no redesign, no style differences between quadrants.   Generate this single matched sheet in one render.",
+      "color": "Xám",
+      "reference_file": "2000114-0.webp",
+      "sheet": {
+        "group": "product-2000114-colors-v2",
+        "cell": 0,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000115-0",
+      "kind": "product",
+      "item_id": 2000115,
+      "shop_id": 880001,
+      "title": "Giá đỡ laptop nhôm",
+      "file": "2000115-0.webp",
+      "prompt": "Use case: product-mockup. Create one standalone square premium ecommerce catalog photograph for the simulated Huspee marketplace. Subject: One silver aluminum folding laptop stand fully open at a raised angle, two support rails, black silicone pads, no laptop. Match the listing exactly; included items only. Photorealistic accurate materials, refined soft studio lighting, seamless warm off-white background and gentle contact shadow. Entire product centered with generous safe margins for square thumbnail crops. Crisp useful product detail and tasteful editorial polish. No people, promotional slogans, prices, specification callouts, watermarks, or contact sheet. Fictional shop-owned product; no real manufacturer logos. Output a single hero photograph."
+    },
+    {
+      "key": "2000116-0",
+      "kind": "product",
+      "item_id": 2000116,
+      "shop_id": 880001,
+      "title": "SSD Pocket 512GB",
+      "file": "2000116-0.webp",
+      "prompt": "Use case: product-mockup. Create one standalone square premium ecommerce catalog photograph for the simulated Huspee marketplace. Subject: A small graphite portable SSD with ribbed aluminum enclosure and one USB-C port, short USB-C cable and charcoal fabric pouch beside it. Match the listing exactly; included items only. Photorealistic accurate materials, refined soft studio lighting, seamless warm off-white background and gentle contact shadow. Entire product centered with generous safe margins for square thumbnail crops. Crisp useful product detail and tasteful editorial polish. No people, promotional slogans, prices, specification callouts, watermarks, or contact sheet. Fictional shop-owned product; no real manufacturer logos. Output a single hero photograph."
+    },
+    {
+      "key": "2000117-0",
+      "kind": "product",
+      "item_id": 2000117,
+      "shop_id": 880001,
+      "title": "Đồng hồ Active Lite",
+      "file": "2000117-0.webp",
+      "prompt": "Create ONE SQUARE image containing a precise 2 by 2 grid of FOUR EQUAL SQUARE PANELS. This is a coordinated color-variant product photography sheet for Đồng hồ thông minh TechZone Active Lite. Use the supplied product reference to lock the exact physical design. Arrange TOP LEFT: Đen (black); TOP RIGHT: Hồng (pastel pink). Any remaining panels must be empty plain white. No borders, dividing lines, labels or text. In all occupied panels show IDENTICAL product silhouette, geometry, dimensions, scale, pose, construction, camera angle, folds, seams, accessories, lighting, white background and shadow, with ONLY the offered color or cosmetic pigment changed. Treat the product as one duplicated photographic template with different color treatments, NOT separate product designs. Each product must fit fully inside its own quadrant with equal safe margins, no objects crossing panel boundaries. No extra products, no redesign, no style differences between quadrants.   Generate this single matched sheet in one render.",
+      "color": "Đen",
+      "reference_file": "2000117-0.webp",
+      "sheet": {
+        "group": "product-2000117-colors-v2",
+        "cell": 0,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000118-0",
+      "kind": "product",
+      "item_id": 2000118,
+      "shop_id": 880001,
+      "title": "Study Tab 10",
+      "file": "2000118-0.webp",
+      "prompt": "Use case: product-mockup. Create one standalone square premium ecommerce catalog photograph for the simulated Huspee marketplace. Subject: A dark gray ten-inch Android-style tablet, landscape front view with even bezels and a restrained blue geometric screen, rear view behind, no brand logo. Match the listing exactly; included items only. Photorealistic accurate materials, refined soft studio lighting, seamless warm off-white background and gentle contact shadow. Entire product centered with generous safe margins for square thumbnail crops. Crisp useful product detail and tasteful editorial polish. No people, promotional slogans, prices, specification callouts, watermarks, or contact sheet. Fictional shop-owned product; no real manufacturer logos. Output a single hero photograph."
+    },
+    {
+      "key": "2000119-0",
+      "kind": "product",
+      "item_id": 2000119,
+      "shop_id": 880001,
+      "title": "USB Metal Drive 64GB",
+      "file": "2000119-0.webp",
+      "prompt": "Use case: product-mockup. Create one standalone square premium ecommerce catalog photograph for the simulated Huspee marketplace. Subject: One small satin silver metal USB-A flash drive, integrated keyring loop at the rear, connector clearly visible, no extra accessories. Match the listing exactly; included items only. Photorealistic accurate materials, refined soft studio lighting, seamless warm off-white background and gentle contact shadow. Entire product centered with generous safe margins for square thumbnail crops. Crisp useful product detail and tasteful editorial polish. No people, promotional slogans, prices, specification callouts, watermarks, or contact sheet. Fictional shop-owned product; no real manufacturer logos. Output a single hero photograph."
+    },
+    {
+      "key": "2000120-0",
+      "kind": "product",
+      "item_id": 2000120,
+      "shop_id": 880001,
+      "title": "Đế sạc Stand 15W",
+      "file": "2000120-0.webp",
+      "prompt": "Create ONE SQUARE image containing a precise 2 by 2 grid of FOUR EQUAL SQUARE PANELS. This is a coordinated color-variant product photography sheet for Đế sạc không dây TechZone Stand 15W. Use the supplied product reference to lock the exact physical design. Arrange TOP LEFT: Đen (black); TOP RIGHT: Trắng (white). Any remaining panels must be empty plain white. No borders, dividing lines, labels or text. In all occupied panels show IDENTICAL product silhouette, geometry, dimensions, scale, pose, construction, camera angle, folds, seams, accessories, lighting, white background and shadow, with ONLY the offered color or cosmetic pigment changed. Treat the product as one duplicated photographic template with different color treatments, NOT separate product designs. Each product must fit fully inside its own quadrant with equal safe margins, no objects crossing panel boundaries. No extra products, no redesign, no style differences between quadrants.   Generate this single matched sheet in one render.",
+      "color": "Đen",
+      "reference_file": "2000120-0.webp",
+      "sheet": {
+        "group": "product-2000120-colors-v2",
+        "cell": 0,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000207-0",
+      "kind": "product",
+      "item_id": 2000207,
+      "shop_id": 880002,
+      "title": "Fresh Micellar",
+      "file": "2000207-0.webp",
+      "prompt": "Use case: product-mockup. Create one standalone square premium ecommerce catalog photograph for the simulated Huspee marketplace. Subject: One clear 400ml micellar water bottle with pale pink flip cap, transparent liquid, minimal white label reading GlowUp Fresh Micellar, clean beauty packaging. Match the listing exactly; included items only. Photorealistic accurate materials, refined soft studio lighting, seamless warm off-white background and gentle contact shadow. Entire product centered with generous safe margins for square thumbnail crops. Crisp useful product detail and tasteful editorial polish. No people, promotional slogans, prices, specification callouts, watermarks, or contact sheet. Fictional shop-owned product; no real manufacturer logos. Output a single hero photograph."
+    },
+    {
+      "key": "2000208-0",
+      "kind": "product",
+      "item_id": 2000208,
+      "shop_id": 880002,
+      "title": "Gel dưỡng Aqua",
+      "file": "2000208-0.webp",
+      "prompt": "Use case: product-mockup. Create one standalone square premium ecommerce catalog photograph for the simulated Huspee marketplace. Subject: One frosted pale blue cosmetic glass jar with white lid, minimal GlowUp Aqua label, an open jar showing clear aqua gel with its lid beside it. Match the listing exactly; included items only. Photorealistic accurate materials, refined soft studio lighting, seamless warm off-white background and gentle contact shadow. Entire product centered with generous safe margins for square thumbnail crops. Crisp useful product detail and tasteful editorial polish. No people, promotional slogans, prices, specification callouts, watermarks, or contact sheet. Fictional shop-owned product; no real manufacturer logos. Output a single hero photograph."
+    },
+    {
+      "key": "2000209-0",
+      "kind": "product",
+      "item_id": 2000209,
+      "shop_id": 880002,
+      "title": "Dầu Soft Clean",
+      "file": "2000209-0.webp",
+      "prompt": "Use case: product-mockup. Create one standalone square premium ecommerce catalog photograph for the simulated Huspee marketplace. Subject: One transparent amber cleansing-oil pump bottle with white pump, golden oil inside, restrained label GlowUp Soft Clean. Match the listing exactly; included items only. Photorealistic accurate materials, refined soft studio lighting, seamless warm off-white background and gentle contact shadow. Entire product centered with generous safe margins for square thumbnail crops. Crisp useful product detail and tasteful editorial polish. No people, promotional slogans, prices, specification callouts, watermarks, or contact sheet. Fictional shop-owned product; no real manufacturer logos. Output a single hero photograph."
+    },
+    {
+      "key": "2000210-0",
+      "kind": "product",
+      "item_id": 2000210,
+      "shop_id": 880002,
+      "title": "Son dưỡng Daily",
+      "file": "2000210-0.webp",
+      "prompt": "Use case: product-mockup. Create one standalone square premium ecommerce catalog photograph for the simulated Huspee marketplace. Subject: One ivory lip-balm stick with cap removed and a pale neutral balm tip, minimal GlowUp Daily Balm label, small cap beside it. Match the listing exactly; included items only. Photorealistic accurate materials, refined soft studio lighting, seamless warm off-white background and gentle contact shadow. Entire product centered with generous safe margins for square thumbnail crops. Crisp useful product detail and tasteful editorial polish. No people, promotional slogans, prices, specification callouts, watermarks, or contact sheet. Fictional shop-owned product; no real manufacturer logos. Output a single hero photograph."
+    },
+    {
+      "key": "2000211-0",
+      "kind": "product",
+      "item_id": 2000211,
+      "shop_id": 880002,
+      "title": "Phấn má Soft Blush",
+      "file": "2000211-0.webp",
+      "prompt": "Create ONE SQUARE image containing a precise 2 by 2 grid of FOUR EQUAL SQUARE PANELS. This is a coordinated color-variant product photography sheet for Phấn má GlowUp Soft Blush 5g. Use the supplied product reference to lock the exact physical design. Arrange TOP LEFT: Hồng đào (peach pink); TOP RIGHT: Cam đất (terracotta peach). Any remaining panels must be empty plain white. No borders, dividing lines, labels or text. In all occupied panels show IDENTICAL product silhouette, geometry, dimensions, scale, pose, construction, camera angle, folds, seams, accessories, lighting, white background and shadow, with ONLY the offered color or cosmetic pigment changed. Treat the product as one duplicated photographic template with different color treatments, NOT separate product designs. Each product must fit fully inside its own quadrant with equal safe margins, no objects crossing panel boundaries. No extra products, no redesign, no style differences between quadrants.   Generate this single matched sheet in one render.",
+      "color": "Hồng đào",
+      "reference_file": "2000211-0.webp",
+      "sheet": {
+        "group": "product-2000211-colors-v2",
+        "cell": 0,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000212-0",
+      "kind": "product",
+      "item_id": 2000212,
+      "shop_id": 880002,
+      "title": "Bảng mắt Everyday",
+      "file": "2000212-0.webp",
+      "prompt": "Use case: product-mockup. Create one standalone square premium ecommerce catalog photograph for the simulated Huspee marketplace. Subject: One open nine-pan eyeshadow palette in a precise three-by-three grid, warm brown nude taupe shades, six matte and three soft shimmer pans, champagne-colored case. Match the listing exactly; included items only. Photorealistic accurate materials, refined soft studio lighting, seamless warm off-white background and gentle contact shadow. Entire product centered with generous safe margins for square thumbnail crops. Crisp useful product detail and tasteful editorial polish. No people, promotional slogans, prices, specification callouts, watermarks, or contact sheet. Fictional shop-owned product; no real manufacturer logos. Output a single hero photograph."
+    },
+    {
+      "key": "2000213-0",
+      "kind": "product",
+      "item_id": 2000213,
+      "shop_id": 880002,
+      "title": "Mascara Lift",
+      "file": "2000213-0.webp",
+      "prompt": "Use case: product-mockup. Create one standalone square premium ecommerce catalog photograph for the simulated Huspee marketplace. Subject: One slim matte black mascara tube with a champagne band, cap and curved bristle wand removed and placed beside it, minimal GlowUp label. Match the listing exactly; included items only. Photorealistic accurate materials, refined soft studio lighting, seamless warm off-white background and gentle contact shadow. Entire product centered with generous safe margins for square thumbnail crops. Crisp useful product detail and tasteful editorial polish. No people, promotional slogans, prices, specification callouts, watermarks, or contact sheet. Fictional shop-owned product; no real manufacturer logos. Output a single hero photograph."
+    },
+    {
+      "key": "2000214-0",
+      "kind": "product",
+      "item_id": 2000214,
+      "shop_id": 880002,
+      "title": "Chì Fine Brow",
+      "file": "2000214-0.webp",
+      "prompt": "Create ONE SQUARE image containing a precise 2 by 2 grid of FOUR EQUAL SQUARE PANELS. This is a coordinated color-variant product photography sheet for Chì kẻ mày GlowUp Fine Brow hai đầu. Use the supplied product reference to lock the exact physical design. Arrange TOP LEFT: Nâu tự nhiên (natural brown); TOP RIGHT: Nâu xám (gray brown taupe). Any remaining panels must be empty plain white. No borders, dividing lines, labels or text. In all occupied panels show IDENTICAL product silhouette, geometry, dimensions, scale, pose, construction, camera angle, folds, seams, accessories, lighting, white background and shadow, with ONLY the offered color or cosmetic pigment changed. Treat the product as one duplicated photographic template with different color treatments, NOT separate product designs. Each product must fit fully inside its own quadrant with equal safe margins, no objects crossing panel boundaries. No extra products, no redesign, no style differences between quadrants.   Generate this single matched sheet in one render.",
+      "color": "Nâu tự nhiên",
+      "reference_file": "2000214-0.webp",
+      "sheet": {
+        "group": "product-2000214-colors-v2",
+        "cell": 0,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000215-0",
+      "kind": "product",
+      "item_id": 2000215,
+      "shop_id": 880002,
+      "title": "Mặt nạ Hydrate",
+      "file": "2000215-0.webp",
+      "prompt": "Use case: product-mockup. Create one standalone square premium ecommerce catalog photograph for the simulated Huspee marketplace. Subject: Exactly five pale blue sheet mask sachets arranged in a gentle fan, one front sachet showing minimal GlowUp Hydrate label, no loose mask. Match the listing exactly; included items only. Photorealistic accurate materials, refined soft studio lighting, seamless warm off-white background and gentle contact shadow. Entire product centered with generous safe margins for square thumbnail crops. Crisp useful product detail and tasteful editorial polish. No people, promotional slogans, prices, specification callouts, watermarks, or contact sheet. Fictional shop-owned product; no real manufacturer logos. Output a single hero photograph."
+    },
+    {
+      "key": "2000216-0",
+      "kind": "product",
+      "item_id": 2000216,
+      "shop_id": 880002,
+      "title": "Kem tay Soft Hands",
+      "file": "2000216-0.webp",
+      "prompt": "Use case: product-mockup. Create one standalone square premium ecommerce catalog photograph for the simulated Huspee marketplace. Subject: One soft ivory aluminum-style hand cream tube with a pale lavender label and ribbed white screw cap, minimal GlowUp Soft Hands label. Match the listing exactly; included items only. Photorealistic accurate materials, refined soft studio lighting, seamless warm off-white background and gentle contact shadow. Entire product centered with generous safe margins for square thumbnail crops. Crisp useful product detail and tasteful editorial polish. No people, promotional slogans, prices, specification callouts, watermarks, or contact sheet. Fictional shop-owned product; no real manufacturer logos. Output a single hero photograph."
+    },
+    {
+      "key": "2000217-0",
+      "kind": "product",
+      "item_id": 2000217,
+      "shop_id": 880002,
+      "title": "Daily Body 300ml",
+      "file": "2000217-0.webp",
+      "prompt": "Use case: product-mockup. Create one standalone square premium ecommerce catalog photograph for the simulated Huspee marketplace. Subject: One tall ivory body lotion pump bottle with subtle pale peach accent label and white pump, restrained GlowUp Daily Body label. Match the listing exactly; included items only. Photorealistic accurate materials, refined soft studio lighting, seamless warm off-white background and gentle contact shadow. Entire product centered with generous safe margins for square thumbnail crops. Crisp useful product detail and tasteful editorial polish. No people, promotional slogans, prices, specification callouts, watermarks, or contact sheet. Fictional shop-owned product; no real manufacturer logos. Output a single hero photograph."
+    },
+    {
+      "key": "2000218-0",
+      "kind": "product",
+      "item_id": 2000218,
+      "shop_id": 880002,
+      "title": "Dầu gội Gentle Wash",
+      "file": "2000218-0.webp",
+      "prompt": "Use case: product-mockup. Create one standalone square premium ecommerce catalog photograph for the simulated Huspee marketplace. Subject: One translucent sage green shampoo pump bottle, minimal GlowUp Gentle Wash label, clean white pump and softly rounded shoulders. Match the listing exactly; included items only. Photorealistic accurate materials, refined soft studio lighting, seamless warm off-white background and gentle contact shadow. Entire product centered with generous safe margins for square thumbnail crops. Crisp useful product detail and tasteful editorial polish. No people, promotional slogans, prices, specification callouts, watermarks, or contact sheet. Fictional shop-owned product; no real manufacturer logos. Output a single hero photograph."
+    },
+    {
+      "key": "2000219-0",
+      "kind": "product",
+      "item_id": 2000219,
+      "shop_id": 880002,
+      "title": "Lược Soft Detangle",
+      "file": "2000219-0.webp",
+      "prompt": "Create ONE SQUARE image containing a precise 2 by 2 grid of FOUR EQUAL SQUARE PANELS. This is a coordinated color-variant product photography sheet for Lược gỡ rối GlowUp Soft Detangle. Use the supplied product reference to lock the exact physical design. Arrange TOP LEFT: Hồng pastel (pastel pink); TOP RIGHT: Tím lavender (lavender purple). Any remaining panels must be empty plain white. No borders, dividing lines, labels or text. In all occupied panels show IDENTICAL product silhouette, geometry, dimensions, scale, pose, construction, camera angle, folds, seams, accessories, lighting, white background and shadow, with ONLY the offered color or cosmetic pigment changed. Treat the product as one duplicated photographic template with different color treatments, NOT separate product designs. Each product must fit fully inside its own quadrant with equal safe margins, no objects crossing panel boundaries. No extra products, no redesign, no style differences between quadrants.   Generate this single matched sheet in one render.",
+      "color": "Hồng pastel",
+      "reference_file": "2000219-0.webp",
+      "sheet": {
+        "group": "product-2000219-colors-v2",
+        "cell": 0,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000220-0",
+      "kind": "product",
+      "item_id": 2000220,
+      "shop_id": 880002,
+      "title": "Mút GlowUp Blend",
+      "file": "2000220-0.webp",
+      "prompt": "Use case: product-mockup. Create one standalone square premium ecommerce catalog photograph for the simulated Huspee marketplace. Subject: Exactly two teardrop makeup blending sponges, one dusty pink and one warm beige, matte fine porous texture, no packaging. Match the listing exactly; included items only. Photorealistic accurate materials, refined soft studio lighting, seamless warm off-white background and gentle contact shadow. Entire product centered with generous safe margins for square thumbnail crops. Crisp useful product detail and tasteful editorial polish. No people, promotional slogans, prices, specification callouts, watermarks, or contact sheet. Fictional shop-owned product; no real manufacturer logos. Output a single hero photograph."
+    },
+    {
+      "key": "2000307-0",
+      "kind": "product",
+      "item_id": 2000307,
+      "shop_id": 880003,
+      "title": "Polo cotton pique",
+      "file": "2000307-0.webp",
+      "prompt": "Use case: product-mockup. Create one standalone square premium ecommerce catalog photograph for the simulated Huspee marketplace. Subject: A navy cotton pique short-sleeve polo shirt with ribbed collar and two-button placket, carefully styled flat lay, no person. Match the listing exactly; included items only. Photorealistic accurate materials, refined soft studio lighting, seamless warm off-white background and gentle contact shadow. Entire product centered with generous safe margins for square thumbnail crops. Crisp useful product detail and tasteful editorial polish. No people, promotional slogans, prices, specification callouts, watermarks, or contact sheet. Fictional shop-owned product; no real manufacturer logos. Output a single hero photograph."
+    },
+    {
+      "key": "2000308-0",
+      "kind": "product",
+      "item_id": 2000308,
+      "shop_id": 880003,
+      "title": "Sơ mi Oxford",
+      "file": "2000308-0.webp",
+      "prompt": "Use case: product-mockup. Create one standalone square premium ecommerce catalog photograph for the simulated Huspee marketplace. Subject: A pale blue cotton Oxford long-sleeve button-down shirt with one chest pocket, full shirt neatly flat laid with sleeves visible. Match the listing exactly; included items only. Photorealistic accurate materials, refined soft studio lighting, seamless warm off-white background and gentle contact shadow. Entire product centered with generous safe margins for square thumbnail crops. Crisp useful product detail and tasteful editorial polish. No people, promotional slogans, prices, specification callouts, watermarks, or contact sheet. Fictional shop-owned product; no real manufacturer logos. Output a single hero photograph."
+    },
+    {
+      "key": "2000309-0",
+      "kind": "product",
+      "item_id": 2000309,
+      "shop_id": 880003,
+      "title": "Chino Straight Fit",
+      "file": "2000309-0.webp",
+      "prompt": "Use case: product-mockup. Create one standalone square premium ecommerce catalog photograph for the simulated Huspee marketplace. Subject: One pair of beige straight-fit cotton chino trousers, full length, front waistband and pockets visible in a neat flat lay. Match the listing exactly; included items only. Photorealistic accurate materials, refined soft studio lighting, seamless warm off-white background and gentle contact shadow. Entire product centered with generous safe margins for square thumbnail crops. Crisp useful product detail and tasteful editorial polish. No people, promotional slogans, prices, specification callouts, watermarks, or contact sheet. Fictional shop-owned product; no real manufacturer logos. Output a single hero photograph."
+    },
+    {
+      "key": "2000310-0",
+      "kind": "product",
+      "item_id": 2000310,
+      "shop_id": 880003,
+      "title": "Short cotton twill",
+      "file": "2000310-0.webp",
+      "prompt": "Use case: product-mockup. Create one standalone square premium ecommerce catalog photograph for the simulated Huspee marketplace. Subject: Olive cotton twill mens shorts with button closure, belt loops and side pockets, full garment flat lay. Match the listing exactly; included items only. Photorealistic accurate materials, refined soft studio lighting, seamless warm off-white background and gentle contact shadow. Entire product centered with generous safe margins for square thumbnail crops. Crisp useful product detail and tasteful editorial polish. No people, promotional slogans, prices, specification callouts, watermarks, or contact sheet. Fictional shop-owned product; no real manufacturer logos. Output a single hero photograph."
+    },
+    {
+      "key": "2000311-0",
+      "kind": "product",
+      "item_id": 2000311,
+      "shop_id": 880003,
+      "title": "Hoodie Everyday",
+      "file": "2000311-0.webp",
+      "prompt": "Use case: product-mockup. Create one standalone square premium ecommerce catalog photograph for the simulated Huspee marketplace. Subject: One heather gray unisex pullover hoodie with kangaroo pocket and drawstring hood, complete garment flat lay, no graphics. Match the listing exactly; included items only. Photorealistic accurate materials, refined soft studio lighting, seamless warm off-white background and gentle contact shadow. Entire product centered with generous safe margins for square thumbnail crops. Crisp useful product detail and tasteful editorial polish. No people, promotional slogans, prices, specification callouts, watermarks, or contact sheet. Fictional shop-owned product; no real manufacturer logos. Output a single hero photograph."
+    },
+    {
+      "key": "2000312-0",
+      "kind": "product",
+      "item_id": 2000312,
+      "shop_id": 880003,
+      "title": "Jogger Active",
+      "file": "2000312-0.webp",
+      "prompt": "Use case: product-mockup. Create one standalone square premium ecommerce catalog photograph for the simulated Huspee marketplace. Subject: One pair of black cotton blend jogger pants, elastic cuffs and drawstring waist, full-length neatly arranged flat lay. Match the listing exactly; included items only. Photorealistic accurate materials, refined soft studio lighting, seamless warm off-white background and gentle contact shadow. Entire product centered with generous safe margins for square thumbnail crops. Crisp useful product detail and tasteful editorial polish. No people, promotional slogans, prices, specification callouts, watermarks, or contact sheet. Fictional shop-owned product; no real manufacturer logos. Output a single hero photograph."
+    },
+    {
+      "key": "2000313-0",
+      "kind": "product",
+      "item_id": 2000313,
+      "shop_id": 880003,
+      "title": "Chân váy midi",
+      "file": "2000313-0.webp",
+      "prompt": "Use case: product-mockup. Create one standalone square premium ecommerce catalog photograph for the simulated Huspee marketplace. Subject: A warm beige pleated midi skirt with fine accordion pleats, elastic waistband, skirt gently fanned into a full flat lay. Match the listing exactly; included items only. Photorealistic accurate materials, refined soft studio lighting, seamless warm off-white background and gentle contact shadow. Entire product centered with generous safe margins for square thumbnail crops. Crisp useful product detail and tasteful editorial polish. No people, promotional slogans, prices, specification callouts, watermarks, or contact sheet. Fictional shop-owned product; no real manufacturer logos. Output a single hero photograph."
+    },
+    {
+      "key": "2000314-0",
+      "kind": "product",
+      "item_id": 2000314,
+      "shop_id": 880003,
+      "title": "Blouse tay phồng",
+      "file": "2000314-0.webp",
+      "prompt": "Use case: product-mockup. Create one standalone square premium ecommerce catalog photograph for the simulated Huspee marketplace. Subject: A white cotton womens blouse with round neckline and short gently puffed sleeves, subtle gathered cuffs, complete garment flat lay. Match the listing exactly; included items only. Photorealistic accurate materials, refined soft studio lighting, seamless warm off-white background and gentle contact shadow. Entire product centered with generous safe margins for square thumbnail crops. Crisp useful product detail and tasteful editorial polish. No people, promotional slogans, prices, specification callouts, watermarks, or contact sheet. Fictional shop-owned product; no real manufacturer logos. Output a single hero photograph."
+    },
+    {
+      "key": "2000315-0",
+      "kind": "product",
+      "item_id": 2000315,
+      "shop_id": 880003,
+      "title": "Quần linen ống rộng",
+      "file": "2000315-0.webp",
+      "prompt": "Use case: product-mockup. Create one standalone square premium ecommerce catalog photograph for the simulated Huspee marketplace. Subject: Sand-colored womens wide-leg linen trousers, full length with subtle linen weave, elastic back waist, elegant full flat lay. Match the listing exactly; included items only. Photorealistic accurate materials, refined soft studio lighting, seamless warm off-white background and gentle contact shadow. Entire product centered with generous safe margins for square thumbnail crops. Crisp useful product detail and tasteful editorial polish. No people, promotional slogans, prices, specification callouts, watermarks, or contact sheet. Fictional shop-owned product; no real manufacturer logos. Output a single hero photograph."
+    },
+    {
+      "key": "2000316-0",
+      "kind": "product",
+      "item_id": 2000316,
+      "shop_id": 880003,
+      "title": "Khoác denim Classic",
+      "file": "2000316-0.webp",
+      "prompt": "Use case: product-mockup. Create one standalone square premium ecommerce catalog photograph for the simulated Huspee marketplace. Subject: One indigo blue classic denim jacket with silver metal buttons, two chest flap pockets and copper seams, full garment flat lay. Match the listing exactly; included items only. Photorealistic accurate materials, refined soft studio lighting, seamless warm off-white background and gentle contact shadow. Entire product centered with generous safe margins for square thumbnail crops. Crisp useful product detail and tasteful editorial polish. No people, promotional slogans, prices, specification callouts, watermarks, or contact sheet. Fictional shop-owned product; no real manufacturer logos. Output a single hero photograph."
+    },
+    {
+      "key": "2000317-0",
+      "kind": "product",
+      "item_id": 2000317,
+      "shop_id": 880003,
+      "title": "Mũ cotton",
+      "file": "2000317-0.webp",
+      "prompt": "Create ONE SQUARE image containing a precise 2 by 2 grid of FOUR EQUAL SQUARE PANELS. This is a coordinated color-variant product photography sheet for Mũ lưỡi trai Saigon Style cotton. Use the supplied product reference to lock the exact physical design. Arrange TOP LEFT: Be (beige); TOP RIGHT: Xanh navy (navy blue). Any remaining panels must be empty plain white. No borders, dividing lines, labels or text. In all occupied panels show IDENTICAL product silhouette, geometry, dimensions, scale, pose, construction, camera angle, folds, seams, accessories, lighting, white background and shadow, with ONLY the offered color or cosmetic pigment changed. Treat the product as one duplicated photographic template with different color treatments, NOT separate product designs. Each product must fit fully inside its own quadrant with equal safe margins, no objects crossing panel boundaries. No extra products, no redesign, no style differences between quadrants.   Generate this single matched sheet in one render.",
+      "color": "Be",
+      "reference_file": "2000317-0.webp",
+      "sheet": {
+        "group": "product-2000317-colors-v2",
+        "cell": 0,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000318-0",
+      "kind": "product",
+      "item_id": 2000318,
+      "shop_id": 880003,
+      "title": "Túi chéo Mini",
+      "file": "2000318-0.webp",
+      "prompt": "Use case: product-mockup. Create one standalone square premium ecommerce catalog photograph for the simulated Huspee marketplace. Subject: One small black canvas crossbody bag with main zipper, front zip pocket and adjustable webbing shoulder strap, complete strap visible. Match the listing exactly; included items only. Photorealistic accurate materials, refined soft studio lighting, seamless warm off-white background and gentle contact shadow. Entire product centered with generous safe margins for square thumbnail crops. Crisp useful product detail and tasteful editorial polish. No people, promotional slogans, prices, specification callouts, watermarks, or contact sheet. Fictional shop-owned product; no real manufacturer logos. Output a single hero photograph."
+    },
+    {
+      "key": "2000319-0",
+      "kind": "product",
+      "item_id": 2000319,
+      "shop_id": 880003,
+      "title": "Tất cotton 3 đôi",
+      "file": "2000319-0.webp",
+      "prompt": "Use case: product-mockup. Create one standalone square premium ecommerce catalog photograph for the simulated Huspee marketplace. Subject: Exactly three pairs of ribbed cotton crew socks, one white pair, one heather gray pair and one black pair, each pair neatly folded in parallel. Match the listing exactly; included items only. Photorealistic accurate materials, refined soft studio lighting, seamless warm off-white background and gentle contact shadow. Entire product centered with generous safe margins for square thumbnail crops. Crisp useful product detail and tasteful editorial polish. No people, promotional slogans, prices, specification callouts, watermarks, or contact sheet. Fictional shop-owned product; no real manufacturer logos. Output a single hero photograph."
+    },
+    {
+      "key": "2000320-0",
+      "kind": "product",
+      "item_id": 2000320,
+      "shop_id": 880003,
+      "title": "Thắt lưng dây dệt",
+      "file": "2000320-0.webp",
+      "prompt": "Use case: product-mockup. Create one standalone square premium ecommerce catalog photograph for the simulated Huspee marketplace. Subject: One black woven webbing belt coiled neatly, rectangular brushed metal slide buckle prominent, no leather. Match the listing exactly; included items only. Photorealistic accurate materials, refined soft studio lighting, seamless warm off-white background and gentle contact shadow. Entire product centered with generous safe margins for square thumbnail crops. Crisp useful product detail and tasteful editorial polish. No people, promotional slogans, prices, specification callouts, watermarks, or contact sheet. Fictional shop-owned product; no real manufacturer logos. Output a single hero photograph."
+    },
+    {
+      "key": "2000407-0",
+      "kind": "product",
+      "item_id": 2000407,
+      "shop_id": 880004,
+      "title": "Thớt tre",
+      "file": "2000407-0.webp",
+      "prompt": "Use case: product-mockup. Create one standalone square premium ecommerce catalog photograph for the simulated Huspee marketplace. Subject: One rectangular bamboo chopping board with rounded corners and a perimeter juice groove, natural bamboo grain, no food or knife. Match the listing exactly; included items only. Photorealistic accurate materials, refined soft studio lighting, seamless warm off-white background and gentle contact shadow. Entire product centered with generous safe margins for square thumbnail crops. Crisp useful product detail and tasteful editorial polish. No people, promotional slogans, prices, specification callouts, watermarks, or contact sheet. Fictional shop-owned product; no real manufacturer logos. Output a single hero photograph."
+    },
+    {
+      "key": "2000408-0",
+      "kind": "product",
+      "item_id": 2000408,
+      "shop_id": 880004,
+      "title": "Dụng cụ tre 4 món",
+      "file": "2000408-0.webp",
+      "prompt": "Use case: product-mockup. Create one standalone square premium ecommerce catalog photograph for the simulated Huspee marketplace. Subject: Exactly four bamboo kitchen utensils laid in parallel: a ladle, flat spatula, solid stirring spoon and slotted turner, natural bamboo grain, no holder. Match the listing exactly; included items only. Photorealistic accurate materials, refined soft studio lighting, seamless warm off-white background and gentle contact shadow. Entire product centered with generous safe margins for square thumbnail crops. Crisp useful product detail and tasteful editorial polish. No people, promotional slogans, prices, specification callouts, watermarks, or contact sheet. Fictional shop-owned product; no real manufacturer logos. Output a single hero photograph."
+    },
+    {
+      "key": "2000409-0",
+      "kind": "product",
+      "item_id": 2000409,
+      "shop_id": 880004,
+      "title": "Ấm inox 2 lít",
+      "file": "2000409-0.webp",
+      "prompt": "Use case: product-mockup. Create one standalone square premium ecommerce catalog photograph for the simulated Huspee marketplace. Subject: One brushed stainless steel two-liter stovetop whistling kettle with black insulated handle and closed spout whistle cap, no electrical cord. Match the listing exactly; included items only. Photorealistic accurate materials, refined soft studio lighting, seamless warm off-white background and gentle contact shadow. Entire product centered with generous safe margins for square thumbnail crops. Crisp useful product detail and tasteful editorial polish. No people, promotional slogans, prices, specification callouts, watermarks, or contact sheet. Fictional shop-owned product; no real manufacturer logos. Output a single hero photograph."
+    },
+    {
+      "key": "2000410-0",
+      "kind": "product",
+      "item_id": 2000410,
+      "shop_id": 880004,
+      "title": "Ly thủy tinh 350ml",
+      "file": "2000410-0.webp",
+      "prompt": "Use case: product-mockup. Create one standalone square premium ecommerce catalog photograph for the simulated Huspee marketplace. Subject: Exactly two clear glass mugs with rounded handles, empty, matching 350ml size, bright glass rim highlights. Match the listing exactly; included items only. Photorealistic accurate materials, refined soft studio lighting, seamless warm off-white background and gentle contact shadow. Entire product centered with generous safe margins for square thumbnail crops. Crisp useful product detail and tasteful editorial polish. No people, promotional slogans, prices, specification callouts, watermarks, or contact sheet. Fictional shop-owned product; no real manufacturer logos. Output a single hero photograph."
+    },
+    {
+      "key": "2000411-0",
+      "kind": "product",
+      "item_id": 2000411,
+      "shop_id": 880004,
+      "title": "French Press 600ml",
+      "file": "2000411-0.webp",
+      "prompt": "Use case: product-mockup. Create one standalone square premium ecommerce catalog photograph for the simulated Huspee marketplace. Subject: One 600ml French press coffee maker with clear glass beaker, polished stainless steel frame and plunger, black handle, empty and clean. Match the listing exactly; included items only. Photorealistic accurate materials, refined soft studio lighting, seamless warm off-white background and gentle contact shadow. Entire product centered with generous safe margins for square thumbnail crops. Crisp useful product detail and tasteful editorial polish. No people, promotional slogans, prices, specification callouts, watermarks, or contact sheet. Fictional shop-owned product; no real manufacturer logos. Output a single hero photograph."
+    },
+    {
+      "key": "2000412-0",
+      "kind": "product",
+      "item_id": 2000412,
+      "shop_id": 880004,
+      "title": "Giỏ mây 30cm",
+      "file": "2000412-0.webp",
+      "prompt": "Use case: product-mockup. Create one standalone square premium ecommerce catalog photograph for the simulated Huspee marketplace. Subject: One natural woven rattan round storage basket with two loop handles, open top and no liner, fine weaving visible. Match the listing exactly; included items only. Photorealistic accurate materials, refined soft studio lighting, seamless warm off-white background and gentle contact shadow. Entire product centered with generous safe margins for square thumbnail crops. Crisp useful product detail and tasteful editorial polish. No people, promotional slogans, prices, specification callouts, watermarks, or contact sheet. Fictional shop-owned product; no real manufacturer logos. Output a single hero photograph."
+    },
+    {
+      "key": "2000413-0",
+      "kind": "product",
+      "item_id": 2000413,
+      "shop_id": 880004,
+      "title": "Hộp vải gấp gọn",
+      "file": "2000413-0.webp",
+      "prompt": "Use case: product-mockup. Create one standalone square premium ecommerce catalog photograph for the simulated Huspee marketplace. Subject: One gray fabric rectangular storage box with a closed zip top lid and two side carrying handles, subtle woven textile, no transparent panel. Match the listing exactly; included items only. Photorealistic accurate materials, refined soft studio lighting, seamless warm off-white background and gentle contact shadow. Entire product centered with generous safe margins for square thumbnail crops. Crisp useful product detail and tasteful editorial polish. No people, promotional slogans, prices, specification callouts, watermarks, or contact sheet. Fictional shop-owned product; no real manufacturer logos. Output a single hero photograph."
+    },
+    {
+      "key": "2000414-0",
+      "kind": "product",
+      "item_id": 2000414,
+      "shop_id": 880004,
+      "title": "Đệm ghế cotton",
+      "file": "2000414-0.webp",
+      "prompt": "Create ONE SQUARE image containing a precise 2 by 2 grid of FOUR EQUAL SQUARE PANELS. This is a coordinated color-variant product photography sheet for Đệm ghế Nhà Xinh cotton 40 × 40cm. Use the supplied product reference to lock the exact physical design. Arrange TOP LEFT: Be (beige); TOP RIGHT: Xanh sage (sage green). Any remaining panels must be empty plain white. No borders, dividing lines, labels or text. In all occupied panels show IDENTICAL product silhouette, geometry, dimensions, scale, pose, construction, camera angle, folds, seams, accessories, lighting, white background and shadow, with ONLY the offered color or cosmetic pigment changed. Treat the product as one duplicated photographic template with different color treatments, NOT separate product designs. Each product must fit fully inside its own quadrant with equal safe margins, no objects crossing panel boundaries. No extra products, no redesign, no style differences between quadrants.   Generate this single matched sheet in one render.",
+      "color": "Be",
+      "reference_file": "2000414-0.webp",
+      "sheet": {
+        "group": "product-2000414-colors-v2",
+        "cell": 0,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000415-0",
+      "kind": "product",
+      "item_id": 2000415,
+      "shop_id": 880004,
+      "title": "Chăn sofa cotton",
+      "file": "2000415-0.webp",
+      "prompt": "Use case: product-mockup. Create one standalone square premium ecommerce catalog photograph for the simulated Huspee marketplace. Subject: One cream cotton herringbone throw blanket, folded with one edge gently cascading and fine tassel fringe visible. Match the listing exactly; included items only. Photorealistic accurate materials, refined soft studio lighting, seamless warm off-white background and gentle contact shadow. Entire product centered with generous safe margins for square thumbnail crops. Crisp useful product detail and tasteful editorial polish. No people, promotional slogans, prices, specification callouts, watermarks, or contact sheet. Fictional shop-owned product; no real manufacturer logos. Output a single hero photograph."
+    },
+    {
+      "key": "2000416-0",
+      "kind": "product",
+      "item_id": 2000416,
+      "shop_id": 880004,
+      "title": "Bình hoa gốm",
+      "file": "2000416-0.webp",
+      "prompt": "Use case: product-mockup. Create one standalone square premium ecommerce catalog photograph for the simulated Huspee marketplace. Subject: One matte ivory ceramic vase, rounded organic body with narrow neck, subtle handmade surface, empty with no flowers. Match the listing exactly; included items only. Photorealistic accurate materials, refined soft studio lighting, seamless warm off-white background and gentle contact shadow. Entire product centered with generous safe margins for square thumbnail crops. Crisp useful product detail and tasteful editorial polish. No people, promotional slogans, prices, specification callouts, watermarks, or contact sheet. Fictional shop-owned product; no real manufacturer logos. Output a single hero photograph."
+    },
+    {
+      "key": "2000417-0",
+      "kind": "product",
+      "item_id": 2000417,
+      "shop_id": 880004,
+      "title": "Thảm cửa cotton",
+      "file": "2000417-0.webp",
+      "prompt": "Use case: product-mockup. Create one standalone square premium ecommerce catalog photograph for the simulated Huspee marketplace. Subject: One rectangular beige cotton indoor doormat with subtle raised loop texture and rounded corners, simple plain design without lettering. Match the listing exactly; included items only. Photorealistic accurate materials, refined soft studio lighting, seamless warm off-white background and gentle contact shadow. Entire product centered with generous safe margins for square thumbnail crops. Crisp useful product detail and tasteful editorial polish. No people, promotional slogans, prices, specification callouts, watermarks, or contact sheet. Fictional shop-owned product; no real manufacturer logos. Output a single hero photograph."
+    },
+    {
+      "key": "2000418-0",
+      "kind": "product",
+      "item_id": 2000418,
+      "shop_id": 880004,
+      "title": "Đồng hồ tối giản",
+      "file": "2000418-0.webp",
+      "prompt": "Use case: product-mockup. Create one standalone square premium ecommerce catalog photograph for the simulated Huspee marketplace. Subject: One minimalist round wall clock with light natural wood frame, white dial, black hour markers and hands set to ten past ten, straight-on face view. Match the listing exactly; included items only. Photorealistic accurate materials, refined soft studio lighting, seamless warm off-white background and gentle contact shadow. Entire product centered with generous safe margins for square thumbnail crops. Crisp useful product detail and tasteful editorial polish. No people, promotional slogans, prices, specification callouts, watermarks, or contact sheet. Fictional shop-owned product; no real manufacturer logos. Output a single hero photograph."
+    },
+    {
+      "key": "2000419-0",
+      "kind": "product",
+      "item_id": 2000419,
+      "shop_id": 880004,
+      "title": "Giỏ quần áo 50 lít",
+      "file": "2000419-0.webp",
+      "prompt": "Use case: product-mockup. Create one standalone square premium ecommerce catalog photograph for the simulated Huspee marketplace. Subject: One tall cream fabric laundry hamper with open top, collapsible frame and two soft carrying handles, empty, no lid. Match the listing exactly; included items only. Photorealistic accurate materials, refined soft studio lighting, seamless warm off-white background and gentle contact shadow. Entire product centered with generous safe margins for square thumbnail crops. Crisp useful product detail and tasteful editorial polish. No people, promotional slogans, prices, specification callouts, watermarks, or contact sheet. Fictional shop-owned product; no real manufacturer logos. Output a single hero photograph."
+    },
+    {
+      "key": "2000420-0",
+      "kind": "product",
+      "item_id": 2000420,
+      "shop_id": 880004,
+      "title": "Chậu cây gốm 14cm",
+      "file": "2000420-0.webp",
+      "prompt": "Create ONE SQUARE image containing a precise 2 by 2 grid of FOUR EQUAL SQUARE PANELS. This is a coordinated color-variant product photography sheet for Chậu cây gốm Nhà Xinh kèm đĩa 14cm. Use the supplied product reference to lock the exact physical design. Arrange TOP LEFT: Trắng kem (ivory cream); TOP RIGHT: Đất nung (terracotta). Any remaining panels must be empty plain white. No borders, dividing lines, labels or text. In all occupied panels show IDENTICAL product silhouette, geometry, dimensions, scale, pose, construction, camera angle, folds, seams, accessories, lighting, white background and shadow, with ONLY the offered color or cosmetic pigment changed. Treat the product as one duplicated photographic template with different color treatments, NOT separate product designs. Each product must fit fully inside its own quadrant with equal safe margins, no objects crossing panel boundaries. No extra products, no redesign, no style differences between quadrants.   Generate this single matched sheet in one render.",
+      "color": "Đất nung",
+      "reference_file": "2000420-0.webp",
+      "sheet": {
+        "group": "product-2000420-colors-v2",
+        "cell": 1,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000101-2",
+      "kind": "product",
+      "item_id": 2000101,
+      "shop_id": 880001,
+      "title": "iPhone 15 — Xanh dương",
+      "file": "2000101-2.webp",
+      "color": "Xanh dương",
+      "reference_file": "2000101-0.webp",
+      "prompt": "Create ONE SQUARE image containing a precise 2 by 2 grid of FOUR EQUAL SQUARE PANELS. This is a coordinated color-variant product photography sheet for Apple iPhone 15 128GB Chính Hãng VN/A. Use the supplied product reference to lock the exact physical design. Arrange TOP LEFT: Đen (black); TOP RIGHT: Hồng (pastel pink); BOTTOM LEFT: Xanh dương (pastel blue). Any remaining panels must be empty plain white. No borders, dividing lines, labels or text. In all occupied panels show IDENTICAL product silhouette, geometry, dimensions, scale, pose, construction, camera angle, folds, seams, accessories, lighting, white background and shadow, with ONLY the offered color or cosmetic pigment changed. Treat the product as one duplicated photographic template with different color treatments, NOT separate product designs. Each product must fit fully inside its own quadrant with equal safe margins, no objects crossing panel boundaries. No extra products, no redesign, no style differences between quadrants.   Generate this single matched sheet in one render.",
+      "sheet": {
+        "group": "product-2000101-colors-v2",
+        "cell": 2,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000106-2",
+      "kind": "product",
+      "item_id": 2000106,
+      "shop_id": 880001,
+      "title": "Logitech M331 — Xanh",
+      "file": "2000106-2.webp",
+      "color": "Xanh",
+      "reference_file": "2000106-0.webp",
+      "prompt": "Create ONE SQUARE image containing a precise 2 by 2 grid of FOUR EQUAL SQUARE PANELS. This is a coordinated color-variant product photography sheet for Chuột không dây Logitech M331 Silent Plus. Use the supplied product reference to lock the exact physical design. Arrange TOP LEFT: Đen (black); TOP RIGHT: Đỏ (red); BOTTOM LEFT: Xanh (blue). Any remaining panels must be empty plain white. No borders, dividing lines, labels or text. In all occupied panels show IDENTICAL product silhouette, geometry, dimensions, scale, pose, construction, camera angle, folds, seams, accessories, lighting, white background and shadow, with ONLY the offered color or cosmetic pigment changed. Treat the product as one duplicated photographic template with different color treatments, NOT separate product designs. Each product must fit fully inside its own quadrant with equal safe margins, no objects crossing panel boundaries. No extra products, no redesign, no style differences between quadrants.   Generate this single matched sheet in one render.",
+      "sheet": {
+        "group": "product-2000106-colors-v2",
+        "cell": 2,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000204-2",
+      "kind": "product",
+      "item_id": 2000204,
+      "shop_id": 880002,
+      "title": "Son Maybelline — 210 Versatile",
+      "file": "2000204-2.webp",
+      "color": "210 Versatile",
+      "reference_file": "2000204-0.webp",
+      "prompt": "Create ONE SQUARE image containing a precise 2 by 2 grid of FOUR EQUAL SQUARE PANELS. This is a coordinated color-variant product photography sheet for Son kem lì Maybelline SuperStay Matte Ink. Use the supplied product reference to lock the exact physical design. Arrange TOP LEFT: 115 Founder (115 Founder); TOP RIGHT: 118 Dancer (118 Dancer); BOTTOM LEFT: 210 Versatile (210 Versatile); BOTTOM RIGHT: 220 Ambitious (220 Ambitious). Any remaining panels must be empty plain white. No borders, dividing lines, labels or text. In all occupied panels show IDENTICAL product silhouette, geometry, dimensions, scale, pose, construction, camera angle, folds, seams, accessories, lighting, white background and shadow, with ONLY the offered color or cosmetic pigment changed. Treat the product as one duplicated photographic template with different color treatments, NOT separate product designs. Each product must fit fully inside its own quadrant with equal safe margins, no objects crossing panel boundaries. No extra products, no redesign, no style differences between quadrants.  All four lipsticks CLOSED with white rectangular caps, same tube geometry, only shade-colored body changes. Generate this single matched sheet in one render.",
+      "sheet": {
+        "group": "product-2000204-colors-v2",
+        "cell": 2,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000204-3",
+      "kind": "product",
+      "item_id": 2000204,
+      "shop_id": 880002,
+      "title": "Son Maybelline — 220 Ambitious",
+      "file": "2000204-3.webp",
+      "color": "220 Ambitious",
+      "reference_file": "2000204-0.webp",
+      "prompt": "Create ONE SQUARE image containing a precise 2 by 2 grid of FOUR EQUAL SQUARE PANELS. This is a coordinated color-variant product photography sheet for Son kem lì Maybelline SuperStay Matte Ink. Use the supplied product reference to lock the exact physical design. Arrange TOP LEFT: 115 Founder (115 Founder); TOP RIGHT: 118 Dancer (118 Dancer); BOTTOM LEFT: 210 Versatile (210 Versatile); BOTTOM RIGHT: 220 Ambitious (220 Ambitious). Any remaining panels must be empty plain white. No borders, dividing lines, labels or text. In all occupied panels show IDENTICAL product silhouette, geometry, dimensions, scale, pose, construction, camera angle, folds, seams, accessories, lighting, white background and shadow, with ONLY the offered color or cosmetic pigment changed. Treat the product as one duplicated photographic template with different color treatments, NOT separate product designs. Each product must fit fully inside its own quadrant with equal safe margins, no objects crossing panel boundaries. No extra products, no redesign, no style differences between quadrants.  All four lipsticks CLOSED with white rectangular caps, same tube geometry, only shade-colored body changes. Generate this single matched sheet in one render.",
+      "sheet": {
+        "group": "product-2000204-colors-v2",
+        "cell": 3,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000301-2",
+      "kind": "product",
+      "item_id": 2000301,
+      "shop_id": 880003,
+      "title": "Áo thun Cotton — Xanh rêu",
+      "file": "2000301-2.webp",
+      "color": "Xanh rêu",
+      "reference_file": "2000301-0.webp",
+      "prompt": "Create ONE SQUARE image containing a precise 2 by 2 grid of FOUR EQUAL SQUARE PANELS. This is a coordinated color-variant product photography sheet for Áo thun nam Cotton Compact Coolmate. Use the supplied product reference to lock the exact physical design. Arrange TOP LEFT: Trắng (white); TOP RIGHT: Đen (black); BOTTOM LEFT: Xanh rêu (moss green). Any remaining panels must be empty plain white. No borders, dividing lines, labels or text. In all occupied panels show IDENTICAL product silhouette, geometry, dimensions, scale, pose, construction, camera angle, folds, seams, accessories, lighting, white background and shadow, with ONLY the offered color or cosmetic pigment changed. Treat the product as one duplicated photographic template with different color treatments, NOT separate product designs. Each product must fit fully inside its own quadrant with equal safe margins, no objects crossing panel boundaries. No extra products, no redesign, no style differences between quadrants. T-SHIRT: all shirts must have exactly the same ghost-mannequin volume, identical crew neck, sleeve angle, shoulder and waist width, seam placement, drape folds and curved bottom hem.  Generate this single matched sheet in one render.",
+      "sheet": {
+        "group": "product-2000301-colors-v2",
+        "cell": 2,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000403-2",
+      "kind": "product",
+      "item_id": 2000403,
+      "shop_id": 880004,
+      "title": "Bình giữ nhiệt 500ml — Đen",
+      "file": "2000403-2.webp",
+      "color": "Đen",
+      "reference_file": "2000403-0.webp",
+      "prompt": "Create ONE SQUARE image containing a precise 2 by 2 grid of FOUR EQUAL SQUARE PANELS. This is a coordinated color-variant product photography sheet for Bình giữ nhiệt inox Nhà Xinh 500ml. Use the supplied product reference to lock the exact physical design. Arrange TOP LEFT: Kem (ivory cream); TOP RIGHT: Xanh sage (sage green); BOTTOM LEFT: Đen (black). Any remaining panels must be empty plain white. No borders, dividing lines, labels or text. In all occupied panels show IDENTICAL product silhouette, geometry, dimensions, scale, pose, construction, camera angle, folds, seams, accessories, lighting, white background and shadow, with ONLY the offered color or cosmetic pigment changed. Treat the product as one duplicated photographic template with different color treatments, NOT separate product designs. Each product must fit fully inside its own quadrant with equal safe margins, no objects crossing panel boundaries. No extra products, no redesign, no style differences between quadrants.   Generate this single matched sheet in one render.",
+      "sheet": {
+        "group": "product-2000403-colors-v2",
+        "cell": 2,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000107-1",
+      "kind": "product",
+      "item_id": 2000107,
+      "shop_id": 880001,
+      "title": "Bàn phím Compact — Đen",
+      "file": "2000107-1.webp",
+      "color": "Đen",
+      "reference_file": "2000107-0.webp",
+      "prompt": "Create ONE SQUARE image containing a precise 2 by 2 grid of FOUR EQUAL SQUARE PANELS. This is a coordinated color-variant product photography sheet for Bàn phím cơ TechZone Compact 68 phím. Use the supplied product reference to lock the exact physical design. Arrange TOP LEFT: Kem (ivory cream); TOP RIGHT: Đen (black). Any remaining panels must be empty plain white. No borders, dividing lines, labels or text. In all occupied panels show IDENTICAL product silhouette, geometry, dimensions, scale, pose, construction, camera angle, folds, seams, accessories, lighting, white background and shadow, with ONLY the offered color or cosmetic pigment changed. Treat the product as one duplicated photographic template with different color treatments, NOT separate product designs. Each product must fit fully inside its own quadrant with equal safe margins, no objects crossing panel boundaries. No extra products, no redesign, no style differences between quadrants.   Generate this single matched sheet in one render.",
+      "sheet": {
+        "group": "product-2000107-colors-v2",
+        "cell": 1,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000111-1",
+      "kind": "product",
+      "item_id": 2000111,
+      "shop_id": 880001,
+      "title": "Loa Mini 10W — Xám",
+      "file": "2000111-1.webp",
+      "color": "Xám",
+      "reference_file": "2000111-0.webp",
+      "prompt": "Create ONE SQUARE image containing a precise 2 by 2 grid of FOUR EQUAL SQUARE PANELS. This is a coordinated color-variant product photography sheet for Loa Bluetooth TechZone Mini 10W. Use the supplied product reference to lock the exact physical design. Arrange TOP LEFT: Xanh navy (navy blue); TOP RIGHT: Xám (gray). Any remaining panels must be empty plain white. No borders, dividing lines, labels or text. In all occupied panels show IDENTICAL product silhouette, geometry, dimensions, scale, pose, construction, camera angle, folds, seams, accessories, lighting, white background and shadow, with ONLY the offered color or cosmetic pigment changed. Treat the product as one duplicated photographic template with different color treatments, NOT separate product designs. Each product must fit fully inside its own quadrant with equal safe margins, no objects crossing panel boundaries. No extra products, no redesign, no style differences between quadrants.   Generate this single matched sheet in one render.",
+      "sheet": {
+        "group": "product-2000111-colors-v2",
+        "cell": 1,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000112-1",
+      "kind": "product",
+      "item_id": 2000112,
+      "shop_id": 880001,
+      "title": "Tai nghe Studio — Kem",
+      "file": "2000112-1.webp",
+      "color": "Kem",
+      "reference_file": "2000112-0.webp",
+      "prompt": "Create ONE SQUARE image containing a precise 2 by 2 grid of FOUR EQUAL SQUARE PANELS. This is a coordinated color-variant product photography sheet for Tai nghe chụp tai TechZone Studio Wireless. Use the supplied product reference to lock the exact physical design. Arrange TOP LEFT: Đen (black); TOP RIGHT: Kem (ivory cream). Any remaining panels must be empty plain white. No borders, dividing lines, labels or text. In all occupied panels show IDENTICAL product silhouette, geometry, dimensions, scale, pose, construction, camera angle, folds, seams, accessories, lighting, white background and shadow, with ONLY the offered color or cosmetic pigment changed. Treat the product as one duplicated photographic template with different color treatments, NOT separate product designs. Each product must fit fully inside its own quadrant with equal safe margins, no objects crossing panel boundaries. No extra products, no redesign, no style differences between quadrants.   Generate this single matched sheet in one render.",
+      "sheet": {
+        "group": "product-2000112-colors-v2",
+        "cell": 1,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000114-1",
+      "kind": "product",
+      "item_id": 2000114,
+      "shop_id": 880001,
+      "title": "Tấm lót bàn Felt — Be",
+      "file": "2000114-1.webp",
+      "color": "Be",
+      "reference_file": "2000114-0.webp",
+      "prompt": "Create ONE SQUARE image containing a precise 2 by 2 grid of FOUR EQUAL SQUARE PANELS. This is a coordinated color-variant product photography sheet for Tấm lót bàn TechZone Felt 80 × 40cm. Use the supplied product reference to lock the exact physical design. Arrange TOP LEFT: Xám (gray); TOP RIGHT: Be (beige). Any remaining panels must be empty plain white. No borders, dividing lines, labels or text. In all occupied panels show IDENTICAL product silhouette, geometry, dimensions, scale, pose, construction, camera angle, folds, seams, accessories, lighting, white background and shadow, with ONLY the offered color or cosmetic pigment changed. Treat the product as one duplicated photographic template with different color treatments, NOT separate product designs. Each product must fit fully inside its own quadrant with equal safe margins, no objects crossing panel boundaries. No extra products, no redesign, no style differences between quadrants.   Generate this single matched sheet in one render.",
+      "sheet": {
+        "group": "product-2000114-colors-v2",
+        "cell": 1,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000117-1",
+      "kind": "product",
+      "item_id": 2000117,
+      "shop_id": 880001,
+      "title": "Đồng hồ Active Lite — Hồng",
+      "file": "2000117-1.webp",
+      "color": "Hồng",
+      "reference_file": "2000117-0.webp",
+      "prompt": "Create ONE SQUARE image containing a precise 2 by 2 grid of FOUR EQUAL SQUARE PANELS. This is a coordinated color-variant product photography sheet for Đồng hồ thông minh TechZone Active Lite. Use the supplied product reference to lock the exact physical design. Arrange TOP LEFT: Đen (black); TOP RIGHT: Hồng (pastel pink). Any remaining panels must be empty plain white. No borders, dividing lines, labels or text. In all occupied panels show IDENTICAL product silhouette, geometry, dimensions, scale, pose, construction, camera angle, folds, seams, accessories, lighting, white background and shadow, with ONLY the offered color or cosmetic pigment changed. Treat the product as one duplicated photographic template with different color treatments, NOT separate product designs. Each product must fit fully inside its own quadrant with equal safe margins, no objects crossing panel boundaries. No extra products, no redesign, no style differences between quadrants.   Generate this single matched sheet in one render.",
+      "sheet": {
+        "group": "product-2000117-colors-v2",
+        "cell": 1,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000120-1",
+      "kind": "product",
+      "item_id": 2000120,
+      "shop_id": 880001,
+      "title": "Đế sạc Stand 15W — Trắng",
+      "file": "2000120-1.webp",
+      "color": "Trắng",
+      "reference_file": "2000120-0.webp",
+      "prompt": "Create ONE SQUARE image containing a precise 2 by 2 grid of FOUR EQUAL SQUARE PANELS. This is a coordinated color-variant product photography sheet for Đế sạc không dây TechZone Stand 15W. Use the supplied product reference to lock the exact physical design. Arrange TOP LEFT: Đen (black); TOP RIGHT: Trắng (white). Any remaining panels must be empty plain white. No borders, dividing lines, labels or text. In all occupied panels show IDENTICAL product silhouette, geometry, dimensions, scale, pose, construction, camera angle, folds, seams, accessories, lighting, white background and shadow, with ONLY the offered color or cosmetic pigment changed. Treat the product as one duplicated photographic template with different color treatments, NOT separate product designs. Each product must fit fully inside its own quadrant with equal safe margins, no objects crossing panel boundaries. No extra products, no redesign, no style differences between quadrants.   Generate this single matched sheet in one render.",
+      "sheet": {
+        "group": "product-2000120-colors-v2",
+        "cell": 1,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000211-1",
+      "kind": "product",
+      "item_id": 2000211,
+      "shop_id": 880002,
+      "title": "Phấn má Soft Blush — Cam đất",
+      "file": "2000211-1.webp",
+      "color": "Cam đất",
+      "reference_file": "2000211-0.webp",
+      "prompt": "Create ONE SQUARE image containing a precise 2 by 2 grid of FOUR EQUAL SQUARE PANELS. This is a coordinated color-variant product photography sheet for Phấn má GlowUp Soft Blush 5g. Use the supplied product reference to lock the exact physical design. Arrange TOP LEFT: Hồng đào (peach pink); TOP RIGHT: Cam đất (terracotta peach). Any remaining panels must be empty plain white. No borders, dividing lines, labels or text. In all occupied panels show IDENTICAL product silhouette, geometry, dimensions, scale, pose, construction, camera angle, folds, seams, accessories, lighting, white background and shadow, with ONLY the offered color or cosmetic pigment changed. Treat the product as one duplicated photographic template with different color treatments, NOT separate product designs. Each product must fit fully inside its own quadrant with equal safe margins, no objects crossing panel boundaries. No extra products, no redesign, no style differences between quadrants.   Generate this single matched sheet in one render.",
+      "sheet": {
+        "group": "product-2000211-colors-v2",
+        "cell": 1,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000214-1",
+      "kind": "product",
+      "item_id": 2000214,
+      "shop_id": 880002,
+      "title": "Chì Fine Brow — Nâu xám",
+      "file": "2000214-1.webp",
+      "color": "Nâu xám",
+      "reference_file": "2000214-0.webp",
+      "prompt": "Create ONE SQUARE image containing a precise 2 by 2 grid of FOUR EQUAL SQUARE PANELS. This is a coordinated color-variant product photography sheet for Chì kẻ mày GlowUp Fine Brow hai đầu. Use the supplied product reference to lock the exact physical design. Arrange TOP LEFT: Nâu tự nhiên (natural brown); TOP RIGHT: Nâu xám (gray brown taupe). Any remaining panels must be empty plain white. No borders, dividing lines, labels or text. In all occupied panels show IDENTICAL product silhouette, geometry, dimensions, scale, pose, construction, camera angle, folds, seams, accessories, lighting, white background and shadow, with ONLY the offered color or cosmetic pigment changed. Treat the product as one duplicated photographic template with different color treatments, NOT separate product designs. Each product must fit fully inside its own quadrant with equal safe margins, no objects crossing panel boundaries. No extra products, no redesign, no style differences between quadrants.   Generate this single matched sheet in one render.",
+      "sheet": {
+        "group": "product-2000214-colors-v2",
+        "cell": 1,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000219-1",
+      "kind": "product",
+      "item_id": 2000219,
+      "shop_id": 880002,
+      "title": "Lược Soft Detangle — Tím lavender",
+      "file": "2000219-1.webp",
+      "color": "Tím lavender",
+      "reference_file": "2000219-0.webp",
+      "prompt": "Create ONE SQUARE image containing a precise 2 by 2 grid of FOUR EQUAL SQUARE PANELS. This is a coordinated color-variant product photography sheet for Lược gỡ rối GlowUp Soft Detangle. Use the supplied product reference to lock the exact physical design. Arrange TOP LEFT: Hồng pastel (pastel pink); TOP RIGHT: Tím lavender (lavender purple). Any remaining panels must be empty plain white. No borders, dividing lines, labels or text. In all occupied panels show IDENTICAL product silhouette, geometry, dimensions, scale, pose, construction, camera angle, folds, seams, accessories, lighting, white background and shadow, with ONLY the offered color or cosmetic pigment changed. Treat the product as one duplicated photographic template with different color treatments, NOT separate product designs. Each product must fit fully inside its own quadrant with equal safe margins, no objects crossing panel boundaries. No extra products, no redesign, no style differences between quadrants.   Generate this single matched sheet in one render.",
+      "sheet": {
+        "group": "product-2000219-colors-v2",
+        "cell": 1,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000317-1",
+      "kind": "product",
+      "item_id": 2000317,
+      "shop_id": 880003,
+      "title": "Mũ cotton — Xanh navy",
+      "file": "2000317-1.webp",
+      "color": "Xanh navy",
+      "reference_file": "2000317-0.webp",
+      "prompt": "Create ONE SQUARE image containing a precise 2 by 2 grid of FOUR EQUAL SQUARE PANELS. This is a coordinated color-variant product photography sheet for Mũ lưỡi trai Saigon Style cotton. Use the supplied product reference to lock the exact physical design. Arrange TOP LEFT: Be (beige); TOP RIGHT: Xanh navy (navy blue). Any remaining panels must be empty plain white. No borders, dividing lines, labels or text. In all occupied panels show IDENTICAL product silhouette, geometry, dimensions, scale, pose, construction, camera angle, folds, seams, accessories, lighting, white background and shadow, with ONLY the offered color or cosmetic pigment changed. Treat the product as one duplicated photographic template with different color treatments, NOT separate product designs. Each product must fit fully inside its own quadrant with equal safe margins, no objects crossing panel boundaries. No extra products, no redesign, no style differences between quadrants.   Generate this single matched sheet in one render.",
+      "sheet": {
+        "group": "product-2000317-colors-v2",
+        "cell": 1,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000414-1",
+      "kind": "product",
+      "item_id": 2000414,
+      "shop_id": 880004,
+      "title": "Đệm ghế cotton — Xanh sage",
+      "file": "2000414-1.webp",
+      "color": "Xanh sage",
+      "reference_file": "2000414-0.webp",
+      "prompt": "Create ONE SQUARE image containing a precise 2 by 2 grid of FOUR EQUAL SQUARE PANELS. This is a coordinated color-variant product photography sheet for Đệm ghế Nhà Xinh cotton 40 × 40cm. Use the supplied product reference to lock the exact physical design. Arrange TOP LEFT: Be (beige); TOP RIGHT: Xanh sage (sage green). Any remaining panels must be empty plain white. No borders, dividing lines, labels or text. In all occupied panels show IDENTICAL product silhouette, geometry, dimensions, scale, pose, construction, camera angle, folds, seams, accessories, lighting, white background and shadow, with ONLY the offered color or cosmetic pigment changed. Treat the product as one duplicated photographic template with different color treatments, NOT separate product designs. Each product must fit fully inside its own quadrant with equal safe margins, no objects crossing panel boundaries. No extra products, no redesign, no style differences between quadrants.   Generate this single matched sheet in one render.",
+      "sheet": {
+        "group": "product-2000414-colors-v2",
+        "cell": 1,
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    {
+      "key": "2000420-1",
+      "kind": "product",
+      "item_id": 2000420,
+      "shop_id": 880004,
+      "title": "Chậu cây gốm 14cm — Trắng kem",
+      "file": "2000420-1.webp",
+      "color": "Trắng kem",
+      "reference_file": "2000420-0.webp",
+      "prompt": "Create ONE SQUARE image containing a precise 2 by 2 grid of FOUR EQUAL SQUARE PANELS. This is a coordinated color-variant product photography sheet for Chậu cây gốm Nhà Xinh kèm đĩa 14cm. Use the supplied product reference to lock the exact physical design. Arrange TOP LEFT: Trắng kem (ivory cream); TOP RIGHT: Đất nung (terracotta). Any remaining panels must be empty plain white. No borders, dividing lines, labels or text. In all occupied panels show IDENTICAL product silhouette, geometry, dimensions, scale, pose, construction, camera angle, folds, seams, accessories, lighting, white background and shadow, with ONLY the offered color or cosmetic pigment changed. Treat the product as one duplicated photographic template with different color treatments, NOT separate product designs. Each product must fit fully inside its own quadrant with equal safe margins, no objects crossing panel boundaries. No extra products, no redesign, no style differences between quadrants.   Generate this single matched sheet in one render.",
+      "sheet": {
+        "group": "product-2000420-colors-v2",
+        "cell": 0,
+        "columns": 2,
+        "rows": 2
+      }
+    }
+  ]
+}

@@ -9,7 +9,7 @@ import { LogisticsService } from '../../domain/logistics.service';
 import { PAYMENT_METHODS } from '../../domain/order.service';
 import { toNumber } from '../../common/money';
 import { PrismaService } from '../../common/prisma.service';
-import { CatalogService, itemInclude, mediaUrl, modelName, resolveModelPrice, sellableModels, tierVariations, type ItemWithRelations } from '../../domain/catalog.service';
+import { CatalogService, itemInclude, mediaUrl, modelImage, modelName, resolveModelPrice, sellableModels, tierVariations, type ItemWithRelations } from '../../domain/catalog.service';
 import type { AssistantCard } from '../types';
 import { maskName } from '../../compat/ops/product.ops';
 
@@ -72,6 +72,18 @@ function describesProduct(item: ItemWithRelations, value: string): boolean {
     ((raw as { attribute_value_list?: Array<{ original_value_name?: string }> }).attribute_value_list ?? []).map((v) => v.original_value_name ?? ''));
   const haystack = plainWords([item.name, item.brand?.name ?? '', ...attrValues].join(' ')).split(' ');
   return words.length > 0 && words.every((w) => haystack.includes(w));
+}
+
+/** A partial request may leave several sizes; show a color only when their images agree. */
+function requestedProductImage(item: ItemWithRelations, requested?: Record<string, string>): string | null {
+  if (!requested || !Object.keys(requested).length) return modelImage(item);
+  const matching = sellableModels(item).filter((model) => Object.entries(requested).every(([attribute, value]) =>
+    describesProduct(item, value) || tierVariations(item).some((tier, index) =>
+      sameAttribute(attribute, tier.name) && sameVariantValue(tier.option_list?.[model.tierIndex[index] ?? -1]?.option ?? '', value),
+    ),
+  ));
+  const images = new Set(matching.map((model) => modelImage(item, model.tierIndex)));
+  return images.size === 1 ? images.values().next().value ?? null : modelImage(item);
 }
 type VariantMatch = { missing?: { attribute: string; value: string }; variants?: 'default_only'; out_of_stock?: boolean };
 function variantMatch(items: ItemWithRelations[], requested: Record<string, string>): VariantMatch {
@@ -394,7 +406,7 @@ export class AssistantToolRegistry {
       const items = products.map((item) => ({
         item_id: item.id,
         name: item.name,
-        image: item.images[0] ? mediaUrl(item.images[0].url) : null,
+        image: modelImage(item),
         price_min: this.catalog.priceRange(item).min,
         rows: { description: item.description, stock: String(this.catalog.totalStock(item)) },
       }));
@@ -519,7 +531,7 @@ export class AssistantToolRegistry {
           kind: 'product',
           item_id: item.id,
           name: item.name,
-          image: item.images[0] ? mediaUrl(item.images[0].url) : null,
+          image: requestedProductImage(item, input.requested_attributes as Record<string, string> | undefined),
           models,
           images: item.images.slice(0, 6).map((image) => mediaUrl(image.url)),
           description: item.description,
@@ -566,7 +578,7 @@ export class AssistantToolRegistry {
           return {
             item_id: item.id,
             name: item.name,
-            image: item.images[0] ? mediaUrl(item.images[0].url) : null,
+            image: requestedProductImage(item, input.requested_attributes as Record<string, string> | undefined),
             price_min: range.min,
             price_max: range.max,
             stock: this.catalog.totalStock(item),

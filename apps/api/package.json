@@ -11,6 +11,7 @@
     "db:migrate": "prisma migrate deploy",
     "db:reset": "prisma migrate reset --force",
     "db:seed": "prisma db seed",
+    "db:catalog:sync": "tsx --env-file-if-exists=.env prisma/sync-catalog.ts",
     "eval:assistant": "tsx --env-file=.env src/assistant/eval/runner.ts"
   },
   "prisma": {

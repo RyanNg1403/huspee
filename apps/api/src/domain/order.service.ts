@@ -5,7 +5,7 @@ import { DomainError, invalidState, notFound, validation } from '../common/error
 import { CURRENCY, dec, toNumber } from '../common/money';
 import { PrismaService, Tx } from '../common/prisma.service';
 import { addDays, unix } from '../common/time';
-import { mediaUrl, modelName, resolveModelPrice } from './catalog.service';
+import { modelImage, modelName, resolveModelPrice } from './catalog.service';
 import { LogisticsService, ShippingOption } from './logistics.service';
 import { PushService } from './push.service';
 import { VoucherService } from './voucher.service';
@@ -207,7 +207,7 @@ export class OrderService {
         model_id: model.id,
         item_name: item.name,
         model_name: modelName(item, model.tierIndex),
-        image_url: item.images[0] ? mediaUrl(item.images[0].url) : null,
+        image_url: modelImage(item, model.tierIndex),
         quantity: req.quantity,
         stock: model.stock,
         original_price: price.originalPrice,

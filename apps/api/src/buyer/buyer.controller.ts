@@ -7,7 +7,7 @@ import { PrismaService } from '../common/prisma.service';
 import { unix } from '../common/time';
 import { paging, parseInput, q, splitList } from '../common/validation';
 import { CurrentUser, RequireRole, SessionGuard } from '../auth/session.guard';
-import { mediaUrl, modelName, resolveModelPrice } from '../domain/catalog.service';
+import { modelImage, modelName, resolveModelPrice } from '../domain/catalog.service';
 import { orderInclude, OrderService, PAYMENT_METHODS } from '../domain/order.service';
 import { RETURN_REASONS, ReturnService } from '../domain/return.service';
 import { pageInfo } from './marketplace.controller';
@@ -443,7 +443,7 @@ export class BuyerController {
         model_id: model.id,
         item_name: item.name,
         model_name: modelName(item, model.tierIndex),
-        image_url: item.images[0] ? mediaUrl(item.images[0].url) : null,
+        image_url: modelImage(item, model.tierIndex),
         quantity: line.quantity,
         unit_price: price.currentPrice,
         original_price: price.originalPrice,
