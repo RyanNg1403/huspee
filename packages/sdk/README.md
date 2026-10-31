@@ -58,7 +58,7 @@ Public Codex setup uses `api.assistant.connection.get()`, `.login()` and `.cance
 device-code ownership. Account disconnection remains under the seller-only
 `api.seller.assistant.connection.disconnect()` maintenance method; seller status never returns a
 pending device code. The former seller `.login()` and `.cancel()` methods and routes are removed.
-The only app sign-in page is `/setup/codex`. No upstream SDK contracts change.
+The only app sign-in page is `/setup/codex`. No upstream SDK contracts change. Assistant product-list cards no longer emit or type the old lexical `resolution`/confidence metadata; stored history can still contain extra JSON fields, which the UI ignores. This is a project-owned assistant type change, not a Shopee SDK change.
 
 ### Server (signed Shopee-compatible calls)
 

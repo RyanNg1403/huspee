@@ -9,6 +9,7 @@ import { mediaUrl, modelImage, modelName, resolveModelPrice } from './catalog.se
 import { LogisticsService, ShippingOption } from './logistics.service';
 import { PushService } from './push.service';
 import { VoucherService } from './voucher.service';
+import { purchaseIssue } from './purchase-availability';
 
 export const PAYMENT_METHODS = ['COD', 'SHOPEEPAY_SIM', 'CARD_SIM', 'BANK_TRANSFER_SIM'] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
@@ -172,12 +173,7 @@ export class OrderService {
       const item = model.item;
       const shop = item.shop;
       const price = resolveModelPrice(model);
-      let issue: string | undefined;
-      if (item.status !== 'NORMAL' || shop.status !== 'NORMAL') issue = 'Product is no longer available';
-      else if (shop.holidayMode) issue = 'Shop is on holiday';
-      else if (item.hasModel === model.isDefault || model.status !== 'MODEL_NORMAL') issue = 'Variation is unavailable';
-      else if (ownShops.has(shop.id)) issue = 'You cannot buy from your own shop';
-      else if (model.stock < req.quantity) issue = model.stock === 0 ? 'Out of stock' : `Only ${model.stock} left in stock`;
+      const issue = purchaseIssue(item, model, shop, req.quantity, ownShops.has(shop.id));
 
       let group = groups.get(shop.id);
       if (!group) {

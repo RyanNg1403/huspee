@@ -41,14 +41,21 @@ export class VoucherService {
   constructor(private readonly prisma: PrismaService) {}
 
   evaluate(voucher: Voucher, lines: VoucherLine[], at = new Date()): VoucherEvaluation {
-    if (voucherState(voucher, at) !== 'ongoing') return { eligible: false, discount: 0, reason: 'Voucher is not active' };
-    if (voucher.currentUsage >= voucher.usageQuantity) return { eligible: false, discount: 0, reason: 'Voucher is fully redeemed' };
+    const result = this.assess(voucher, lines, at);
+    return { eligible: result.eligible, discount: result.discount, ...(result.reason ? { reason: result.reason } : {}) };
+  }
+
+  /** Details for agent tools without changing the existing checkout evaluation contract. */
+  assess(voucher: Voucher, lines: VoucherLine[], at = new Date()): VoucherEvaluation & { eligibleSubtotal: number; shortfall: number | null } {
     const eligibleLines = voucher.voucherType === VOUCHER_PRODUCT ? lines.filter((l) => voucher.itemIds.includes(l.itemId)) : lines;
     const subtotal = eligibleLines.reduce((s, l) => s + l.lineTotal, 0);
-    if (subtotal <= 0) return { eligible: false, discount: 0, reason: 'No eligible items for this voucher' };
+    const details = { eligibleSubtotal: subtotal, shortfall: null as number | null };
+    if (voucherState(voucher, at) !== 'ongoing') return { ...details, eligible: false, discount: 0, reason: 'Voucher is not active' };
+    if (voucher.currentUsage >= voucher.usageQuantity) return { ...details, eligible: false, discount: 0, reason: 'Voucher is fully redeemed' };
+    if (subtotal <= 0) return { ...details, eligible: false, discount: 0, reason: 'No eligible items for this voucher' };
     const minBasket = toNumber(voucher.minBasketPrice);
     if (subtotal < minBasket) {
-      return { eligible: false, discount: 0, reason: `Minimum spend of ${minBasket} VND not reached` };
+      return { ...details, shortfall: minBasket - subtotal, eligible: false, discount: 0, reason: `Minimum spend of ${minBasket} VND not reached` };
     }
     let discount: number;
     if (voucher.rewardType === REWARD_PERCENTAGE) {
@@ -58,7 +65,7 @@ export class VoucherService {
     } else {
       discount = toNumber(voucher.discountAmount);
     }
-    return { eligible: true, discount: roundVnd(Math.min(discount, subtotal)) };
+    return { ...details, shortfall: 0, eligible: true, discount: roundVnd(Math.min(discount, subtotal)) };
   }
 
   async findByCode(shopId: number, code: string, db: Tx = this.prisma): Promise<Voucher> {

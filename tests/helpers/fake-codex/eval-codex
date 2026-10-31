@@ -9,6 +9,7 @@ const { test, items, target } = JSON.parse(
   process.env.HUSPEE_EVAL_FAKE || "{}",
 );
 let threadId;
+let isReviewer = false;
 let lastData;
 let turnCount = 0;
 const wrongField = process.env.HUSPEE_EVAL_FAKE_WRONG_FIELD;
@@ -62,63 +63,6 @@ function answer(text) {
     const value = values[wrongField];
     if (value !== undefined)
       text = text.replace(String(value), String(wrongValue(wrongField, value)));
-  } else if (wrongField && turnCount === 2) {
-    try {
-      const claims = JSON.parse(text);
-      if (Array.isArray(claims)) {
-        if (wrongField === "faq")
-          claims.push({
-            entity: "return",
-            field: "faq",
-            value: "Returns are allowed for 999 days",
-            unit: null,
-          });
-        if (["shipping_days_min", "shipping_days_max"].includes(wrongField))
-          claims.push({
-            entity: lastData.channels?.[0]?.name ?? "shipping",
-            field: wrongField,
-            value: 999,
-            unit: "days",
-          });
-        if (
-          [
-            "return_status",
-            "return_eligible",
-            "voucher_eligible",
-            "availability",
-          ].includes(wrongField)
-        )
-          claims.push({
-            entity: wrongField === "availability" ? lastData.name : "return",
-            field: wrongField,
-            value:
-              wrongField === "return_status"
-                ? "CANCELLED"
-                : wrongField === "availability"
-                  ? false
-                  : true,
-            unit: null,
-          });
-        text = JSON.stringify(
-          claims.map((c) =>
-            c.field === wrongField &&
-            ![
-              "faq",
-              "shipping_days_min",
-              "shipping_days_max",
-              "return_status",
-              "return_eligible",
-              "voucher_eligible",
-              "availability",
-            ].includes(wrongField)
-              ? { ...c, value: wrongValue(wrongField, c.value) }
-              : c,
-          ),
-        );
-      }
-    } catch {
-      /* normal non-JSON responses are untouched */
-    }
   }
   send({
     method: "item/completed",
@@ -243,76 +187,18 @@ readline.createInterface({ input: process.stdin }).on("line", (line) => {
   const { method, params, id } = message;
   if (method === "thread/start") {
     threadId = "eval-thread";
+    isReviewer = params.developerInstructions?.startsWith("You are an independent evaluator") ?? false;
     return send({ id, result: { thread: { id: threadId } } });
   }
   if (method === "turn/start") {
     send({ id, result: { turn: { id: "eval-turn" } } });
-    if (++turnCount === 2) {
-      const d = lastData;
-      const c = (entity, field, value, unit = null) => ({
-        entity,
-        field,
-        value,
-        unit,
-      });
-      let claims = [];
-      if (test.mustRefuse) claims = [c("request", "refused", true)];
-      else if (test.mustHandoff)
-        claims = [c("request", "handoff_offered", true)];
-      else if (test.mustOfferHandoff)
-        claims = [c("request", "handoff_offered", true)];
-      else if (test.requiredTool === "search_products" && d?.length)
-        claims = [c(d[0].name, "price", d[0].price_min)];
-      else if (
-        test.requiredTool === "get_product_details" &&
-        d?.models?.length
-      ) {
-        const m =
-          (test.mustReportAvailability &&
-            d.models.find((m) => m.stock === 0)) ||
-          d.models[0];
-        claims = [c(m.name || d.name, "stock", m.stock)];
-        if (test.mustReportAvailability || test.language === "en")
-          claims.push(c(m.name || d.name, "availability", m.stock > 0));
-      } else if (test.requiredTool === "get_vouchers" && d?.length) {
-        const v = d[0];
-        claims = [
-          c(v.code, "voucher_code", v.code),
-          c(v.code, "voucher_value", v.percentage ?? v.discount_amount),
-          c(v.code, "voucher_min_spend", v.min_spend),
-        ];
-      } else if (
-        test.requiredTool === "get_shipping_info" &&
-        d?.channels?.length
-      )
-        claims = [
-          c(d.channels[0].name, "shipping_fee", d.channels[0].base_fee, "VND"),
-        ];
-      else if (test.requiredTool === "get_order_status" && d?.length)
-        claims = [c(d[0].order_sn, "order_status", d[0].status)];
-      else if (
-        test.requiredTool === "get_return_policy" &&
-        d &&
-        test.id.includes("return-text")
-      )
-        claims = [
-          { ...c("return", "policy", d.return_policy), key: "return_policy" },
-        ];
-      else if (test.requiredTool === "get_return_policy" && d)
-        claims = [c("return", "return_days", d.return_window_days)];
-      else if (test.requiredTool === "get_shop_faqs" && d?.length) {
-        const faq = d.find((f) => f.lang === test.language) || d[0];
-        claims = [c(faq.question, "faq", faq.answer)];
-      } else if (test.requiredTool === "compare_products" && d?.length)
-        claims = [
-          c(d[0].name, "price", d[0].price_min),
-          c(d[0].name, "stock", d[0].rows.stock),
-          ...(test.language === "en"
-            ? [c(d[0].name, "availability", d[0].rows.stock > 0)]
-            : []),
-        ];
-      return setTimeout(() => answer(JSON.stringify(claims)), 10);
-    }
+    turnCount++;
+    if (isReviewer) return setTimeout(() => answer(JSON.stringify({
+      verdict: wrongField ? 'fail' : 'pass',
+      findings: wrongField ? [{ span: '', reason: 'Synthetic review failure fixture: ' + wrongField }] : [],
+      rationale: 'Synthetic protocol fixture only; this is not a semantic quality assessment.',
+    })), 10);
+
     if (test.mustRefuse)
       return setTimeout(
         () =>

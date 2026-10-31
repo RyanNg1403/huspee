@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { appendFileSync } from 'node:fs';
 import { CodexTransport } from './codex-transport';
 import { realtimeIdentity, realtimeVoicePrompt, voicePrompt, type VoicePromptConfig } from './prompt';
-import { checkSpeech, detectLanguage, offPersona, promisesAction, speechText, statesFact, type SpeechLanguage } from './speech-check';
+import { speechText, type SpeechLanguage } from './speech';
 
 type Event = Record<string, unknown>;
 type EventLog = { buyerId: number; cursor: number; events: Array<{ id: number; event: Event }>; closed: boolean };
@@ -14,7 +14,7 @@ function traceValue(value: unknown, key = ''): unknown {
   return value;
 }
 type Context = { conversationId: string; buyerId: number; shopId: number; viewedItemId?: number | null };
-type ToolOutput = { text: string; success: boolean; card?: { kind: string; action?: unknown } };
+type ToolOutput = { text: string; success: boolean; response_language?: SpeechLanguage; card?: { kind: string; action?: unknown } };
 type ToolRegistry = {
   specs(): Array<{ name: string; description: string; inputSchema: object }>;
   run(name: string, args: unknown, ctx: Context): Promise<ToolOutput>;
@@ -39,31 +39,33 @@ type Session = {
   history: Array<{ role: 'user' | 'assistant'; text: string }>;
   voiceHistory: Array<{ role: 'user' | 'assistant'; text: string }>;
   historySync?: Promise<void>;
-  /** Tool results and buyer words: the only facts speech may contain. */
-  evidence: string[];
   lastUser?: string;
+  /** Identifies a received request without interpreting its wording. */
+  requestSequence: number;
+  /** Last request answered, superseded, or explicitly failed. */
+  settledSequence: number;
+  assignedSequence: number;
+  recoveryTimer?: NodeJS.Timeout;
+  pendingUserTurn?: { sequence: number; text: string };
   /** The buyer's last few utterances, so a turn the server starts keeps the conversation's context. */
   recentUser: string[];
   reply?: string;
-  readback?: { vi: string; en: string; tap: boolean };
-  spoken: Set<string>;
+  readback?: { vi: string; en: string; tap: boolean; actionId?: string };
   /** The realtime model handed the current utterance to the thread, or we started a turn ourselves. */
   handoff: boolean;
   turnActive: boolean;
   /** Thread turns we started only to inform the thread; their replies are not spoken. */
   silentTurns: number;
   /** The running thread turn: its ID, the buyer words it answers, and whether it is one of ours to inform. */
-  turn?: { id: string; asked?: string; silent: boolean; awaitingWords: boolean };
+  turn?: { id: string; asked?: string; silent: boolean; awaitingWords: boolean; requestSequence?: number };
   /** The running turn's reply is stale (the buyer moved on or tapped the card) and must not be spoken. */
   dropReply: boolean;
-  /** The buyer asked something new while a turn was answering an earlier question; answer it next. */
-  superseded?: 'handed_off' | 'ask_thread';
   /** App events for the thread that arrived while it was busy; sent when its turn completes. */
   pendingNotes: string[];
   /** handoff_request seen before the matching user transcript arrived. */
   pendingHandoff?: boolean;
+  pendingHandoffSequence?: number;
 };
-export type SpeechLog = { kind: 'blocked_unverified' | 'corrected'; text: string; unsupported: string[]; spoken: string };
 
 /** Runtime state is ephemeral; identity and tool scope are fixed from the authenticated session. */
 export class VoiceRuntime {
@@ -73,8 +75,7 @@ export class VoiceRuntime {
   private threads = new Map<string, Session>();
   private reservations = 0;
   onTurnCompleted?: (conversationId: string, status: string | undefined) => void;
-  onSpeechCheck?: (ctx: Context, log: SpeechLog) => void;
-  /** How long a spoken "let me check" may go without a handoff before the server sends the request on. */
+  /** Transport grace period for an interrupted turn's replacement handoff. */
   stallMs = 2500;
   constructor(
     private readonly tools: ToolRegistry,
@@ -143,13 +144,14 @@ export class VoiceRuntime {
         realtimeRequested: false,
         history: [...(config.history ?? [])],
         voiceHistory: [],
-        evidence: [],
-        spoken: new Set(),
         handoff: false,
         turnActive: false,
         silentTurns: 0,
         dropReply: false,
         recentUser: [],
+        requestSequence: 0,
+        settledSequence: 0,
+        assignedSequence: 0,
         pendingNotes: [],
       };
       this.sessions.set(ctx.conversationId, session);
@@ -246,7 +248,10 @@ export class VoiceRuntime {
         await this.syncVoiceHistory(session).catch(() => {
           this.emit(session, { type: 'error', message: 'Could not sync call history; please retry your message.' });
         });
-        if (!session.closed) this.emit(session, { type: 'call', state: 'ended', reason, call_id: session.callId });
+        if (!session.closed) {
+          this.emit(session, { type: 'call', state: 'ended', reason, call_id: session.callId });
+          this.scheduleRecovery(session, 0);
+        }
       }
     })();
     session.callStop = work;
@@ -299,6 +304,12 @@ export class VoiceRuntime {
     this.touch(session);
     if (session.callStop) await session.callStop;
     if (session.callState === 'starting') throw new Error('assistant_busy');
+    this.remember(session, 'user', text);
+    session.lastUser = text;
+    session.requestSequence++;
+    session.recentUser = [...session.recentUser, text].slice(-4);
+    this.emit(session, { type: 'transcript', role: 'user', text, final: true, item_id: randomUUID(), source: 'text' });
+    await this.saveTranscript(session.context, 'user', text);
     if (session.mode === 'text') {
       session.turnActive = true;
       try {
@@ -306,28 +317,32 @@ export class VoiceRuntime {
         await this.transport.request('turn/start', { threadId: session.threadId, input: [{ type: 'text', text, text_elements: [] }] });
       } catch (error) { session.turnActive = false; throw error; }
     } else {
-      await this.transport.request('thread/realtime/appendText', { threadId: session.threadId, role: 'user', text });
+      // Typed input goes directly to the tool thread, without relying on a realtime echo/handoff.
+      if (session.turnActive) this.supersede(session, text);
+      if (!session.turnActive && !session.handoff && session.silentTurns === 0) await this.delegateStalled(session, text, true);
+      else this.scheduleRecovery(session, 0);
     }
-    this.remember(session, 'user', text, session.mode === 'voice');
-    session.evidence.push(text);
-    session.lastUser = text;
-    session.handoff = false;
-    this.emit(session, { type: 'transcript', role: 'user', text, final: true, item_id: randomUUID(), source: 'text' });
-    await this.saveTranscript(session.context, 'user', text);
   }
   action(
     id: string,
     action: {
+      action_id?: string;
       status: string;
       requires_tap: boolean;
       summary: { title: string };
       result?: { order_sn?: string; return_sn?: string; message?: string };
     },
     replacement?: string,
+    initiatedBy: 'agent' | 'buyer' = 'buyer',
   ): void {
     const session = this.sessions.get(id);
     if (!session) return;
     this.emit(session, { type: 'action', action });
+    if (initiatedBy === 'agent' && action.status === 'CANCELLED') {
+      if (action.action_id && session.readback?.actionId === action.action_id) session.readback = undefined;
+      // The running agent receives the tool result; it may still prepare and read a replacement.
+      return;
+    }
     if (replacement && action.status === 'PENDING') void this.replaceAction(session, action.requires_tap, replacement).catch(() => undefined);
     const resolved = action.requires_tap && (action.status === 'EXECUTED' || action.status === 'CANCELLED');
     if (resolved && session.mode === 'voice') {
@@ -355,7 +370,6 @@ export class VoiceRuntime {
   }
   /** The buyer edited a confirmation card on screen: read the new summary back and point the thread at the new action. */
   private async replaceAction(session: Session, tap: boolean, text: string): Promise<void> {
-    session.evidence.push(text);
     const note = `[App] The buyer edited the confirmation card on screen. The previous action is cancelled; use only this action from now on.\n${text}`;
     if (session.mode === 'text') {
       await this.transport.request('turn/start', { threadId: session.threadId, input: [{ type: 'text', text: note, text_elements: [] }] });
@@ -406,6 +420,7 @@ export class VoiceRuntime {
     session.closed = true;
     session.voiceClosed?.();
     clearTimeout(session.timer);
+    clearTimeout(session.recoveryTimer);
     session.rejectAnswer?.(new Error(reason || 'closed'));
     this.sessions.delete(session.context.conversationId);
     this.threads.delete(session.threadId);
@@ -430,7 +445,7 @@ export class VoiceRuntime {
     this.transport.close();
   }
   private language(session: Session): SpeechLanguage {
-    return detectLanguage(session.lastUser);
+    return session.config.language ?? 'vi';
   }
   private async speak(session: Session, text: string): Promise<void> {
     if (session.callState === 'stopping' || session.mode === 'text') {
@@ -439,18 +454,37 @@ export class VoiceRuntime {
       await this.saveTranscript(session.context, 'assistant', text);
       return;
     }
-    if (session.spoken.size > 50) session.spoken.clear();
-    session.spoken.add(text.trim());
     await this.transport.request('thread/realtime/appendSpeech', { threadId: session.threadId, text }).catch(() => undefined);
   }
-  private async delegateStalled(session: Session, asked: string | undefined): Promise<void> {
-    if (session.closed || session.callState !== 'active' || session.handoff || session.turnActive || !asked || session.lastUser !== asked) return;
+  private scheduleRecovery(session: Session, delay = this.stallMs): void {
+    clearTimeout(session.recoveryTimer);
+    if (session.closed || session.requestSequence <= session.settledSequence) return;
+    const sequence = session.requestSequence;
+    session.recoveryTimer = setTimeout(() => {
+      if (session.requestSequence === sequence) void this.delegateStalled(session, session.lastUser);
+    }, delay);
+    session.recoveryTimer.unref();
+  }
+  private async delegateStalled(session: Session, asked: string | undefined, propagateFailure = false): Promise<void> {
+    if (session.closed || session.callState === 'starting' || session.callState === 'stopping' || session.handoff || session.turnActive || session.silentTurns > 0 || !asked || session.requestSequence <= session.settledSequence) return;
+    const sequence = session.requestSequence;
+    session.pendingUserTurn = { sequence, text: asked };
+    session.assignedSequence = sequence;
     session.handoff = true;
-    await this.transport
-      .request('turn/start', { threadId: session.threadId, input: [{ type: 'text', text: withContext(session, asked), text_elements: [] }] })
-      .catch(() => {
-        session.handoff = false;
-      });
+    session.turnActive = true;
+    try {
+      const result = await this.transport.request('turn/start', { threadId: session.threadId, input: [{ type: 'text', text: withContext(session, asked), text_elements: [] }] }) as { turn?: { id?: string } };
+      if (session.pendingUserTurn?.sequence === sequence && !session.turn && result.turn?.id)
+        session.turn = { id: result.turn.id, asked, silent: false, awaitingWords: false, requestSequence: sequence };
+    } catch {
+      session.pendingUserTurn = undefined;
+      session.handoff = false;
+      session.turnActive = false;
+      session.settledSequence = Math.max(session.settledSequence, sequence);
+      this.emit(session, { type: 'error', message: 'Assistant could not finish the request. Please retry.' });
+      if (session.requestSequence > sequence) this.scheduleRecovery(session, 0);
+      if (propagateFailure) throw new Error('Assistant runtime unavailable');
+    }
   }
   /**
    * The buyer spoke over a turn that is still answering an earlier question: stop that turn and drop
@@ -461,15 +495,16 @@ export class VoiceRuntime {
     if (turn?.awaitingWords) {
       turn.awaitingWords = false;
       turn.asked = text;
+      turn.requestSequence = session.requestSequence;
+      session.assignedSequence = session.requestSequence;
       return;
     }
-    if (!turn || turn.silent || turn.asked === text || session.dropReply) return;
+    if (!turn || turn.silent || turn.requestSequence === session.requestSequence || session.dropReply) return;
     session.dropReply = true;
-    session.superseded = session.pendingHandoff ? 'handed_off' : 'ask_thread';
     session.readback = undefined;
     void this.transport.request('turn/interrupt', { threadId: session.threadId, turnId: turn.id }).catch(() => undefined);
   }
-  /** Speaks the thread's answer for a delegated turn only after every fact in it is backed by evidence. */
+  /** Deliver the delegated agent's answer or the app-authored confirmation read-back. */
   private async speakTurn(session: Session): Promise<void> {
     const lang = this.language(session);
     const readback = session.readback, answer = session.reply;
@@ -477,6 +512,7 @@ export class VoiceRuntime {
     session.reply = undefined;
     if (session.dropReply) {
       session.dropReply = false;
+      if (session.silentTurns > 0) session.silentTurns--;
       return;
     }
     if (session.silentTurns > 0) {
@@ -488,40 +524,7 @@ export class VoiceRuntime {
       return;
     }
     if (!answer) return;
-    const check = checkSpeech(answer, session.evidence);
-    if (check.ok) return this.speak(session, answer);
-    const fallback = speechText.fallback[lang];
-    this.onSpeechCheck?.(session.context, { kind: 'blocked_unverified', text: answer, unsupported: check.unsupported, spoken: fallback });
-    this.emit(session, { type: 'speech_check', status: 'blocked' });
-    await this.speak(session, fallback);
-  }
-  /**
-   * The realtime voice may still say something itself. Unverified facts get an immediate spoken
-   * correction, and any real answer it gave without handing off (anything but a short neutral reply
-   * such as "Mình nghe rõ") sends the buyer's words to the thread, which answers from tools.
-   */
-  private async checkOwnSpeech(session: Session, text: string): Promise<void> {
-    const spoken = text.trim();
-    if (session.spoken.has(spoken)) {
-      session.spoken.delete(spoken);
-      return;
-    }
-    const check = checkSpeech(text, session.evidence);
-    if (!check.ok) {
-      const correction = speechText.correction[this.language(session)];
-      this.onSpeechCheck?.(session.context, { kind: 'corrected', text, unsupported: check.unsupported, spoken: correction });
-      this.emit(session, { type: 'speech_check', status: 'corrected' });
-      await this.speak(session, correction);
-    }
-    if (session.handoff || session.turnActive || !session.lastUser) return;
-    if (!check.ok || statesFact(spoken) || offPersona(spoken) || spoken.length > 80) {
-      await this.delegateStalled(session, session.lastUser);
-      return;
-    }
-    if (promisesAction(spoken)) {
-      const asked = session.lastUser;
-      setTimeout(() => void this.delegateStalled(session, asked), this.stallMs).unref?.();
-    }
+    await this.speak(session, answer);
   }
   private async handle(message: { id?: number; method?: string; params?: Record<string, unknown> }): Promise<void> {
     if (process.env.ASSISTANT_VOICE_TRACE && message.method && message.id === undefined) {
@@ -557,18 +560,18 @@ export class VoiceRuntime {
       const text = String(final ? params.text : params.delta);
       this.emit(session, { type: 'transcript', role, text, final, source: 'voice', ...(typeof params.itemId === 'string' ? { item_id: params.itemId } : {}) });
       if (final && role === 'user') {
-        session.evidence.push(text);
         session.lastUser = text;
+        session.requestSequence++;
         session.recentUser = [...session.recentUser, text].slice(-4);
         if (!session.turnActive) session.handoff = session.pendingHandoff ?? false;
         else this.supersede(session, text);
         session.pendingHandoff = undefined;
+        this.scheduleRecovery(session);
       }
       if (final) {
         this.remember(session, role, text, true);
         await this.saveTranscript(session.context, role, text).catch(() => undefined);
       }
-      if (final && role === 'assistant' && session.callState === 'active') await this.checkOwnSpeech(session, text);
     } else if (session.mode === 'text' && !session.turn && !session.silentTurns && message.method === 'item/agentMessage/delta') {
       this.emit(session, { type: 'transcript', role: 'assistant', text: String(params.delta ?? ''), final: false, item_id: String(params.itemId), source: 'text' });
     } else if (session.mode === 'text' && !session.turn && message.method === 'item/completed') {
@@ -581,47 +584,67 @@ export class VoiceRuntime {
     } else if (session.mode === 'text' && !session.turn && message.method === 'turn/completed') {
       session.turnActive = false;
       session.turn = undefined;
-      if (session.silentTurns) { session.silentTurns--; return; }
+      if (session.silentTurns) { session.silentTurns--; this.scheduleRecovery(session, 0); return; }
+      session.settledSequence = session.pendingUserTurn?.sequence ?? session.requestSequence;
+      session.pendingUserTurn = undefined;
+      session.handoff = false;
       this.onTurnCompleted?.(session.context.conversationId, (params.turn as { status?: string } | undefined)?.status);
     } else if (session.mode === 'voice' && message.method === 'thread/realtime/itemAdded') {
       if ((params.item as { type?: string } | undefined)?.type === 'handoff_request') {
         session.handoff = true;
         session.pendingHandoff = true;
+        session.pendingHandoffSequence = session.requestSequence > session.assignedSequence ? session.requestSequence : undefined;
       }
     } else if (session.mode === 'voice' && message.method === 'turn/started') {
       session.turnActive = true;
-      // A handoff can start the turn before the buyer's final transcript arrives; that transcript is its question.
-      const awaitingWords = !!session.pendingHandoff;
+      const pending = session.pendingUserTurn;
+      const silent = session.silentTurns > 0;
+      const unassigned = session.requestSequence > session.assignedSequence;
+      const requestSequence = silent ? undefined : pending?.sequence ?? session.pendingHandoffSequence ?? (unassigned ? session.requestSequence : undefined);
+      const awaitingWords = !silent && !pending && !!session.pendingHandoff && requestSequence === undefined;
+      if (requestSequence !== undefined) session.assignedSequence = Math.max(session.assignedSequence, requestSequence);
+      session.pendingUserTurn = undefined;
       session.pendingHandoff = undefined;
+      session.pendingHandoffSequence = undefined;
       const turnId = (params.turn as { id?: string } | undefined)?.id;
-      if (turnId) session.turn = { id: turnId, asked: session.lastUser, silent: session.silentTurns > 0, awaitingWords };
+      if (turnId) session.turn = { id: turnId, asked: pending?.text ?? session.lastUser, silent, awaitingWords, requestSequence };
     } else if ((session.mode === 'voice' || session.turn) && message.method === 'item/completed') {
       const item = params.item as { type?: string; text?: string } | undefined;
       if (item?.type === 'agentMessage' && typeof item.text === 'string' && item.text.trim()) session.reply = item.text;
     } else if ((session.mode === 'voice' || session.turn) && message.method === 'turn/completed') {
+      const turn = session.turn;
+      const sequence = turn?.requestSequence ?? session.pendingUserTurn?.sequence;
+      const silent = turn?.silent || session.silentTurns > 0;
+      const dropped = session.dropReply;
+      const answered = !!(session.reply || session.readback);
+      const status = (params.turn as { status?: string } | undefined)?.status;
       session.turnActive = false;
       session.handoff = false;
       session.turn = undefined;
+      session.pendingUserTurn = undefined;
+      if (sequence !== undefined && !silent) session.settledSequence = Math.max(session.settledSequence, sequence);
+      if (status !== 'completed' && !dropped) {
+        session.reply = undefined;
+        session.readback = undefined;
+      }
       await this.speakTurn(session);
+      if (!silent && !dropped && sequence === session.requestSequence && (status !== 'completed' || !answered)) {
+        this.emit(session, { type: 'error', message: 'Assistant could not finish the request. Please retry.' });
+        await this.speak(session, speechText.replyUnavailable[this.language(session)]);
+      }
       const note = session.pendingNotes.shift();
       if (note && !session.closed) await this.informThread(session, note);
-      if (session.superseded) {
-        // Answer what the buyer asked meanwhile. If the voice handed it off, give that turn time to start first.
-        const wait = note || session.superseded === 'handed_off' ? this.stallMs : 0;
-        session.superseded = undefined;
-        const asked = session.lastUser;
-        setTimeout(() => void this.delegateStalled(session, asked), wait).unref?.();
-      }
+      if (session.requestSequence > session.settledSequence) this.scheduleRecovery(session, note ? this.stallMs : 0);
     } else if (message.method === 'item/tool/call' && message.id !== undefined) {
       const name = String(params.tool);
       const source = session.mode;
       this.emit(session, { type: 'tool', name, status: 'started' });
       try {
         const output = await this.tools.run(name, params.arguments, { ...session.context });
-        session.evidence.push(output.text);
+        if (output.response_language) session.config.language = output.response_language;
         const vi = /^readback_vi: (.*)$/m.exec(output.text)?.[1], en = /^readback_en: (.*)$/m.exec(output.text)?.[1];
         if (vi && en)
-          session.readback = { vi, en, tap: Boolean((output.card?.action as { requires_tap?: boolean } | undefined)?.requires_tap) };
+          session.readback = { vi, en, tap: Boolean((output.card?.action as { requires_tap?: boolean } | undefined)?.requires_tap), actionId: (output.card?.action as { action_id?: string } | undefined)?.action_id };
         this.emit(session, { type: 'tool', name, status: output.success ? 'done' : 'error' });
         if (output.card) this.emit(session, { type: 'card', card: output.card, source });
         this.transport.send({

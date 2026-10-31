@@ -50,12 +50,12 @@ export class ActionsService {
     };
   }
   /** `replaces`: the action the buyer edited on screen; the voice reads the new summary back. */
-  private emit(action: PendingAction, replaces?: string) {
+  private emit(action: PendingAction, replaces?: string, initiatedBy?: 'agent' | 'buyer') {
     const view = this.view(action);
-    this.events.emitAction({ conversationId: action.conversationId, action: view, ...(replaces ? { replaces } : {}) });
+    this.events.emitAction({ conversationId: action.conversationId, action: view, ...(replaces ? { replaces } : {}), ...(initiatedBy ? { initiatedBy } : {}) });
     return view;
   }
-  async prepareAdd(ctx: { conversationId: string; buyerId: number; shopId: number }, input: { item_id: number; model_id: number; quantity: number; quantity_resolution?: { resolved_from: string; resolved_to: string; confidence: number } }, replaces?: string) {
+  async prepareAdd(ctx: { conversationId: string; buyerId: number; shopId: number }, input: { item_id: number; model_id: number; quantity: number }, replaces?: string) {
     const model = await this.prisma.model.findFirst({
       where: {
         id: input.model_id,
@@ -70,12 +70,11 @@ export class ActionsService {
     if ((existing?.quantity ?? 0) + input.quantity > Math.min(model.stock, 999)) throw invalidState('Requested quantity is unavailable');
     const price = resolveModelPrice(model).currentPrice;
     const summary = {
-      title: 'Thêm vào giỏ hàng / Add to cart',
+      title: 'Sẵn sàng thêm vào giỏ hàng / Ready to add to cart',
       lines: [
         { label: 'Sản phẩm / Item', value: model.item.name },
         { label: 'Phân loại / Variant', value: modelName(model.item, model.tierIndex) || 'Mặc định / Default' },
         { label: 'Số lượng / Quantity', value: String(input.quantity) },
-        ...(input.quantity_resolution ? [{ label: 'Nghe được / Heard', value: `${input.quantity_resolution.resolved_from} → ${input.quantity_resolution.resolved_to}` }] : []),
         { label: 'Đơn giá / Unit price', value: String(price) },
         { label: 'Mã giảm giá / Voucher', value: 'Không có / None' },
       ],
@@ -95,7 +94,7 @@ export class ActionsService {
   }
   async prepareUpdate(
     ctx: { conversationId: string; buyerId: number; shopId: number },
-    input: { model_id: number; quantity?: number; new_model_id?: number; quantity_resolution?: { resolved_from: string; resolved_to: string; confidence: number } },
+    input: { model_id: number; quantity?: number; new_model_id?: number },
     replaces?: string,
   ) {
     const line = await this.prisma.cartItem.findFirst({
@@ -122,7 +121,6 @@ export class ActionsService {
         { label: 'Sản phẩm / Item', value: model.item.name },
         { label: 'Phân loại / Variant', value: modelName(model.item, model.tierIndex) || 'Mặc định / Default' },
         { label: 'Số lượng / Quantity', value: String(quantity) },
-        ...(input.quantity_resolution ? [{ label: 'Nghe được / Heard', value: `${input.quantity_resolution.resolved_from} → ${input.quantity_resolution.resolved_to}` }] : []),
         { label: 'Đơn giá / Unit price', value: String(price) },
         { label: 'Mã giảm giá / Voucher', value: 'Không có / None' },
       ],
@@ -151,7 +149,7 @@ export class ActionsService {
   }
   async prepareOrder(
     ctx: { conversationId: string; buyerId: number; shopId: number },
-    input: { voucher_code?: string; address_id?: number; payment_method?: PaymentMethod; resolution?: { resolved_from: string; resolved_to: string; confidence: number } },
+    input: { voucher_code?: string; address_id?: number; payment_method?: PaymentMethod },
     replaces?: string,
   ) {
     const lines = await this.prisma.cartItem.findMany({
@@ -185,7 +183,6 @@ export class ActionsService {
           value: `${line.model_name ? `${line.model_name} ` : ''}× ${line.quantity} @ ${line.unit_price} VND`,
         })),
         { label: 'Mã giảm giá / Voucher', value: group.voucher?.code ?? 'Không có / None' },
-        ...(input.resolution && input.resolution.resolved_from !== input.resolution.resolved_to ? [{ label: 'Nghe được / Heard', value: `${input.resolution.resolved_from} → ${input.resolution.resolved_to}` }] : []),
         {
           label: 'Địa chỉ / Address',
           value: [address.name, address.phone, address.address, address.town, address.district, address.city, address.state]
@@ -212,7 +209,7 @@ export class ActionsService {
     });
     return this.emit(action, replaces);
   }
-  async prepareReturn(ctx: { conversationId: string; buyerId: number; shopId: number }, input: CreateReturnInput, resolutions: Array<{ resolved_from: string; resolved_to: string; confidence: number }> = [], replaces?: string) {
+  async prepareReturn(ctx: { conversationId: string; buyerId: number; shopId: number }, input: CreateReturnInput, replaces?: string) {
     const { order, lines, refund } = await this.returns.preview(ctx.buyerId, input);
     if (order.shopId !== ctx.shopId) throw notFound('Order');
     const snapshot = returnSnapshot(lines, refund);
@@ -225,7 +222,6 @@ export class ActionsService {
           label: line.name,
           value: `${line.variant ? `${line.variant} ` : ''}× ${line.quantity} @ ${line.price} VND`,
         })),
-        ...resolutions.map((resolution) => ({ label: 'Nghe được / Heard', value: `${resolution.resolved_from} → ${resolution.resolved_to}` })),
         { label: 'Lý do / Reason', value: RETURN_REASON_LABELS[input.reason] ?? input.reason },
         { label: 'Phương án / Solution', value: input.solution === 'REFUND_ONLY' ? 'Chỉ hoàn tiền / Refund only' : 'Trả hàng và hoàn tiền / Return and refund' },
         { label: 'Mã giảm giá / Voucher', value: order.voucherCode ?? 'Không có / None' },
@@ -321,24 +317,13 @@ export class ActionsService {
       const voucher = checkout.shops?.[0]?.voucher_code;
       return this.prepareOrder(ctx, { address_id: checkout.address_id, payment_method: checkout.payment_method, ...(voucher ? { voucher_code: voucher } : {}) }, id);
     }
-    if (updatedReturn) return this.prepareReturn(ctx, updatedReturn, [], id);
+    if (updatedReturn) return this.prepareReturn(ctx, updatedReturn, id);
     const payload = action.payload as { item_id: number; model_id: number };
     return action.type === 'ADD_TO_CART'
       ? this.prepareAdd(ctx, { item_id: payload.item_id, model_id: input.model_id, quantity: input.quantity }, id)
       : this.prepareUpdate(ctx, { model_id: payload.model_id, new_model_id: input.model_id, quantity: input.quantity }, id);
   }
-  async latestPendingId(ctx: { conversationId: string; buyerId: number; shopId: number }): Promise<string> {
-    const candidates = await this.prisma.pendingAction.findMany({
-      where: { ...actionScope(ctx), status: 'PENDING', expiresAt: { gt: new Date() } },
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      take: 1,
-    });
-    const [action] = candidates;
-    if (!action) throw notFound('Pending action');
-    if (action.requiresTap) throw invalidState('Ask the buyer to tap the confirmation card');
-    return action.id;
-  }
-  async cancel(id: string, buyerId: number) {
+  async cancel(id: string, buyerId: number, initiatedBy: 'agent' | 'buyer' = 'buyer') {
     const action = await this.prisma.pendingAction.findFirst({ where: { id, buyerId } });
     if (!action) throw notFound('Action');
     if (action.status !== 'PENDING') throw invalidState('Action is no longer pending');
@@ -349,7 +334,7 @@ export class ActionsService {
     }
     const changed = await this.prisma.pendingAction.updateMany({ where: { id, buyerId, status: 'PENDING' }, data: { status: 'CANCELLED' } });
     if (!changed.count) throw invalidState('Action is no longer pending');
-    return this.emit(await this.prisma.pendingAction.findUniqueOrThrow({ where: { id } }));
+    return this.emit(await this.prisma.pendingAction.findUniqueOrThrow({ where: { id } }), undefined, initiatedBy);
   }
   async confirm(id: string, buyerId: number, conversationId: string | undefined, tap: boolean, confirmationKey?: string) {
     const existing = await this.prisma.pendingAction.findFirst({ where: { id, buyerId, ...(conversationId ? { conversationId } : {}) } });

@@ -23,9 +23,8 @@ export class VoiceService implements OnModuleInit, OnModuleDestroy {
         conversations.appendMessage(ctx.conversationId, role === 'user' ? 'USER' : 'ASSISTANT', text),
       (ctx) => conversations.end(ctx.conversationId),
     );
-    this.runtime.onSpeechCheck = (ctx, log) => void conversations.logSpeechCheck(ctx.conversationId, log).catch(() => undefined);
-    this.unsubscribe = events.onAction(({ conversationId, action, replaces }) =>
-      this.runtime.action(conversationId, action, replaces ? actionText(action) : undefined),
+    this.unsubscribe = events.onAction(({ conversationId, action, replaces, initiatedBy }) =>
+      this.runtime.action(conversationId, action, replaces ? actionText(action) : undefined, initiatedBy),
     );
   }
   onModuleInit(): void {

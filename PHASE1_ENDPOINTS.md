@@ -251,7 +251,7 @@ All of the following are covered by `tests/e2e/flows.test.ts` (plus the upstream
 
 ## Phase 2 assistant (project-defined custom routes)
 
-These `/api/v1` routes use platform sessions unless marked public, and the browser-safe `@huspee/sdk` methods named below; they are not Shopee endpoints. Voice routes are supplied by the voice module. Automated coverage is in `tests/extensions/assistant.test.ts`, `messages.test.ts`, `voice.test.ts`, `codex-connection.test.ts`, and `codex-setup.test.ts`.
+These `/api/v1` routes use platform sessions unless marked public, and the browser-safe `@huspee/sdk` methods named below; they are not Shopee endpoints. Voice routes are supplied by the voice module. Dynamic tool contracts include read-only `check_voucher`, explicit `set_response_language`, and conversation-scoped `cancel_action`; `confirm_action` requires an exact action ID, and quantities use integer arguments. These are internal agent tools, not new HTTP routes; tool coverage is in `tests/extensions/agent-tools.test.ts`. Automated coverage is in `tests/extensions/assistant.test.ts`, `messages.test.ts`, `voice.test.ts`, `codex-connection.test.ts`, and `codex-setup.test.ts`.
 
 | Method | Path | Auth | SDK | Status / coverage |
 |---|---|---|---|---|

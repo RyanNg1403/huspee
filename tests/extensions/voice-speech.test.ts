@@ -2,56 +2,24 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
-import { checkSpeech, detectLanguage, extractNumbers, speechText, statesFact } from '../../apps/api/src/assistant/voice/speech-check.js';
-import { VoiceRuntime, type SpeechLog } from '../../apps/api/src/assistant/voice/voice-runtime.js';
+import { speechText } from '../../apps/api/src/assistant/voice/speech.js';
+import { VoiceRuntime } from '../../apps/api/src/assistant/voice/voice-runtime.js';
 import { realtimeIdentity, voicePrompt } from '../../apps/api/src/assistant/voice/prompt.js';
 
-const evidence = [
-  '{"name":"Apple iPhone 15 128GB Chính Hãng VN/A","models":[{"name":"Đen","price":18490000,"stock":25},{"name":"Hồng","price":18490000,"stock":12}]}',
-  '{"code":"TECH50K","discount":50000,"min_spend":500000}',
-];
-
-describe('speech check', () => {
-  it('parses written Vietnamese and English amounts', () => {
-    expect(extractNumbers('18.490.000₫, 18,490,000 VND, 790k, 1,5 triệu').map((n) => n.value)).toEqual([18490000, 18490000, 790000, 1500000]);
-    expect(extractNumbers('tổng 1 triệu 580 nghìn đồng, phí 15 nghìn').map((n) => n.value)).toEqual([1580000, 15000]);
-    expect(extractNumbers('2 million 500 thousand').map((n) => n.value)).toEqual([2500000]);
-  });
-  it('accepts facts from evidence, names, totals and quantity x price', () => {
-    expect(checkSpeech('iPhone 15 128GB màu Đen còn 25 máy, giá 18.490.000₫; tổng 37 máy; hai máy 36.980.000đ; mã TECH50K giảm 50k.', evidence)).toEqual({ ok: true, unsupported: [] });
-  });
-  it('rejects invented prices and codes', () => {
-    expect(checkSpeech('Màu tím giá 17.990.000₫, dùng mã TECH80K.', evidence).unsupported).toEqual(['17.990.000', '80k', 'TECH80K', 'tím']);
-    expect(checkSpeech('Có màu đen và màu hồng.', evidence).ok).toBe(true);
-    expect(checkSpeech('It comes in black and blue.', evidence).unsupported).toEqual(['blue']);
-  });
-  it('tells acknowledgements from statements of fact', () => {
-    for (const text of ['Dạ, để mình xem nhé.', 'Let me check that for you.', 'Ok, để mình xác nhận.']) expect(statesFact(text)).toBe(false);
-    for (const text of ['Không, iPhone 15 không có màu tím.', 'Còn hàng bạn nhé.', 'Shipping is free.', 'Giá 790k.', 'Dùng mã TECH50K.'])
-      expect(statesFact(text)).toBe(true);
-  });
-  it('detects the buyer language', () => {
-    expect(detectLanguage('How much is the black one?')).toBe('en');
-    expect(detectLanguage('bao nhiêu tiền')).toBe('vi');
-    expect(detectLanguage(undefined)).toBe('vi');
-  });
-});
-
-describe('voice runtime speaks only checked answers', () => {
+describe('voice runtime delegates meaning to the agent', () => {
   const run = async (
     shopName: string,
     toolText: string,
     card?: { kind: string; action?: unknown },
     midway?: (runtime: VoiceRuntime, conversationId: string) => void,
+    options: { handoffWait?: number; language?: 'vi' | 'en' } = {},
   ) => {
-    const logs: SpeechLog[] = [];
     const runtime = new VoiceRuntime(
-      { specs: () => [], run: async () => ({ success: true, text: toolText, ...(card ? { card } : {}) }) },
+      { specs: () => [], run: async () => ({ success: true, text: toolText, ...(options.language ? { response_language: options.language } : {}), ...(card ? { card } : {}) }) },
       async () => undefined,
       async () => undefined,
     );
-    runtime.onSpeechCheck = (_ctx, log) => logs.push(log);
-    runtime.stallMs = 20;
+    runtime.stallMs = options.handoffWait ?? 2500;
     const ctx = { conversationId: `speech-${shopName}`, buyerId: 1, shopId: 2 };
     const events: Record<string, unknown>[] = [];
     const requests: Array<{ method: string; params: Record<string, unknown> }> = [];
@@ -71,24 +39,30 @@ describe('voice runtime speaks only checked answers', () => {
       runtime.close();
     }
     const spoken = events.filter((e) => e.type === 'transcript' && e.role === 'assistant' && e.final).map((e) => e.text);
-    return { logs, spoken, events, requests };
+    return { spoken, events, requests };
   };
 
   it('speaks a verified thread answer', async () => {
-    const { spoken, logs } = await run('SPEECH_OK', '{"price":790000}');
+    const { spoken } = await run('SPEECH_OK', '{"price":790000}');
     expect(spoken).toContain('Giá 790.000đ');
-    expect(logs).toEqual([]);
   });
-  it('sends the request on when the voice promises to check but never hands off', async () => {
-    const { spoken, logs } = await run('SPEECH_STALL', '{"price":790000}');
-    expect(spoken).toEqual(['Cảm ơn bạn, để mình chốt giúp nhé.', 'Final answer']);
-    expect(logs).toEqual([]);
+  it('does not judge a delegated answer by matching its numbers against other tool values', async () => {
+    const { spoken, events } = await run('SPEECH_BLOCKED', '{"price":790000}');
+    expect(spoken).toContain('Giá 999.000đ');
+    expect(events.some((event) => event.type === 'speech_check')).toBe(false);
   });
-  it('blocks an unverified answer, speaks the fallback and logs it', async () => {
-    const { spoken, logs, events } = await run('SPEECH_BLOCKED', '{"price":790000}');
-    expect(spoken).toEqual([speechText.fallback.vi]);
-    expect(logs).toEqual([{ kind: 'blocked_unverified', text: 'Giá 999.000đ', unsupported: ['999.000'], spoken: speechText.fallback.vi }]);
-    expect(events).toContainEqual({ type: 'speech_check', status: 'blocked' });
+  it('recovers a missing protocol handoff without looking for acknowledgement keywords', async () => {
+    const { requests } = await run('SPEECH_STALL', '{}', undefined, undefined, { handoffWait: 20 });
+    expect(requests.some((request) => request.method === 'turn/start')).toBe(true);
+  });
+  it('does not re-delegate a request whose thread answer already completed', async () => {
+    const { requests } = await run('SPEECH_OK', '{}', undefined, undefined, { handoffWait: 100 });
+    expect(requests.some((request) => request.method === 'turn/start')).toBe(false);
+  });
+  it('uses the explicitly selected language for app readbacks, without detecting accents', async () => {
+    const text = 'readback_vi: Sẵn sàng thêm.\nreadback_en: Ready to add.';
+    const { spoken } = await run('SPEECH_OK', text, { kind: 'action', action: { requires_tap: false } }, undefined, { language: 'en' });
+    expect(spoken).toContain('Ready to add. ' + speechText.confirm.en);
   });
   it('speaks the server read-back instead of the model wording', async () => {
     const text = 'Action ID (do not read aloud): a1\nreadback_vi: Thêm vào giỏ hàng. Sản phẩm: Tai nghe; Số lượng: 1. Tổng cộng: 790000 VND.\nreadback_en: Add to cart. Item: Earbuds; Quantity: 1. Total: 790000 VND.';
@@ -99,6 +73,7 @@ describe('voice runtime speaks only checked answers', () => {
       const text = 'Action ID (do not read aloud): a1\nreadback_vi: Đặt hàng. Tai nghe x 1. Tổng cộng: 790000 VND.\nreadback_en: Place order. Earbuds x 1. Total: 790000 VND.';
       const { spoken, requests } = await run('SPEECH_TAP', text, { kind: 'action', action: { requires_tap: true } }, (runtime, id) =>
         runtime.action(id, { status: 'EXECUTED', requires_tap: true, summary: { title: 'Order confirmed' }, result: { order_sn: 'SN1' } }),
+        { handoffWait: 200 },
       );
       expect(spoken).toContain(speechText.orderPlaced.vi);
       expect(spoken.join(' ')).not.toContain(speechText.confirmTap.vi);
@@ -108,7 +83,30 @@ describe('voice runtime speaks only checked answers', () => {
       // The note waits for the thread's running turn instead of racing it.
       expect(requests.indexOf(note!)).toBeGreaterThan(requests.findIndex((r) => r.method === 'thread/realtime/appendText'));
       expect(spoken).not.toContain('OK');
+      expect(requests.filter((request) => request.method === 'turn/start' && !JSON.stringify(request.params).includes('[App]'))).toHaveLength(0);
     });
+  it('preserves a replacement order readback when the agent cancels the old order', async () => {
+    const text = 'readback_vi: Sẵn sàng đặt lại hai áo.\nreadback_en: Ready to order two shirts.';
+    const { spoken, requests } = await run('SPEECH_TAP', text, { kind: 'action', action: { action_id: 'new', requires_tap: true } }, (runtime, id) =>
+      runtime.action(id, { action_id: 'old', status: 'CANCELLED', requires_tap: true, summary: { title: 'Old order' } }, undefined, 'agent'),
+    );
+    expect(spoken).toContain('Sẵn sàng đặt lại hai áo. ' + speechText.confirmTap.vi);
+    expect(spoken).not.toContain(speechText.cancelled.vi);
+    expect(requests.some((request) => request.method === 'turn/start' && JSON.stringify(request.params).includes('[App]'))).toBe(false);
+  });
+  it('delivers typed input after a tap even when a silent app-note turn intervenes', async () => {
+    const { spoken, requests } = await run('SPEECH_TAP', '{}', undefined, (runtime, id) => {
+      runtime.action(id, { status: 'EXECUTED', requires_tap: true, summary: { title: 'Order' }, result: { order_sn: 'SN1' } });
+      void runtime.text(id, 1, 'Show me another product');
+    }, { handoffWait: 10 });
+    expect(spoken).toContain('Final answer');
+    expect(requests.some((request) => request.method === 'turn/start' && JSON.stringify(request.params).includes('Show me another product'))).toBe(true);
+  });
+  it.each(['FAILED', 'EMPTY'])('reports a failed or empty delegated turn instead of silently abandoning it: %s', async (kind) => {
+    const { events, spoken } = await run('SPEECH_' + kind, '{}', undefined, undefined, { handoffWait: 100 });
+    expect(events.some((event) => event.type === 'error')).toBe(true);
+    expect(spoken).toContain(speechText.replyUnavailable.vi);
+  });
   it('speaking over a running answer stops it and answers the new question instead', async () => {
       const { spoken, requests } = await run('SPEECH_BARGE', '{"price":790000}');
       expect(requests).toContainEqual({ method: 'turn/interrupt', params: { threadId: expect.any(String), turnId: 'v-turn' } });
@@ -126,19 +124,10 @@ describe('voice runtime speaks only checked answers', () => {
     expect(speechText.confirmTap.vi).not.toContain('đồng ý');
     expect(speechText.confirmTap.en).not.toMatch(/say yes/);
   });
-  it('corrects the voice out loud when it states an unverified fact itself', async () => {
-    const { spoken, logs } = await run('SPEECH_OWN', '{"price":790000}');
-    expect(spoken).toContain(speechText.correction.vi);
-    expect(logs[0]).toMatchObject({ kind: 'corrected', unsupported: ['17.990.000', 'tím'] });
-  });
-  it('an answer the voice gave itself as a general AI goes to the thread instead', async () => {
-    const { spoken } = await run('SPEECH_PERSONA', '{"items":[]}');
-    // 'Final answer' only comes from a thread turn, which the voice itself never started here.
-    expect(spoken).toContain('Final answer');
-  });
-  it('a short reply denying the shop also goes to the thread', async () => {
-    const { spoken } = await run('SPEECH_NOSHOP', '{"items":[]}');
-    expect(spoken).toContain('Final answer');
+  it.each(['OWN', 'PERSONA', 'NOSHOP', 'STALL'])('does not classify or rewrite the voice using wording rules: %s', async (kind) => {
+    const { events, requests } = await run('SPEECH_' + kind, '{"price":790000}', undefined, undefined, { handoffWait: 20 });
+    expect(events.some((event) => event.type === 'speech_check')).toBe(false);
+    expect(requests.filter((request) => request.method === 'turn/start')).toHaveLength(1);
   });
   it('gives a continued conversation its earlier messages as context, not as facts', () => {
     const config = { shopName: 'TechZone', tone: 'FRIENDLY', greetingVi: 'Chào', greetingEn: 'Hi', history: [{ role: 'user' as const, text: 'Tai nghe giá bao nhiêu?' }] };

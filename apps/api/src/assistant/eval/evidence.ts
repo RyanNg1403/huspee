@@ -44,8 +44,8 @@ export function indexEvidence(tools: ToolRecord[], facts: Fact[]): Evidence[] {
     for (const row of [...rows(t.data), obj(t.data)]) {
       if (row.item_id != null && typeof row.name === "string")
         ids.set(String(row.item_id), row.name);
-      if (t.name === "get_product_details" && typeof row.name === "string") {
-        const id = obj(t.input).item_id;
+      if ((t.name === "get_product_details" || t.name === "get_viewed_product") && typeof row.name === "string") {
+        const id = row.item_id ?? obj(t.input).item_id;
         if (id != null) ids.set(String(id), row.name);
       }
     }
@@ -80,7 +80,7 @@ export function indexEvidence(tools: ToolRecord[], facts: Fact[]): Evidence[] {
           id: String(row.item_id ?? ""),
         });
       }
-    if (t.name === "get_product_details") {
+    if ((t.name === "get_product_details" || t.name === "get_viewed_product")) {
       const entity = String(data.name ?? "");
       const models = rows(data.models);
       if (models.length && models.every((m) => typeof m.stock === "number"))
@@ -88,7 +88,7 @@ export function indexEvidence(tools: ToolRecord[], facts: Fact[]): Evidence[] {
           "stock",
           entity,
           models.reduce((sum, m) => sum + Number(m.stock), 0),
-          { id: String(obj(t.input).item_id ?? "") },
+          { id: String(data.item_id ?? obj(t.input).item_id ?? "") },
         );
       for (const model of models) {
         const variant = String(model.name ?? "");
