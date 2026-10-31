@@ -25,6 +25,11 @@ const RETURN_REASON_LABELS: Record<string, string> = {
   OTHER: 'Lý do khác / Other',
 };
 
+/** Runtime context can contain page metadata; persist/query only the action's ownership fields. */
+function actionScope({ conversationId, buyerId, shopId }: { conversationId: string; buyerId: number; shopId: number }) {
+  return { conversationId, buyerId, shopId };
+}
+
 @Injectable()
 export class ActionsService {
   constructor(
@@ -78,7 +83,7 @@ export class ActionsService {
     };
     const action = await this.prisma.pendingAction.create({
       data: {
-        ...ctx,
+        ...actionScope(ctx),
         type: 'ADD_TO_CART',
         payload: { ...input, price, item_name: model.item.name, model_name: modelName(model.item, model.tierIndex) },
         summary,
@@ -125,7 +130,7 @@ export class ActionsService {
     };
     const action = await this.prisma.pendingAction.create({
       data: {
-        ...ctx,
+        ...actionScope(ctx),
         type: 'UPDATE_CART_ITEM',
         payload: {
           model_id: line.modelId,
@@ -197,7 +202,7 @@ export class ActionsService {
     };
     const action = await this.prisma.pendingAction.create({
       data: {
-        ...ctx,
+        ...actionScope(ctx),
         type: 'PLACE_ORDER',
         payload: { checkout: checkout as unknown as Prisma.InputJsonValue, snapshotHash },
         summary,
@@ -229,7 +234,7 @@ export class ActionsService {
     };
     const action = await this.prisma.pendingAction.create({
       data: {
-        ...ctx,
+        ...actionScope(ctx),
         type: 'OPEN_RETURN',
         payload: { input: input as unknown as Prisma.InputJsonValue, snapshotHash },
         summary,
@@ -324,7 +329,7 @@ export class ActionsService {
   }
   async latestPendingId(ctx: { conversationId: string; buyerId: number; shopId: number }): Promise<string> {
     const candidates = await this.prisma.pendingAction.findMany({
-      where: { ...ctx, status: 'PENDING', expiresAt: { gt: new Date() } },
+      where: { ...actionScope(ctx), status: 'PENDING', expiresAt: { gt: new Date() } },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: 1,
     });
