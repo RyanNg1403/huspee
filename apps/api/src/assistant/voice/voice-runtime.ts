@@ -118,7 +118,7 @@ export class VoiceRuntime {
     await this.startSession(ctx, config);
   }
   private async startSession(ctx: Context, config: VoicePromptConfig & { voice: string }, sdp?: string): Promise<string | undefined> {
-    const max = Math.max(1, Number(process.env.ASSISTANT_MAX_VOICE_SESSIONS || 2) || 2);
+    const max = Math.max(1, Number(process.env.ASSISTANT_MAX_VOICE_SESSIONS || 10) || 10);
     if (this.sessions.size + this.reservations >= max) throw new Error('assistant_busy');
     this.reservations++;
     let session: Session | undefined;

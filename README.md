@@ -94,6 +94,9 @@ For a temporary public link, run `cloudflared tunnel --url http://localhost:3001
 printed HTTPS URL. On `*.trycloudflare.com`, the assistant automatically polls for JSON events
 because Quick Tunnels do not support SSE. The link lasts while the tunnel process is running.
 
+For a stable URL containing the app name, see the [Cloudflare Worker setup](deploy/cloudflare-worker/README.md).
+The configured public URL is https://huspee.tcuong1000.workers.dev, with Seller Centre at `/seller`.
+
 ## Mock data
 
 Every account's password is `Password123!`.
