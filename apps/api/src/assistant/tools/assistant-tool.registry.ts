@@ -246,7 +246,7 @@ const descriptions: Record<string, string> = {
   get_vouchers: 'List this shop\'s public, unexpired vouchers, including already-used, fully-redeemed and upcoming codes, with buyer redemption status and reasons. Report that a voucher exists even when this buyer cannot use it. Listing does not establish basket eligibility; use check_voucher for an exact basket.',
   get_shipping_info: 'Get the shop shipping policy and, when a product is specified, its eligible channels and fees.',
   get_return_policy: 'Get the persisted shop return policy.',
-  get_shop_faqs: 'Search enabled seller-written FAQs for this shop. Returns the FAQs sharing the most words with the query first, or every FAQ when none match.',
+  get_shop_faqs: 'Read all enabled seller-written FAQs for this shop. Interpret the buyer question using the complete answers; a query never hides a relevant FAQ.',
   get_cart: 'Get this buyer’s cart for this shop with calculated totals.',
   get_order_status: 'Get this buyer’s own order with its items and tracking for this shop, or the latest five orders. Use the item and model ids from here for open_return.',
   add_to_cart: 'Prepare a cart addition and read its exact summary aloud. Ask for spoken confirmation before calling confirm_action.',

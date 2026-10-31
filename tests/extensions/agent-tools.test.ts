@@ -103,6 +103,21 @@ describe('agent tools without speech guessing', () => {
     expect(page.items).toEqual(full.items.slice(5, 10));
     expect((await run<Result>('search_products', { query: '', requested_attributes: { color: 'black' } })).success).toBe(false);
   });
+  it('retrieves candidates using persisted brand and category names without fuzzy substitutions', async () => {
+    const source = (await db().query<{ brand: string; category: string; category_vi: string }>('SELECT b.name brand,c.name category,c.display_name category_vi FROM items i JOIN brands b ON b.id=i.brand_id JOIN categories c ON c.id=i.category_id WHERE i.id=$1', [tee.item_id])).rows[0]!;
+    for (const query of [source.brand, source.category, source.category_vi, `${source.brand} ${source.category}`]) {
+      const result = JSON.parse((await run<Result>('search_products', { query })).text);
+      expect(result.items.some((item: { item_id: number }) => item.item_id === tee.item_id)).toBe(true);
+    }
+    expect(JSON.parse((await run<Result>('search_products', { query: `${source.brand} ZZZUNKNOWN` })).text).items).toEqual([]);
+  });
+  it('keeps enabled FAQ evidence available even when a detailed question has no literal phrase match', async () => {
+    const result = await run<Result>('get_shop_faqs', { query: 'bảo hành áo Coolmate màu trắng size XL ZZZUNKNOWN' });
+    expect(result.success).toBe(true);
+    const faqs = (await db().query<{ question: string; answer: string; lang: string }>('SELECT question,answer,lang FROM assistant_faqs WHERE shop_id=$1 AND enabled=true ORDER BY id', [shopId])).rows;
+    expect(faqs.length).toBeGreaterThan(0);
+    expect(JSON.parse(result.text)).toEqual(faqs);
+  });
   it('does not count a selection-validation miss as seller demand for a missing option', async () => {
     const isolated = randomUUID();
     await db().query("INSERT INTO conversations (id, shop_id, buyer_id, channel, status, started_at) VALUES ($1, $2, $3, 'TEXT', 'ACTIVE', NOW())", [isolated, shopId, buyerId]);
