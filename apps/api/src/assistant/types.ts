@@ -1,10 +1,10 @@
 export interface PendingActionView {
   action_id: string;
-  type: 'ADD_TO_CART' | 'UPDATE_CART_ITEM' | 'PLACE_ORDER' | 'OPEN_RETURN';
+  type: 'ADD_TO_CART' | 'UPDATE_CART_ITEM' | 'PLACE_ORDER' | 'OPEN_RETURN' | 'CANCEL_RETURN' | 'ACCEPT_RETURN_OFFER';
   status: 'PENDING' | 'EXECUTED' | 'CANCELLED' | 'EXPIRED' | 'FAILED';
   requires_tap: boolean;
   expires_at: number;
-  summary: { title: string; lines: Array<{ label: string; value: string }>; total?: number };
+  summary: { title: string; lines: Array<{ label: string; value: string }>; total?: number; evidence?: { order_sn: string; evidence_ids: string[] } };
   result?: { order_sn?: string; return_sn?: string; message?: string };
 }
 export type AssistantCard =

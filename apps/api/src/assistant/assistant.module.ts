@@ -1,3 +1,4 @@
+import { ReturnEvidenceService } from '../domain/return-evidence.service';
 import { SummaryService } from './insights/summary.service';
 import { InsightsService } from './insights/insights.service';
 import { InsightsController } from './insights/insights.controller';
@@ -25,6 +26,7 @@ import { AssistantToolRegistry } from './tools/assistant-tool.registry';
     CatalogService,
     OrderService,
     ReturnService,
+    ReturnEvidenceService,
     LogisticsService,
     VoucherService,
     PushService,

@@ -14,6 +14,8 @@ export const speechText = {
     vi: 'Yêu cầu trả hàng đã được gửi tới người bán.',
     en: 'Your return request has been sent to the seller.',
   },
+  returnCancelled: { vi: 'Yêu cầu hoàn tiền đã được hủy.', en: 'Your refund request has been cancelled.' },
+  returnOfferAccepted: { vi: 'Bạn đã chấp nhận đề nghị hoàn tiền của người bán. Trạng thái hoàn tiền được cập nhật trong yêu cầu.', en: 'You accepted the seller refund offer. The request now shows the updated refund status.' },
   cancelled: { vi: 'Đã hủy, mình chưa thực hiện thao tác này.', en: "Cancelled; I haven't done that." },
   confirm: { vi: 'Bạn có đồng ý không?', en: 'Do you confirm?' },
   confirmTap: {

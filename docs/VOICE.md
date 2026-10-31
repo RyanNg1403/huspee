@@ -52,6 +52,8 @@ The installed codex-cli 0.166.0 experimental generated TypeScript protocol has n
 
 ## Voice output
 
+Refund photos never reach the model, including summary threads. Only the buyer selects evidence; tool/action JSON includes IDs/count without filenames or image URLs. Quotes distinguish submission from seller approval. Submission, cancellation of a submitted request and acceptance of a current unexpired seller offer each require an exact card and single-use tap. Distinct app outcome messages avoid reporting a new request after cancellation/offer acceptance. Structured readbacks preserve buyer notes and are delivered on tool completion, including after photo edits. This does not guarantee experimental realtime playback completion.
+
 The buyer hears Codex's own realtime voice with the seller-selected voice; the browser never synthesizes speech. Commerce reasoning is delegated to the tool-equipped thread. Prompts require fresh tool evidence, correct entity/variant/quantity context, clarification of ambiguous requests, and accurate pending versus executed action wording.
 
 Prepared-action readbacks are sent to appendSpeech immediately after their tool returns, without waiting for turn/completed. They are tracked per action and are not repeated when the thread finishes. Late results from superseded requests or resolved order cards do not produce another confirmation request. This is delivery to the runtime, not a playback-completion guarantee. Multi-item requests use add_cart_items: one complete cart snapshot/readback and one spoken confirmation for the batch, followed by the usual checkout card and final tap. Confirmation revalidates the full batch atomically; no partial cart write survives a failure.

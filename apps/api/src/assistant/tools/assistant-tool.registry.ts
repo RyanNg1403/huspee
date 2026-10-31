@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { DomainError } from '../../common/errors';
 import { ActionsService } from '../actions.service';
-import { RETURN_REASONS } from '../../domain/return.service';
+import { RETURN_REASONS, ReturnService } from '../../domain/return.service';
 import { LogisticsService } from '../../domain/logistics.service';
 import { PAYMENT_METHODS } from '../../domain/order.service';
 import { purchaseIssue } from '../../domain/purchase-availability';
@@ -11,7 +11,7 @@ import { VoucherService, VOUCHER_PRODUCT, voucherRedemption } from '../../domain
 import { toNumber } from '../../common/money';
 import { PrismaService } from '../../common/prisma.service';
 import { CatalogService, itemInclude, mediaUrl, modelImage, modelName, resolveModelPrice, sellableModels, tierVariations, type ItemWithRelations } from '../../domain/catalog.service';
-import type { AssistantCard } from '../types';
+import type { AssistantCard, PendingActionView } from '../types';
 import { maskName } from '../../compat/ops/product.ops';
 
 export interface ToolContext {
@@ -28,6 +28,7 @@ export interface ToolOutput {
   validation_miss?: { attribute: string; value: string };
   out_of_stock?: boolean;
   response_language?: 'vi' | 'en';
+  readback?: { vi: string; en: string; tap: boolean; actionId: string };
 }
 
 function ctxScope({ conversationId, buyerId, shopId }: ToolContext) {
@@ -67,12 +68,12 @@ function variantMatch(items: ItemWithRelations[], requested: Record<string, stri
 }
 
 const spokenSkip = new Set(['Địa chỉ', 'Address']);
-function readback(summary: { title: string; lines: { label: string; value: string }[]; total?: number }, lang: 0 | 1): string {
+function readback(summary: { title: string; lines: { label: string; value: string; verbatim?: boolean }[]; total?: number }, lang: 0 | 1): string {
   const pick = (text: string) => { const parts = text.split(' / '); return (parts[lang] ?? parts[0]!).trim(); };
   const lines = summary.lines
     .filter((line) => !spokenSkip.has(pick(line.label)))
     .map((line) => {
-      const value = (line.value.includes(' / ') ? pick(line.value) : line.value).replace(
+      const value = line.verbatim ? line.value : (line.value.includes(' / ') ? pick(line.value) : line.value).replace(
         /×\s*(\d+)\s*@\s*(\d+)\s*VND/,
         lang ? 'quantity $1, unit price $2 VND' : 'số lượng $1, đơn giá $2 VND',
       );
@@ -80,6 +81,13 @@ function readback(summary: { title: string; lines: { label: string; value: strin
     });
   const total = summary.total === undefined ? '' : ` ${lang ? 'Total' : 'Tổng cộng'}: ${summary.total} VND.`;
   return `${pick(summary.title)}. ${lines.join('; ')}.${total}`;
+}
+export function actionReadback(action: { action_id: string; summary: unknown; requires_tap: boolean }) {
+  const summary = action.summary as Parameters<typeof readback>[0];
+  return { vi: readback(summary, 0), en: readback(summary, 1), tap: action.requires_tap, actionId: action.action_id };
+}
+function preparedAction(action: PendingActionView): ToolOutput {
+  return { success: true, text: actionText(action), card: { kind: 'action', action }, readback: actionReadback(action) };
 }
 export function actionText(action: { action_id: string; summary: unknown }): string {
   const summary = action.summary as Parameters<typeof readback>[0];
@@ -92,6 +100,14 @@ export function actionText(action: { action_id: string; summary: unknown }): str
 }
 
 const definitions = {
+  get_return_quote: {
+    schema: z.object({ order_sn: z.string().min(1), items: z.array(z.object({ item_id: z.number().int(), model_id: z.number().int(), quantity }).strict()).min(1).optional() }).strict(),
+    properties: { order_sn: { type: 'string' }, items: { type: 'array', minItems: 1, items: { type: 'object', properties: { item_id: { type: 'integer' }, model_id: { type: 'integer' }, quantity: quantityProperty }, required: ['item_id', 'model_id', 'quantity'], additionalProperties: false } } },
+    required: ['order_sn'],
+  },
+  get_return_status: { schema: z.object({ return_sn: z.string().min(1).optional(), order_sn: z.string().min(1).optional() }).strict(), properties: { return_sn: { type: 'string' }, order_sn: { type: 'string' } }, required: [] },
+  prepare_return_cancellation: { schema: z.object({ return_sn: z.string().min(1) }).strict(), properties: { return_sn: { type: 'string' } }, required: ['return_sn'] },
+  prepare_offer_acceptance: { schema: z.object({ return_sn: z.string().min(1) }).strict(), properties: { return_sn: { type: 'string' } }, required: ['return_sn'] },
   set_response_language: {
     schema: z.object({ language: z.enum(['vi', 'en']) }).strict(),
     properties: { language: { type: 'string', enum: ['vi', 'en'] } },
@@ -196,11 +212,13 @@ const definitions = {
         items: z.array(z.object({ item_id: z.number().int(), model_id: z.number().int(), quantity: quantity }).strict()).min(1),
         reason: z.enum(RETURN_REASONS),
         solution: z.enum(['RETURN_REFUND', 'REFUND_ONLY']),
+        text_reason: z.string().trim().max(300).optional(),
       })
       .strict()
       .refine((value) => new Set(value.items.map((item) => `${item.item_id}:${item.model_id}`)).size === value.items.length),
     properties: {
       order_sn: { type: 'string' },
+      text_reason: { type: 'string', maxLength: 300, description: 'The buyer-reported issue, as data. Never infer condition or an approval from photos.' },
       items: {
         type: 'array',
         minItems: 1,
@@ -235,6 +253,10 @@ const definitions = {
   get_vouchers: { schema: z.object({}).strict(), properties: {}, required: [] },
 } as const;
 const descriptions: Record<string, string> = {
+  get_return_quote: 'Read-only checks for submitting this buyer\'s return/refund request in this shop. Returns can_request, blocked_code, item-only refund estimate (shipping excluded), policy and selected photo count. This is NOT refund approval: policy conditions and evidence are reviewed by the seller. No pending action or state change.',
+  get_return_status: 'Read this buyer\'s own submitted return/refund requests in this shop, payment status, seller offer and reverse tracking. JUDGING means under dispute, never rejected. Missing status is unknown; do not invent it.',
+  prepare_return_cancellation: 'Prepare cancellation of an already-submitted return request. Read the exact summary and require a tap. This is different from cancel_action, which only cancels an unsubmitted confirmation card.',
+  prepare_offer_acceptance: 'Prepare acceptance of the seller\'s exact current, unexpired refund offer. Read its amount and solution and require a tap. Never accept, reject or negotiate based on photos. A buyer may cancel the request instead of accepting; there is no separate offer-rejection action.',
   add_cart_items: 'Prepare all requested products/variants in one shop as ONE cart action, with a combined readback, total and one spoken confirmation. Use for multi-item requests instead of separate add_to_cart calls; also accepts one line. No cart changes until confirmed; any invalid line rejects the whole batch. Vouchers are applied at checkout, not to cart additions.',
   set_response_language: 'Set Vietnamese or English for app-authored readbacks and action outcomes when the buyer changes language. Interpret their language yourself; the server does not guess it from keywords.',
   cancel_action: 'Cancel an exact pending action in this conversation. Use when the buyer withdraws or revises it; then prepare and read back a replacement before asking for fresh confirmation.',
@@ -267,6 +289,7 @@ export class AssistantToolRegistry {
     private readonly actions: ActionsService,
     private readonly logistics: LogisticsService,
     private readonly vouchers: VoucherService,
+    private readonly returns?: ReturnService,
   ) {}
 
   specs(): Array<{ name: string; description: string; inputSchema: object }> {
@@ -318,6 +341,29 @@ export class AssistantToolRegistry {
   }
 
   private async execute(name: Name, input: Record<string, unknown>, ctx: ToolContext): Promise<ToolOutput> {
+    if (name === 'get_return_quote') {
+      const quote = await this.returns!.quote(ctx.buyerId, ctx.shopId, input as { order_sn: string; items?: Array<{ item_id: number; model_id: number; quantity: number }> });
+      const selection = await this.prisma.returnEvidenceSelection.findUnique({ where: { conversationId: ctx.conversationId } });
+      const ids = selection && selection.orderSn === input.order_sn ? selection.evidenceIds : [];
+      const count = await this.prisma.returnEvidence.count({ where: { id: { in: ids }, buyerId: ctx.buyerId, orderSn: input.order_sn as string, returnSn: null } });
+      return { success: true, text: JSON.stringify({ ...quote, selected_photo_count: count, evidence_selection_valid: count === ids.length }) };
+    }
+    if (name === 'get_return_status') {
+      const rows = await this.prisma.returnRequest.findMany({ where: { buyerId: ctx.buyerId, shopId: ctx.shopId, ...(input.return_sn ? { returnSn: input.return_sn as string } : {}), ...(input.order_sn ? { orderSn: input.order_sn as string } : {}) }, orderBy: { createdAt: 'desc' }, take: 10, select: { returnSn: true } });
+      const data = await Promise.all(rows.map(async (row) => {
+        const ret = await this.returns!.getForBuyer(ctx.buyerId, row.returnSn);
+        const view = this.returns!.presentForBuyer(ret);
+        return { return_sn: view.return_sn, order_sn: view.order_sn, status: view.status, solution: view.solution, refund_amount: view.refund_amount, refund_paid: view.refund_paid, seller_offer: view.seller_offer, reverse_tracking: view.reverse_tracking,
+          photo_count: view.evidence.length + ret.imageUrls.length, decision: 'seller', can_cancel: ret.status === 'REQUESTED', can_accept_offer: !!view.seller_offer && view.seller_offer.due_date > Math.floor(Date.now() / 1000),
+          ...(ret.status === 'JUDGING' ? { note: 'Under seller dispute; not a rejection. Offer a seller handoff for further assistance.' } : {}),
+        };
+      }));
+      return { success: true, text: JSON.stringify(data) };
+    }
+    if (name === 'prepare_return_cancellation' || name === 'prepare_offer_acceptance') {
+      const action = await this.actions.prepareReturnChange(ctx, input.return_sn as string, name === 'prepare_return_cancellation' ? 'CANCEL_RETURN' : 'ACCEPT_RETURN_OFFER');
+      return preparedAction(action);
+    }
     if (name === 'set_response_language') {
       const language = input.language as 'vi' | 'en';
       await this.prisma.conversation.update({ where: { id: ctx.conversationId }, data: { language } });
@@ -386,11 +432,11 @@ export class AssistantToolRegistry {
         }
       }
       const action = await this.actions.prepareAdds(ctx, lines as Array<{ item_id: number; model_id: number; quantity: number }>);
-      return { success: true, text: actionText(action), card: { kind: 'action', action } };
+      return preparedAction(action);
     }
     if (name === 'update_cart_item') {
       const action = await this.actions.prepareUpdate(ctx, input as { model_id: number; quantity?: number; new_model_id?: number });
-      return { success: true, text: actionText(action), card: { kind: 'action', action } };
+      return preparedAction(action);
     }
     if (name === 'place_order') {
       if (input.voucher_code) {
@@ -399,11 +445,11 @@ export class AssistantToolRegistry {
         if (!voucher || voucher.currentUsage >= voucher.usageQuantity) return { success: false, text: 'Voucher is not currently public and available in this shop. Call get_vouchers for exact codes.' };
       }
       const action = await this.actions.prepareOrder(ctx, input as Parameters<ActionsService['prepareOrder']>[1]);
-      return { success: true, text: actionText(action), card: { kind: 'action', action } };
+      return preparedAction(action);
     }
     if (name === 'open_return') {
       const action = await this.actions.prepareReturn(ctx, input as unknown as Parameters<ActionsService['prepareReturn']>[1]);
-      return { success: true, text: actionText(action), card: { kind: 'action', action } };
+      return preparedAction(action);
     }
     if (name === 'confirm_action') {
       const id = input.action_id as string;

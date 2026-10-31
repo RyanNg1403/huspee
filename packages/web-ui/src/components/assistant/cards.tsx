@@ -1,5 +1,11 @@
 'use client';
 import Link from 'next/link';
+import type { ReturnEvidence } from '@huspee/sdk';
+import { EvidenceImage } from '@huspee/web-ui/components/refunds/EvidenceImage';
+import { EvidencePicker, buyerEvidenceContent } from '@huspee/web-ui/components/refunds/EvidencePicker';
+import { messages as evidenceMessages } from '@huspee/web-ui/components/refunds/messages';
+import { getApiClient } from '@huspee/web-ui/lib/api';
+import { useApi } from '@huspee/web-ui/lib/use-api';
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useLang, useT } from '@huspee/web-ui/i18n';
@@ -36,7 +42,7 @@ export type EditOptions = {
 
 type EditHandler = (
   action: Action,
-  input: { quantity: number; model_id: number; line_index?: number },
+  input: { quantity?: number; model_id?: number; line_index?: number; evidence_ids?: string[] },
 ) => Promise<void>;
 
 const frame = 'overflow-hidden rounded-lg border bg-white text-sm break-words';
@@ -386,6 +392,8 @@ function ActionCard({
   readOnly: boolean;
 }) {
   const t = useT(messages);
+  const te = useT(evidenceMessages);
+  const [editingPhotos, setEditingPhotos] = useState(false);
   const { lang } = useLang();
   const open = action.status === 'PENDING';
   const done = action.status === 'EXECUTED';
@@ -404,7 +412,13 @@ function ActionCard({
           ? t('doneReturn')
           : action.type === 'UPDATE_CART_ITEM'
             ? t('doneUpdate')
-            : t('doneAdd')
+            : action.type === 'ADD_TO_CART'
+              ? t('doneAdd')
+              : action.type === 'CANCEL_RETURN'
+                ? t('doneReturnCancelled')
+                : action.type === 'ACCEPT_RETURN_OFFER'
+                  ? t('doneOfferAccepted')
+                  : pickLanguage(action.summary.title, lang)
       : pickLanguage(action.summary.title, lang);
   const state = done
     ? null
@@ -472,6 +486,34 @@ function ActionCard({
           {t('viewCart')}
         </Link>
       )}
+
+      {action.type === 'OPEN_RETURN' && !readOnly && (
+        <section aria-label={te('title')} className="space-y-2">
+          <p className="text-xs text-gray-500">{te('review')}</p>
+          <div className="flex flex-wrap gap-3">
+            {action.summary.evidence?.evidence_ids.map((id, index) => (
+              <EvidenceImage
+                key={id}
+                evidenceId={id}
+                number={index + 1}
+                fetchContent={buyerEvidenceContent}
+              />
+            ))}
+          </div>
+          {!action.summary.evidence?.evidence_ids.length && (
+            <p className="text-xs text-gray-500">{te('noPhotos')}</p>
+          )}
+          {action.status === 'PENDING' && !readOnly && action.summary.evidence && (
+            <EditPhotos
+              key={action.action_id}
+              action={action}
+              pending={pending}
+              onEdit={onEdit}
+              onOpenChange={setEditingPhotos}
+            />
+          )}
+        </section>
+      )}
       {editable && (
         <div className="px-3 pb-2">
           <EditAction
@@ -487,7 +529,7 @@ function ActionCard({
         <div className="space-y-1 px-3 pb-3">
           <button
             type="button"
-            disabled={pending}
+            disabled={pending || editingPhotos}
             className="flex min-h-11 w-full items-center justify-center rounded-sm bg-primary px-3 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-50"
             onClick={() => onAction(action, true)}
           >
@@ -587,9 +629,10 @@ function EditAction({
           quantity: options.quantity,
           model_id: options.model_id,
           line_index: options.line_index,
-        });
+        }).catch(() => setError(true));
       }}
     >
+      {error && <p role="alert">{t('error')}</p>}
       {options.lines.length > 1 && (
         <label className="flex w-full flex-col gap-1">
           {t('item')}
@@ -643,5 +686,98 @@ function EditAction({
         {t('saveAction')}
       </button>
     </form>
+  );
+}
+
+function EditPhotos({
+  action,
+  pending,
+  onEdit,
+  onOpenChange,
+}: {
+  action: Action;
+  pending: boolean;
+  onEdit: (action: Action, input: { evidence_ids?: string[] }) => Promise<void>;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const t = useT(messages);
+  const [open, setOpen] = useState(false);
+  const [ids, setIds] = useState(action.summary.evidence?.evidence_ids ?? []);
+  const [chosen, setChosen] = useState<ReturnEvidence[] | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const orderSn = action.summary.evidence!.order_sn;
+  const photos = useApi(
+    () => (open ? getApiClient().buyer.returnEvidence.list(orderSn) : Promise.resolve([])),
+    [open, orderSn],
+  );
+  if (!open)
+    return (
+      <button
+        type="button"
+        disabled={pending}
+        className="text-xs font-medium text-primary underline"
+        onClick={() => {
+          setOpen(true);
+          onOpenChange(true);
+        }}
+      >
+        {t('editPhotos')}
+      </button>
+    );
+  // Missing metadata must never silently drop a bound photo.
+  const selected = chosen ?? (photos.data ?? []).filter((photo) => ids.includes(photo.evidence_id));
+  return (
+    <div className="space-y-2">
+      {(failed || photos.error != null || (!photos.loading && selected.length !== ids.length)) && (
+        <p role="alert" className="text-xs text-red-700">
+          {t('error')}
+        </p>
+      )}
+      {!photos.loading && photos.data && (
+        <EvidencePicker
+          key={orderSn}
+          orderSn={orderSn}
+          value={selected}
+          onChange={(value) => {
+            setIds(value.map((photo) => photo.evidence_id));
+            setChosen(value);
+          }}
+          disabled={pending}
+          onBusyChange={setUploading}
+        />
+      )}
+      <button
+        type="button"
+        disabled={
+          pending || uploading || photos.loading || photos.error != null || selected.length !== ids.length
+        }
+        className="rounded-full bg-ink px-3 py-2 text-xs text-white disabled:opacity-50"
+        onClick={() => {
+          setFailed(false);
+          void onEdit(action, { evidence_ids: ids })
+            .then(() => {
+              setOpen(false);
+              onOpenChange(false);
+            })
+            .catch(() => setFailed(true));
+        }}
+      >
+        {t('saveAction')}
+      </button>
+      <button
+        type="button"
+        disabled={pending || uploading}
+        className="ml-2 text-xs"
+        onClick={() => {
+          setIds(action.summary.evidence!.evidence_ids);
+          setChosen(null);
+          setOpen(false);
+          onOpenChange(false);
+        }}
+      >
+        {t('cancel')}
+      </button>
+    </div>
   );
 }

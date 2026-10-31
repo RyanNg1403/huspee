@@ -1,3 +1,5 @@
+import { ReturnEvidenceController } from './buyer/return-evidence.controller';
+import { ReturnEvidenceService } from './domain/return-evidence.service';
 import { Module } from '@nestjs/common';
 import { VoiceModule } from './assistant/voice/voice.module';
 import { APP_FILTER } from '@nestjs/core';
@@ -53,6 +55,7 @@ const opProviders = [AuthOps, ShopOps, ProductOps, MediaPushOps, VoucherOps, Ord
     AuthController,
     MarketplaceController,
     BuyerController,
+    ReturnEvidenceController,
     SellerController,
     SellerGatewayController,
     // Specific /api/v2 routes must be registered before the generic compat dispatcher.
@@ -71,6 +74,7 @@ const opProviders = [AuthOps, ShopOps, ProductOps, MediaPushOps, VoucherOps, Ord
     VoucherService,
     OrderService,
     ReturnService,
+    ReturnEvidenceService,
     ShopService,
     PushService,
     CompatDispatcher,

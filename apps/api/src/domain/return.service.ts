@@ -1,9 +1,12 @@
+import { transactionConflict } from '../common/transaction-conflict';
 import { Injectable } from '@nestjs/common';
-import { Prisma, ReturnRequest, ReturnStatus } from '@prisma/client';
+import { Prisma, ReturnRequest, ReturnStatus, OrderStatus } from '@prisma/client';
 import { createHash, randomBytes } from 'node:crypto';
 import { DomainError, invalidState, notFound, validation } from '../common/errors';
 import { dec, roundVnd, toNumber } from '../common/money';
-import { PrismaService } from '../common/prisma.service';
+import { PrismaService, Tx } from '../common/prisma.service';
+import { evidenceMetadata, presentEvidence, validateDraftEvidence } from './return-evidence.service';
+import { returnRequestBlock, remainingReturnQuantities } from './return-eligibility';
 import { addDays, unix } from '../common/time';
 import { mediaUrl } from './catalog.service';
 import { assertTransition } from './order.service';
@@ -30,7 +33,6 @@ export const SOLUTION_REFUND_ONLY = 1;
 
 const SELLER_RESPONSE_DAYS = 3;
 const OFFER_RESPONSE_DAYS = 2;
-const OPEN_STATUSES: ReturnStatus[] = ['REQUESTED', 'PROCESSING', 'JUDGING', 'SELLER_DISPUTE'];
 
 interface ReturnLine {
   item_id: number;
@@ -46,9 +48,11 @@ interface ReturnLine {
   image_url: string | null;
 }
 
-export function returnSnapshot(lines: ReturnLine[], refund: number) {
-  return { lines: lines.map((line) => ({ item_id: line.item_id, model_id: line.external_model_id, name: line.item_name, variant: line.model_name, quantity: line.quantity, price: line.item_price, refund_amount: line.refund_amount })), refund };
+export function returnSnapshot(lines: ReturnLine[], refund: number, evidence: Array<{ id: string; sha256: string }> = []) {
+  return { lines: lines.map((line) => ({ item_id: line.item_id, model_id: line.external_model_id, name: line.item_name, variant: line.model_name, quantity: line.quantity, price: line.item_price, refund_amount: line.refund_amount })), refund, evidence: evidence.map((row) => ({ id: row.id, sha256: row.sha256 })) };
 }
+export const returnStateHash = (ret: ReturnRequest) => createHash('sha256').update(JSON.stringify({ return_sn: ret.returnSn, status: ret.status, version: ret.version, updated_at: ret.updatedAt.toISOString(), solution: ret.solution, amount: ret.refundAmount.toString(), negotiation: ret.negotiation })).digest('hex');
+type ReturnConfirmation = { actionId: string; shopId: number; confirmationKey: string; snapshotHash: string; conversationId?: string };
 
 interface Negotiation {
   negotiation_status: 'PENDING_RESPOND' | 'PENDING_BUYER_RESPOND' | 'TERMINATED' | 'ACCEPTED';
@@ -66,10 +70,12 @@ export interface CreateReturnInput {
   solution: 'RETURN_REFUND' | 'REFUND_ONLY';
   items?: Array<{ item_id: number; model_id: number; quantity: number }>;
   image_urls?: string[];
+  evidence_ids?: string[];
 }
 
-const returnInclude = { buyer: { select: { name: true, email: true } } } satisfies Prisma.ReturnRequestInclude;
-type ReturnWithBuyer = Prisma.ReturnRequestGetPayload<{ include: typeof returnInclude }>;
+export const returnInclude = { buyer: { select: { name: true, email: true } }, evidence: { select: evidenceMetadata, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] } } satisfies Prisma.ReturnRequestInclude;
+type LoadedReturn = Prisma.ReturnRequestGetPayload<{ include: typeof returnInclude }>;
+type ReturnWithBuyer = Omit<LoadedReturn, 'evidence'> & { evidence?: LoadedReturn['evidence'] };
 
 /**
  * Buyer return/refund lifecycle shared by the buyer API and Shopee-compatible returns.*:
@@ -77,7 +83,8 @@ type ReturnWithBuyer = Prisma.ReturnRequestGetPayload<{ include: typeof returnIn
  *   REQUESTED --offer--> REQUESTED(negotiation PENDING_BUYER_RESPOND) --buyer accept--> ACCEPTED
  *   REQUESTED --dispute--> JUDGING --cancel_dispute--> REQUESTED
  *   REQUESTED --buyer cancel--> CANCELLED
- * The order sits in TO_RETURN while a return is open and returns to COMPLETED afterwards.
+ * The order sits in TO_RETURN while open; cancellation restores its original receipt state.
+ * An accepted simulated refund moves the order to COMPLETED.
  */
 @Injectable()
 export class ReturnService {
@@ -86,30 +93,19 @@ export class ReturnService {
     private readonly push: PushService,
   ) {}
 
-  async preview(buyerId: number, input: CreateReturnInput) {
-    const order = await this.prisma.order.findFirst({
+  async preview(buyerId: number, input: CreateReturnInput, db: Tx = this.prisma) {
+    const order = await db.order.findFirst({
       where: { orderSn: input.order_sn, buyerId },
       include: { items: true, package: true, shop: { include: { policy: true } }, returns: true },
     });
     if (!order) throw notFound('Order');
-    if (order.status !== 'TO_CONFIRM_RECEIVE' && order.status !== 'COMPLETED') {
-      throw invalidState(`A return cannot be requested for an order in status ${order.status}`);
-    }
     const windowDays = order.shop.policy?.returnWindowDays ?? 7;
-    const deliveredAt = order.package?.deliveredAt ?? order.completedAt;
-    if (!deliveredAt || addDays(deliveredAt, windowDays) <= new Date()) {
-      throw invalidState(`The ${windowDays}-day return window for this order has passed`);
-    }
-    if (order.returns.some((r) => OPEN_STATUSES.includes(r.status))) throw invalidState('This order already has an open return request');
-
-    // Quantities already returned (accepted) or in progress cannot be returned again.
-    const alreadyReturned = new Map<number, number>();
-    for (const r of order.returns.filter((r) => r.status !== 'CANCELLED' && r.status !== 'CLOSED')) {
-      for (const line of r.items as unknown as ReturnLine[]) alreadyReturned.set(line.model_id, (alreadyReturned.get(line.model_id) ?? 0) + line.quantity);
-    }
+    const blocked = returnRequestBlock({ status: order.status, deliveredAt: order.package?.deliveredAt ?? null, completedAt: order.completedAt, windowDays, items: order.items, returns: order.returns });
+    if (blocked) throw invalidState(blocked.message, { blocked_code: blocked.code });
+    const remainingQuantities = remainingReturnQuantities(order.items, order.returns);
     const requested =
       input.items ??
-      order.items.map((i) => ({ item_id: i.itemId, model_id: i.isDefaultModel ? 0 : i.modelId, quantity: i.quantity - (alreadyReturned.get(i.modelId) ?? 0) }));
+      order.items.map((i) => ({ item_id: i.itemId, model_id: i.isDefaultModel ? 0 : i.modelId, quantity: remainingQuantities.get(i.modelId) ?? 0 }));
     const subtotal = toNumber(order.itemsSubtotal);
     const voucherShare = subtotal > 0 ? toNumber(order.voucherDiscount) / subtotal : 0;
     const lines: ReturnLine[] = [];
@@ -117,7 +113,7 @@ export class ReturnService {
       if (req.quantity <= 0) continue;
       const line = order.items.find((i) => i.itemId === req.item_id && (req.model_id === 0 ? i.isDefaultModel : i.modelId === req.model_id));
       if (!line) throw validation(`Item ${req.item_id}/${req.model_id} is not part of this order`);
-      const remaining = line.quantity - (alreadyReturned.get(line.modelId) ?? 0);
+      const remaining = remainingQuantities.get(line.modelId) ?? 0;
       if (req.quantity > remaining) throw validation(`Cannot return more than ${remaining} of ${line.itemName}`);
       const unit = toNumber(line.discountedPrice);
       lines.push({
@@ -136,14 +132,21 @@ export class ReturnService {
     }
     if (lines.length === 0) throw validation('Nothing left to return for this order');
     const refund = lines.reduce((s, l) => s + l.refund_amount, 0);
-    return { order, lines, refund };
+    const evidence = await validateDraftEvidence(db, buyerId, order.orderSn, input.evidence_ids ?? []);
+    if (evidence.length + (input.image_urls?.length ?? 0) > 8) throw validation('Select up to eight photos');
+    return { order, lines, refund, evidence };
   }
 
-  async create(buyerId: number, input: CreateReturnInput, assistant?: { actionId: string; shopId: number; confirmationKey: string; snapshotHash: string }): Promise<ReturnRequest> {
-    const { order, lines, refund } = await this.preview(buyerId, input);
-    if (assistant && order.shopId !== assistant.shopId) throw notFound('Order');
-    if (assistant && createHash('sha256').update(JSON.stringify(returnSnapshot(lines, refund))).digest('hex') !== assistant.snapshotHash) throw invalidState('Return details changed; please confirm again');
+  async create(buyerId: number, input: CreateReturnInput, assistant?: ReturnConfirmation): Promise<ReturnRequest> {
     const created = await this.prisma.$transaction(async (tx) => {
+      const { order, lines, refund, evidence } = await this.preview(buyerId, input, tx);
+      if (assistant && order.shopId !== assistant.shopId) throw notFound('Order');
+      if (assistant && createHash('sha256').update(JSON.stringify(returnSnapshot(lines, refund, evidence))).digest('hex') !== assistant.snapshotHash) throw invalidState('Return details changed; please confirm again');
+      if (assistant?.conversationId) {
+        const selection = await tx.returnEvidenceSelection.findUnique({ where: { conversationId: assistant.conversationId } });
+        const ids = selection?.orderSn === input.order_sn ? selection.evidenceIds : [];
+        if (JSON.stringify(ids) !== JSON.stringify(input.evidence_ids ?? [])) throw invalidState('Evidence selection changed; please confirm again');
+      }
       if (assistant) {
         const claimed = await tx.pendingAction.updateMany({ where: { id: assistant.actionId, buyerId, shopId: assistant.shopId, type: 'OPEN_RETURN', status: 'PENDING', expiresAt: { gt: new Date() } }, data: { status: 'EXECUTED', idempotencyKey: assistant.confirmationKey } });
         if (!claimed.count) throw invalidState('Action is no longer pending');
@@ -156,6 +159,7 @@ export class ReturnService {
           returnSn: generateReturnSn(),
           orderSn: order.orderSn,
           shopId: order.shopId,
+          orderStatusBeforeReturn: order.status,
           buyerId,
           reason: input.reason,
           textReason: input.text_reason ?? '',
@@ -168,9 +172,14 @@ export class ReturnService {
           dueDate: addDays(new Date(), SELLER_RESPONSE_DAYS),
         },
       });
+      if (evidence.length) {
+        const attached = await tx.returnEvidence.updateMany({ where: { id: { in: evidence.map((row) => row.id) }, buyerId, orderSn: order.orderSn, returnSn: null }, data: { returnSn: created.returnSn } });
+        if (attached.count !== evidence.length) throw invalidState('Evidence changed; please select photos again');
+      }
+      if (assistant?.conversationId) await tx.returnEvidenceSelection.deleteMany({ where: { conversationId: assistant.conversationId, orderSn: input.order_sn } });
       if (assistant) await tx.pendingAction.update({ where: { id: assistant.actionId }, data: { result: { return_sn: created.returnSn } } });
       return created;
-    });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }).catch(transactionConflict);
     await this.emit(created);
     return created;
   }
@@ -185,6 +194,56 @@ export class ReturnService {
     const ret = await this.prisma.returnRequest.findFirst({ where: { returnSn, buyerId }, include: returnInclude });
     if (!ret) throw notFound('Return');
     return ret;
+  }
+
+  async quote(buyerId: number, shopId: number, input: Pick<CreateReturnInput, 'order_sn' | 'items'>) {
+    if (!await this.prisma.order.findFirst({ where: { orderSn: input.order_sn, buyerId, shopId }, select: { orderSn: true } })) throw notFound('Order');
+    try {
+      const preview = await this.preview(buyerId, { ...input, reason: 'OTHER', solution: 'RETURN_REFUND' });
+      return { can_request: true, blocked_code: null, decision: 'seller', refund_estimate: preview.refund, shipping_included: false,
+        lines: returnSnapshot(preview.lines, preview.refund).lines,
+        return_policy: preview.order.shop.policy?.returnPolicy ?? null,
+        return_window_days: preview.order.shop.policy?.returnWindowDays ?? 7,
+        note: 'These checks permit submitting a request, not approval. Photos and policy conditions are reviewed by the seller.' };
+    } catch (error) {
+      if (!(error instanceof DomainError)) throw error;
+      return { can_request: false, blocked_code: error.details?.blocked_code ?? error.code, reason: error.message, decision: 'seller', refund_estimate: null, shipping_included: false };
+    }
+  }
+  private offerToAccept(ret: ReturnRequest) {
+    const negotiation = negotiationOf(ret);
+    if (ret.status !== 'REQUESTED' || negotiation.negotiation_status !== 'PENDING_BUYER_RESPOND') throw invalidState('There is no pending seller offer to accept');
+    if (!negotiation.offer_due_date || negotiation.offer_due_date <= unix(new Date())) throw invalidState('The seller offer has expired');
+    return negotiation;
+  }
+  private validateBuyerAction(ret: ReturnRequest, kind: 'CANCEL_RETURN' | 'ACCEPT_RETURN_OFFER') {
+    if (kind === 'ACCEPT_RETURN_OFFER') this.offerToAccept(ret);
+    else if (ret.status !== 'REQUESTED') throw invalidState(`Return in status ${ret.status} cannot be cancelled`);
+  }
+  async buyerActionPreview(buyerId: number, shopId: number, returnSn: string, kind: 'CANCEL_RETURN' | 'ACCEPT_RETURN_OFFER') {
+    const ret = await this.getForBuyer(buyerId, returnSn);
+    if (ret.shopId !== shopId) throw notFound('Return');
+    this.validateBuyerAction(ret, kind);
+    return ret;
+  }
+  async confirmBuyerAction(buyerId: number, returnSn: string, kind: 'CANCEL_RETURN' | 'ACCEPT_RETURN_OFFER', assistant: ReturnConfirmation) {
+    await this.prisma.$transaction(async (tx) => {
+      const ret = await tx.returnRequest.findFirst({ where: { returnSn, buyerId, shopId: assistant.shopId } });
+      if (!ret) throw notFound('Return');
+      if (returnStateHash(ret) !== assistant.snapshotHash) throw invalidState('Return or seller offer changed; please confirm again');
+      this.validateBuyerAction(ret, kind);
+      const claimed = await tx.pendingAction.updateMany({ where: { id: assistant.actionId, buyerId, shopId: assistant.shopId, type: kind, status: 'PENDING', expiresAt: { gt: new Date() } }, data: { status: 'EXECUTED', idempotencyKey: assistant.confirmationKey, result: { return_sn: ret.returnSn } } });
+      if (!claimed.count) throw invalidState('Action is no longer pending');
+      if (kind === 'CANCEL_RETURN') {
+        const changed = await tx.returnRequest.updateMany({ where: { returnSn, status: 'REQUESTED', version: ret.version }, data: { status: 'CANCELLED', version: { increment: 1 } } });
+        if (!changed.count) throw invalidState('Return changed; please confirm again');
+        await this.restoreOrder(tx, ret.orderSn, ret.orderStatusBeforeReturn ?? 'COMPLETED');
+      } else {
+        const negotiation = this.offerToAccept(ret);
+        await this.acceptInTransaction(tx, ret, negotiation.latest_offer_amount, negotiation.latest_solution === 'refund' ? SOLUTION_REFUND_ONLY : SOLUTION_RETURN_REFUND, { ...negotiation, negotiation_status: 'ACCEPTED' });
+      }
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }).catch(transactionConflict);
+    await this.emit(await this.prisma.returnRequest.findUniqueOrThrow({ where: { returnSn } }));
   }
 
   availableSolutions(ret: ReturnRequest) {
@@ -227,10 +286,7 @@ export class ReturnService {
 
   async acceptOffer(buyerId: number, returnSn: string): Promise<void> {
     const ret = await this.getForBuyer(buyerId, returnSn);
-    const negotiation = negotiationOf(ret);
-    if (ret.status !== 'REQUESTED' || negotiation.negotiation_status !== 'PENDING_BUYER_RESPOND') {
-      throw invalidState('There is no pending seller offer to accept');
-    }
+    const negotiation = this.offerToAccept(ret);
     await this.accept(ret, negotiation.latest_offer_amount, negotiation.latest_solution === 'refund' ? SOLUTION_REFUND_ONLY : SOLUTION_RETURN_REFUND, {
       ...negotiation,
       negotiation_status: 'ACCEPTED',
@@ -255,9 +311,9 @@ export class ReturnService {
     const ret = await this.getForBuyer(buyerId, returnSn);
     if (ret.status !== 'REQUESTED') throw invalidState(`Return in status ${ret.status} cannot be cancelled`);
     await this.prisma.$transaction(async (tx) => {
-      const moved = await tx.returnRequest.updateMany({ where: { returnSn, status: 'REQUESTED' }, data: { status: 'CANCELLED' } });
+      const moved = await tx.returnRequest.updateMany({ where: { returnSn, status: 'REQUESTED', version: ret.version }, data: { status: 'CANCELLED', version: { increment: 1 } } });
       if (moved.count !== 1) throw invalidState('Return status changed concurrently, retry');
-      await this.restoreOrder(tx, ret.orderSn);
+      await this.restoreOrder(tx, ret.orderSn, ret.orderStatusBeforeReturn ?? 'COMPLETED');
     });
     await this.emit(await this.prisma.returnRequest.findUniqueOrThrow({ where: { returnSn } }));
   }
@@ -335,6 +391,7 @@ export class ReturnService {
     const lines = ret.items as unknown as ReturnLine[];
     const negotiation = negotiationOf(ret);
     return {
+      evidence: (ret.evidence ?? []).map(presentEvidence),
       return_sn: ret.returnSn,
       order_sn: ret.orderSn,
       shop_id: ret.shopId,
@@ -356,7 +413,7 @@ export class ReturnService {
         image_url: l.image_url ? mediaUrl(l.image_url) : null,
       })),
       seller_offer:
-        negotiation.negotiation_status === 'PENDING_BUYER_RESPOND'
+        ret.status === 'REQUESTED' && negotiation.negotiation_status === 'PENDING_BUYER_RESPOND' && negotiation.offer_due_date > unix(new Date())
           ? { solution: negotiation.latest_solution, amount: negotiation.latest_offer_amount, due_date: negotiation.offer_due_date }
           : null,
       reverse_tracking_number: ret.reverseTrackingNumber,
@@ -368,6 +425,10 @@ export class ReturnService {
   }
 
   private async accept(ret: ReturnRequest, amount: number, solution: number, negotiation?: Negotiation) {
+    await this.prisma.$transaction((tx) => this.acceptInTransaction(tx, ret, amount, solution, negotiation));
+    await this.emit(await this.prisma.returnRequest.findUniqueOrThrow({ where: { returnSn: ret.returnSn } }));
+  }
+  private async acceptInTransaction(tx: Prisma.TransactionClient, ret: ReturnRequest, amount: number, solution: number, negotiation?: Negotiation) {
     const now = new Date();
     const needsShipment = solution === SOLUTION_RETURN_REFUND;
     const reverseTracking = needsShipment
@@ -377,10 +438,10 @@ export class ReturnService {
           { update_time: unix(now), tracking_status: 'LOGISTICS_DELIVERY_DONE', tracking_description: 'Người bán đã nhận hàng hoàn (mô phỏng)' },
         ]
       : [];
-    await this.prisma.$transaction(async (tx) => {
       const moved = await tx.returnRequest.updateMany({
-        where: { returnSn: ret.returnSn, status: ret.status },
+        where: { returnSn: ret.returnSn, status: ret.status, version: ret.version },
         data: {
+          version: { increment: 1 },
           status: 'ACCEPTED',
           refundAmount: dec(amount),
           solution,
@@ -393,21 +454,19 @@ export class ReturnService {
       });
       if (moved.count !== 1) throw invalidState('Return status changed concurrently, retry');
       await this.restoreOrder(tx, ret.orderSn);
-    });
-    await this.emit(await this.prisma.returnRequest.findUniqueOrThrow({ where: { returnSn: ret.returnSn } }));
   }
 
   private async update(ret: ReturnRequest, status: ReturnStatus, data: Prisma.ReturnRequestUpdateManyMutationInput) {
-    const moved = await this.prisma.returnRequest.updateMany({ where: { returnSn: ret.returnSn, status: ret.status }, data: { ...data, status } });
+    const moved = await this.prisma.returnRequest.updateMany({ where: { returnSn: ret.returnSn, status: ret.status, version: ret.version }, data: { ...data, status, version: { increment: 1 } } });
     if (moved.count !== 1) throw invalidState('Return status changed concurrently, retry');
     await this.emit(await this.prisma.returnRequest.findUniqueOrThrow({ where: { returnSn: ret.returnSn } }));
   }
 
-  private async restoreOrder(tx: Prisma.TransactionClient, orderSn: string) {
+  private async restoreOrder(tx: Prisma.TransactionClient, orderSn: string, priorStatus: OrderStatus = 'COMPLETED') {
     const order = await tx.order.findUniqueOrThrow({ where: { orderSn } });
     if (order.status === 'TO_RETURN') {
-      assertTransition('TO_RETURN', 'COMPLETED');
-      await tx.order.update({ where: { orderSn }, data: { status: 'COMPLETED', completedAt: order.completedAt ?? new Date() } });
+      const status = priorStatus === 'TO_CONFIRM_RECEIVE' ? 'TO_CONFIRM_RECEIVE' : 'COMPLETED';
+      await tx.order.update({ where: { orderSn }, data: { status, ...(status === 'COMPLETED' ? { completedAt: order.completedAt ?? new Date() } : {}) } });
     }
   }
 

@@ -4,7 +4,7 @@ import { Prisma, PendingAction } from '@prisma/client';
 import { DomainError, invalidState, notFound } from '../common/errors';
 import { PrismaService } from '../common/prisma.service';
 import { modelName, resolveModelPrice } from '../domain/catalog.service';
-import { CreateReturnInput, returnSnapshot, ReturnService } from '../domain/return.service';
+import { CreateReturnInput, returnSnapshot, returnStateHash, ReturnService } from '../domain/return.service';
 import { assistantQuoteSnapshot, CheckoutInput, OrderService, PaymentMethod } from '../domain/order.service';
 import { AssistantEvents } from './assistant.events';
 import type { PendingActionView } from './types';
@@ -58,7 +58,7 @@ export class ActionsService {
     };
   }
   /** `replaces`: the action the buyer edited on screen; the voice reads the new summary back. */
-  private emit(action: PendingAction, replaces?: string, initiatedBy?: 'agent' | 'buyer') {
+  private emit(action: PendingAction, replaces?: string, initiatedBy?: 'agent' | 'buyer' | 'edit') {
     const view = this.view(action);
     this.events.emitAction({ conversationId: action.conversationId, action: view, ...(replaces ? { replaces } : {}), ...(initiatedBy ? { initiatedBy } : {}) });
     return view;
@@ -232,9 +232,11 @@ export class ActionsService {
     return this.emit(action, replaces);
   }
   async prepareReturn(ctx: { conversationId: string; buyerId: number; shopId: number }, input: CreateReturnInput, replaces?: string) {
-    const { order, lines, refund } = await this.returns.preview(ctx.buyerId, input);
+    const selection = await this.prisma.returnEvidenceSelection.findUnique({ where: { conversationId: ctx.conversationId } });
+    input = { ...input, evidence_ids: input.evidence_ids ?? (selection?.orderSn === input.order_sn ? selection.evidenceIds : []) };
+    const { order, lines, refund, evidence } = await this.returns.preview(ctx.buyerId, input);
     if (order.shopId !== ctx.shopId) throw notFound('Order');
-    const snapshot = returnSnapshot(lines, refund);
+    const snapshot = returnSnapshot(lines, refund, evidence);
     const snapshotHash = createHash('sha256').update(JSON.stringify(snapshot)).digest('hex');
     const summary = {
       title: 'Yêu cầu trả hàng / Open return',
@@ -246,9 +248,13 @@ export class ActionsService {
         })),
         { label: 'Lý do / Reason', value: RETURN_REASON_LABELS[input.reason] ?? input.reason },
         { label: 'Phương án / Solution', value: input.solution === 'REFUND_ONLY' ? 'Chỉ hoàn tiền / Refund only' : 'Trả hàng và hoàn tiền / Return and refund' },
+        { label: 'Ghi chú / Notes', value: input.text_reason || 'Không có / None', verbatim: !!input.text_reason },
+        { label: 'Ảnh bằng chứng / Evidence photos', value: String(evidence.length) },
+        { label: 'Xét duyệt / Decision', value: 'Người bán xem xét; chưa được duyệt / Seller review required; not approved' },
         { label: 'Mã giảm giá / Voucher', value: order.voucherCode ?? 'Không có / None' },
       ],
       total: refund,
+      evidence: { order_sn: input.order_sn, evidence_ids: evidence.map((row) => row.id) },
     };
     const action = await this.prisma.pendingAction.create({
       data: {
@@ -261,6 +267,24 @@ export class ActionsService {
       },
     });
     return this.emit(action, replaces);
+  }
+  async prepareReturnChange(ctx: { conversationId: string; buyerId: number; shopId: number }, returnSn: string, type: 'CANCEL_RETURN' | 'ACCEPT_RETURN_OFFER') {
+    const ret = await this.returns.buyerActionPreview(ctx.buyerId, ctx.shopId, returnSn, type);
+    const view = this.returns.presentForBuyer(ret);
+    if (type === 'ACCEPT_RETURN_OFFER' && !view.seller_offer) throw invalidState('The seller offer has expired');
+    const summary = {
+      title: type === 'CANCEL_RETURN' ? 'Hủy yêu cầu hoàn tiền / Cancel refund request' : 'Chấp nhận đề nghị hoàn tiền / Accept seller refund offer',
+      lines: [
+        { label: 'Yêu cầu / Request', value: ret.returnSn }, { label: 'Đơn hàng / Order', value: ret.orderSn },
+        ...(type === 'CANCEL_RETURN' ? [{ label: 'Trạng thái đơn sau khi hủy / Order state after cancellation', value: ret.orderStatusBeforeReturn === 'TO_CONFIRM_RECEIVE' ? 'Chờ xác nhận đã nhận / Awaiting receipt confirmation' : 'Hoàn thành / Completed' }]
+          : [{ label: 'Phương án / Solution', value: view.seller_offer?.solution === 'refund' ? 'Chỉ hoàn tiền / Refund only' : 'Trả hàng và hoàn tiền / Return and refund' }, { label: 'Hoàn tiền / Refund', value: String(view.seller_offer!.amount) }]),
+        ...(type === 'CANCEL_RETURN' && view.seller_offer ? [{ label: 'Đề nghị của shop / Seller offer', value: 'Đề nghị hiện tại sẽ bị hủy / The current offer will be forfeited' }] : []),
+        ...(type === 'CANCEL_RETURN' && (ret.evidence?.length ?? 0) > 0 ? [{ label: 'Ảnh đã gửi / Submitted photos', value: 'Người bán vẫn xem được sau khi hủy / Remain available to the seller after cancellation' }] : []),
+        ...(type === 'ACCEPT_RETURN_OFFER' ? [{ label: 'Hạn đề nghị (UTC) / Offer deadline (UTC)', value: new Date(view.seller_offer!.due_date * 1000).toISOString() }] : []),
+      ],
+      ...(type === 'ACCEPT_RETURN_OFFER' ? { total: view.seller_offer!.amount } : {}),
+    };
+    return this.emit(await this.prisma.pendingAction.create({ data: { ...actionScope(ctx), type, payload: { return_sn: returnSn, snapshotHash: returnStateHash(ret) }, summary, requiresTap: true, expiresAt: new Date(Date.now() + 300000) } }));
   }
   async editOptions(id: string, buyerId: number) {
     const action = await this.prisma.pendingAction.findFirst({ where: { id, buyerId, status: 'PENDING', expiresAt: { gt: new Date() }, type: { in: ['ADD_TO_CART', 'UPDATE_CART_ITEM', 'OPEN_RETURN', 'PLACE_ORDER'] } } });
@@ -312,25 +336,28 @@ export class ActionsService {
       models: models.filter((model) => model.isDefault !== model.item.hasModel).map((model) => ({ model_id: model.id, name: modelName(model.item, model.tierIndex) || 'Default', stock: model.stock })) };
     return { ...line, lines: [line] };
   }
-  async edit(id: string, buyerId: number, input: { quantity: number; model_id: number; line_index?: number }) {
+  async edit(id: string, buyerId: number, input: { quantity?: number; model_id?: number; line_index?: number; evidence_ids?: string[] }) {
     const action = await this.prisma.pendingAction.findFirst({ where: { id, buyerId, status: 'PENDING', expiresAt: { gt: new Date() }, type: { in: ['ADD_TO_CART', 'UPDATE_CART_ITEM', 'OPEN_RETURN', 'PLACE_ORDER'] }, conversation: { status: 'ACTIVE' } } });
     if (!action) throw notFound('Pending action');
+    const photoOnly = input.evidence_ids !== undefined && input.quantity === undefined && input.model_id === undefined;
+    if ((photoOnly && action.type !== 'OPEN_RETURN') || (!photoOnly && (input.quantity === undefined || input.model_id === undefined))) throw invalidState('Choose a valid action edit');
     const options = await this.editOptions(id, buyerId);
     const selected = options.lines.find((line) => line.line_index === (input.line_index ?? 0));
-    if (!selected || !selected.models.some((model) => model.model_id === input.model_id)) throw notFound('Product variation');
+    if (!selected || (!photoOnly && !selected.models.some((model) => model.model_id === input.model_id))) throw notFound('Product variation');
+    const quantity = input.quantity ?? selected.quantity, modelId = input.model_id ?? selected.model_id;
     let updatedReturn: CreateReturnInput | undefined;
     if (action.type === 'OPEN_RETURN') {
       const original = (action.payload as unknown as { input: CreateReturnInput }).input;
-      const items = original.items!.map((line, index) => index === selected.line_index ? { ...line, model_id: input.model_id, quantity: input.quantity } : line);
+      const items = original.items!.map((line, index) => index === selected.line_index ? { ...line, model_id: modelId, quantity } : line);
       if (new Set(items.map((line) => `${line.item_id}:${line.model_id}`)).size !== items.length) throw invalidState('The same item cannot be returned twice');
-      updatedReturn = { ...original, items };
+      updatedReturn = { ...original, items, ...(input.evidence_ids !== undefined ? { evidence_ids: input.evidence_ids } : {}) };
       const preview = await this.returns.preview(buyerId, updatedReturn);
       if (preview.order.shopId !== action.shopId) throw notFound('Order');
     }
     // Invalidate old consent atomically before issuing a new action. A concurrent confirm wins or loses, never both.
     const cancelled = await this.prisma.pendingAction.updateMany({ where: { id, buyerId, status: 'PENDING', expiresAt: { gt: new Date() } }, data: { status: 'CANCELLED' } });
     if (!cancelled.count) throw invalidState('Action is no longer pending');
-    this.emit(await this.prisma.pendingAction.findUniqueOrThrow({ where: { id } }));
+    this.emit(await this.prisma.pendingAction.findUniqueOrThrow({ where: { id } }), undefined, 'edit');
     const ctx = { conversationId: action.conversationId, buyerId, shopId: action.shopId };
     if (action.type === 'PLACE_ORDER') {
       // The buyer edits their own cart line on screen, like on the cart page; the order still needs a fresh tap.
@@ -339,24 +366,27 @@ export class ActionsService {
         async (tx) => {
           const line = await tx.cartItem.findFirst({ where: { id: checkout.cart_item_ids[selected.line_index], userId: buyerId } });
           if (!line) throw invalidState('Cart changed; ask for a new order summary');
-          const model = await tx.model.findUniqueOrThrow({ where: { id: input.model_id } });
-          if (input.quantity > Math.min(model.stock, 999)) throw invalidState('Requested quantity is unavailable');
+          const model = await tx.model.findUniqueOrThrow({ where: { id: modelId } });
+          if (quantity > Math.min(model.stock, 999)) throw invalidState('Requested quantity is unavailable');
           if (model.id !== line.modelId && (await tx.cartItem.findUnique({ where: { userId_modelId: { userId: buyerId, modelId: model.id } } })))
             throw invalidState('Target variant already exists in cart; please update it separately');
-          await tx.cartItem.update({ where: { id: line.id }, data: { modelId: model.id, quantity: input.quantity } });
+          await tx.cartItem.update({ where: { id: line.id }, data: { modelId: model.id, quantity: quantity } });
         },
         { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
       );
       const voucher = checkout.shops?.[0]?.voucher_code;
       return this.prepareOrder(ctx, { address_id: checkout.address_id, payment_method: checkout.payment_method, ...(voucher ? { voucher_code: voucher } : {}) }, id);
     }
-    if (updatedReturn) return this.prepareReturn(ctx, updatedReturn, id);
+    if (updatedReturn) {
+      if (input.evidence_ids !== undefined) await this.prisma.returnEvidenceSelection.upsert({ where: { conversationId: ctx.conversationId }, create: { conversationId: ctx.conversationId, orderSn: updatedReturn.order_sn, evidenceIds: input.evidence_ids }, update: { orderSn: updatedReturn.order_sn, evidenceIds: input.evidence_ids } });
+      return this.prepareReturn(ctx, updatedReturn, id);
+    }
     if (action.type === 'ADD_TO_CART') {
-      const lines = cartAddLines(action.payload).map((line, index) => ({ item_id: line.item_id, model_id: index === selected.line_index ? input.model_id : line.model_id, quantity: index === selected.line_index ? input.quantity : line.quantity }));
+      const lines = cartAddLines(action.payload).map((line, index) => ({ item_id: line.item_id, model_id: index === selected.line_index ? modelId : line.model_id, quantity: index === selected.line_index ? quantity : line.quantity }));
       return this.prepareAdds(ctx, lines, id);
     }
     const payload = action.payload as { item_id: number; model_id: number };
-    return this.prepareUpdate(ctx, { model_id: payload.model_id, new_model_id: input.model_id, quantity: input.quantity }, id);
+    return this.prepareUpdate(ctx, { model_id: payload.model_id, new_model_id: modelId, quantity: quantity }, id);
   }
   async cancel(id: string, buyerId: number, initiatedBy: 'agent' | 'buyer' = 'buyer') {
     const action = await this.prisma.pendingAction.findFirst({ where: { id, buyerId } });
@@ -413,8 +443,20 @@ export class ActionsService {
             actionId: existing.id,
             shopId: existing.shopId,
             snapshotHash: payload.snapshotHash,
+            conversationId: existing.conversationId,
             confirmationKey,
           });
+        } catch (error) {
+          const latest = await this.prisma.pendingAction.findUniqueOrThrow({ where: { id } });
+          if (latest.status !== 'EXECUTED' || latest.idempotencyKey !== confirmationKey) throw error;
+        }
+        return this.emit(await this.prisma.pendingAction.findUniqueOrThrow({ where: { id } }));
+      }
+      if (existing.type === 'CANCEL_RETURN' || existing.type === 'ACCEPT_RETURN_OFFER') {
+        if (!confirmationKey) throw invalidState('Confirmation key is required');
+        const payload = existing.payload as { return_sn: string; snapshotHash: string };
+        try {
+          await this.returns.confirmBuyerAction(buyerId, payload.return_sn, existing.type, { actionId: id, shopId: existing.shopId, confirmationKey, snapshotHash: payload.snapshotHash });
         } catch (error) {
           const latest = await this.prisma.pendingAction.findUniqueOrThrow({ where: { id } });
           if (latest.status !== 'EXECUTED' || latest.idempotencyKey !== confirmationKey) throw error;
@@ -472,6 +514,7 @@ export class ActionsService {
       );
       return this.emit(action);
     } catch (error) {
+      if (error instanceof DomainError && error.code === 'CONFLICT') throw error;
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002')
         throw new DomainError('CONFLICT', 'Confirmation key was already used');
       const latest = await this.prisma.pendingAction.findFirst({ where: { id, buyerId, status: 'PENDING' } });

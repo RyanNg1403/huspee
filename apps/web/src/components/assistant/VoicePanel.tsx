@@ -2,6 +2,8 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
+import { getApiClient } from '@huspee/web-ui/lib/api';
+import { RefundPhotosDialog } from './RefundPhotosDialog';
 import { usePathname } from 'next/navigation';
 import { useLang, useT } from '@huspee/web-ui/i18n';
 import { formatDateTime } from '@huspee/web-ui/lib/format';
@@ -78,7 +80,7 @@ export type Adapter = {
   options: (id: string) => Promise<EditOptions>;
   edit: (
     id: string,
-    input: { quantity: number; model_id: number; line_index?: number },
+    input: { quantity?: number; model_id?: number; line_index?: number; evidence_ids?: string[] },
   ) => Promise<{ action: Action }>;
   cancel: (id: string) => Promise<{ action: Action }>;
 };
@@ -151,6 +153,7 @@ export function VoicePanel({
   const [viewing, setViewing] = useState<HistoryDetail | null>(null);
   const [historyError, setHistoryError] = useState(false);
   const [earlier, setEarlier] = useState<HistoryDetail | null>(null);
+  const [refundPhotosOpen, setRefundPhotosOpen] = useState(false);
   const [liveId, setLiveId] = useState<string | undefined>(undefined);
   const [dismissed, setDismissed] = useState<string | null>(null);
   const [now, setNow] = useState(0);
@@ -261,6 +264,7 @@ export function VoicePanel({
     if (current.pollTimer !== undefined) window.clearTimeout(current.pollTimer);
     if (sendStop && current.conversationId) void stopRef.current(current.conversationId).catch(() => undefined);
     setTools(settleTools);
+    setRefundPhotosOpen(false);
     setState('idle');
   }
   async function endCall() {
@@ -692,13 +696,17 @@ export function VoicePanel({
       setBusy(false);
     }
   }
-  async function edit(target: Action, change: { quantity: number; model_id: number; line_index?: number }) {
+  async function edit(target: Action, change: { quantity?: number; model_id?: number; line_index?: number; evidence_ids?: string[] }) {
     setBusy(true);
     try {
       const result = await adapter.edit(target.action_id, change);
-      setCards((previous) => upsertTimed(previous, { kind: 'action', action: result.action }, tick()));
-    } catch {
+      setCards((previous) => upsertTimed(
+        upsertTimed(previous, { kind: 'action', action: { ...target, status: 'CANCELLED' } }, tick()),
+        { kind: 'action', action: result.action }, tick(),
+      ));
+    } catch (error) {
       setError('error');
+      throw error;
     } finally {
       setBusy(false);
     }
@@ -915,6 +923,40 @@ export function VoicePanel({
             </div>
           )}
         </div>
+        {state === 'active' && (
+          <div className="border-t border-line-soft px-4 py-2">
+            <button type="button" disabled={busy || callState === 'connecting' || callState === 'ending'} onClick={() => setRefundPhotosOpen(true)} className="min-h-8 text-xs font-medium text-primary disabled:opacity-50">{t('refundPhotos')}</button>
+            {refundPhotosOpen && liveId && portalTarget && createPortal(
+              <RefundPhotosDialog
+                key={liveId}
+                conversationId={liveId}
+                shopId={shopId}
+                onClose={() => setRefundPhotosOpen(false)}
+                onAttach={async (orderSn, photos) => {
+                  const id = resources.current.conversationId;
+                  if (!id || id !== liveId) throw new Error('inactive');
+                  const ids = photos.map((photo) => photo.evidence_id);
+                  setBusy(true);
+                  try {
+                    await getApiClient().assistant.returnEvidence.setSelection(id, { order_sn: orderSn, evidence_ids: ids });
+                    // Changed selections invalidate pending refund consent before its SSE update arrives.
+                    setCards((previous) => previous.map((entry) => {
+                      if (entry.card.kind !== 'action' || entry.card.action.type !== 'OPEN_RETURN' || entry.card.action.status !== 'PENDING') return entry;
+                      const bound = entry.card.action.summary.evidence;
+                      if (bound?.order_sn === orderSn && bound.evidence_ids.length === ids.length && ids.every((evidenceId) => bound.evidence_ids.includes(evidenceId))) return entry;
+                      return { ...entry, card: { kind: 'action', action: { ...entry.card.action, status: 'CANCELLED' } } };
+                    }));
+                    if (resources.current.conversationId !== id) throw new Error('inactive');
+                    await synchronizeProduct();
+                    await adapter.text(id, t('photosAttached', { order: orderSn, n: photos.length }));
+                    setRefundPhotosOpen(false);
+                  } finally { setBusy(false); }
+                }}
+              />, portalTarget,
+            )}
+
+          </div>
+        )}
         <PanelFooter
           typing={typing}
           call={callState}

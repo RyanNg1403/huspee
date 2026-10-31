@@ -51,7 +51,10 @@
     "./i18n/client": "./src/i18n/client.tsx",
     "./i18n/server": "./src/i18n/server.ts",
     "./lib/navigation": "./src/lib/navigation.ts",
-    "./server/api-proxy": "./src/server/api-proxy.ts"
+    "./server/api-proxy": "./src/server/api-proxy.ts",
+    "./components/refunds/EvidenceImage": "./src/components/refunds/EvidenceImage.tsx",
+    "./components/refunds/EvidencePicker": "./src/components/refunds/EvidencePicker.tsx",
+    "./components/refunds/messages": "./src/components/refunds/messages.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
