@@ -11,5 +11,5 @@
 
 - Shared primitives, icons/brand, session/auth, i18n, format/API helpers, assistant cards and base CSS live only in `packages/web-ui`. Import its explicit subpaths; `i18n/server` is the isolated Next server helper. Do not put Node-only code or credentials in this package.
 - Each app transpiles `@huspee/web-ui` and includes its sources in Tailwind. Keep feature messages by their route.
-- Browser API requests always use the current origin. Buyer proxy strips `huspee_seller_sid`; seller proxy swaps it with upstream `huspee_sid` and strips buyer cookies. Keep all cookie attributes on responses.
+- Browser API requests always use the current origin. Proxies forward both cookies and surface headers unchanged. Backend selects `huspee_sid` by default or `huspee_seller_sid` for `X-Huspee-Surface: seller`, and verifies the stored session surface. Keep all cookie attributes on responses.
 - `/seller/:path*` redirects through `src/proxy.ts`, reading `SELLER_APP_URL` at runtime. Header receives the same URL from its server layout. Codex setup stays in this app.

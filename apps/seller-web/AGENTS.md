@@ -8,4 +8,4 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
-Read `CONVENTIONS.md` in this app. Shared browser code is in `../../packages/web-ui`; buyer and seller sessions are isolated by frontend proxies. Do not modify backend or SDK for this split.
+Read `CONVENTIONS.md` in this app. Shared browser code is in `../../packages/web-ui`; buyer and seller sessions are bound to their surface by the backend. Proxies forward cookies unchanged. Keep upstream Shopee contracts intact.

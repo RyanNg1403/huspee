@@ -3,6 +3,11 @@ let client: HuspeeClient | undefined;
 export function getApiClient() {
   return (client ??= new HuspeeClient({
     baseUrl: typeof window === 'undefined' ? 'http://localhost:3001' : window.location.origin,
+    // The app's server layout declares its surface before any client component runs.
+    surface:
+      typeof document !== 'undefined' && document.documentElement.dataset.huspeeSurface === 'seller'
+        ? 'seller'
+        : undefined,
   }));
 }
 export function isApiError(e: unknown): e is HuspeeApiError {

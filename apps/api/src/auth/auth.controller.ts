@@ -8,8 +8,10 @@ import { PrismaService } from '../common/prisma.service';
 import { parseInput } from '../common/validation';
 import { CurrentUser, Public, SessionGuard } from './session.guard';
 import { SessionService } from './session.service';
+import { loginSurface } from './session-surface';
 
 const signupSchema = z.object({
+  surface: z.enum(['buyer', 'seller']).optional(),
   email: z.string().trim().toLowerCase().email(),
   password: z.string().min(8).max(200),
   name: z.string().trim().min(1).max(120),
@@ -19,6 +21,7 @@ const signupSchema = z.object({
 });
 
 const loginSchema = z.object({
+  surface: z.enum(['buyer', 'seller']).optional(),
   email: z.string().trim().toLowerCase().email(),
   password: z.string().min(1),
 });
@@ -44,8 +47,10 @@ export class AuthController {
 
   @Post('signup')
   @Public()
-  async signup(@Body() body: unknown, @Res({ passthrough: true }) res: Response) {
+  async signup(@Body() body: unknown, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const input = parseInput(signupSchema, body);
+    const surface = loginSurface(req, input.surface);
+    if (surface === 'seller' && input.account_type !== 'seller') throw new DomainError('FORBIDDEN', 'A seller account is required');
     const existing = await this.prisma.user.findUnique({ where: { email: input.email } });
     if (existing) throw new DomainError('CONFLICT', 'Email is already registered');
     const roles: UserRole[] = input.account_type === 'seller' ? ['SELLER', 'BUYER'] : ['BUYER'];
@@ -58,7 +63,7 @@ export class AuthController {
         roles,
       },
     });
-    await this.sessions.create(user.id, res);
+    await this.sessions.create(user.id, res, surface);
     res.status(201);
     return { data: presentUser(user) };
   }
@@ -66,13 +71,15 @@ export class AuthController {
   @Post('login')
   @Public()
   @HttpCode(200)
-  async login(@Body() body: unknown, @Res({ passthrough: true }) res: Response) {
+  async login(@Body() body: unknown, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const input = parseInput(loginSchema, body);
+    const surface = loginSurface(req, input.surface);
     const user = await this.prisma.user.findUnique({ where: { email: input.email } });
     if (!user || !(await verifyPassword(input.password, user.passwordHash))) {
       throw new DomainError('UNAUTHENTICATED', 'Invalid email or password');
     }
-    await this.sessions.create(user.id, res);
+    if (surface === 'seller' && !user.roles.includes('SELLER')) throw new DomainError('FORBIDDEN', 'A seller account is required');
+    await this.sessions.create(user.id, res, surface);
     return { data: presentUser(user) };
   }
 

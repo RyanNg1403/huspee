@@ -4,21 +4,26 @@ import type { Request } from 'express';
 import { User, UserRole } from '@prisma/client';
 import { DomainError } from '../common/errors';
 import { SessionService } from './session.service';
+import { requestSurface } from './session-surface';
 
 const ROLE_KEY = 'huspee:role';
 const PUBLIC_KEY = 'huspee:public';
+const PARTNER_SESSION_KEY = 'huspee:partner-session';
 
 /** Restrict a route to users holding the given role (in addition to an authenticated session). */
 export const RequireRole = (role: UserRole) => SetMetadata(ROLE_KEY, role);
 /** Mark a route as reachable without a session (the user is still attached if present). */
 export const Public = () => SetMetadata(PUBLIC_KEY, true);
 
+// Only browser Partner callbacks opt in; ordinary requests never fall back across surfaces.
+export const PreferSellerSession = () => SetMetadata(PARTNER_SESSION_KEY, true);
+
 export type SessionRequest = Request & { user?: User };
 
 /**
  * Cookie-session guard for /api/v1 routes. Also enforces a simple CSRF rule: state-changing
  * requests must carry `X-Requested-With`, which cross-site forms cannot send and cross-origin
- * scripts cannot send without a CORS preflight that only the configured web origin passes.
+ * scripts cannot send without a CORS preflight that only the configured buyer/seller origins pass.
  */
 @Injectable()
 export class SessionGuard implements CanActivate {
@@ -36,10 +41,14 @@ export class SessionGuard implements CanActivate {
       throw new DomainError('FORBIDDEN', 'Missing X-Requested-With header (CSRF protection)');
     }
 
-    const user = await this.sessions.resolve(req);
+    const partnerSession = this.reflector.getAllAndOverride<boolean>(PARTNER_SESSION_KEY, [ctx.getHandler(), ctx.getClass()]);
+    const resolved = partnerSession ? await this.sessions.resolvePartner(req) : null;
+    const surface = resolved?.surface ?? requestSurface(req);
+    const user = partnerSession ? resolved?.user : await this.sessions.resolve(req, surface);
     if (user) req.user = user;
     if (isPublic) return true;
     if (!user) throw new DomainError('UNAUTHENTICATED', 'Login required');
+    if (surface === 'seller' && role === 'BUYER') throw new DomainError('FORBIDDEN', 'Buyer routes require a buyer session');
     if (role && !user.roles.includes(role)) throw new DomainError('FORBIDDEN', `Requires ${role.toLowerCase()} account`);
     return true;
   }

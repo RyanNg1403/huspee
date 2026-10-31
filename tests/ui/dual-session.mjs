@@ -11,7 +11,7 @@ let checks = 0;
 function check(condition, message) { assert.ok(condition, message); checks++; console.log(`PASS ${message}`); }
 async function identity(page) {
   return page.evaluate(async () => {
-    const response = await fetch('/api/v1/auth/me');
+    const response = await fetch('/api/v1/auth/me', { headers: document.documentElement.dataset.huspeeSurface === 'seller' ? { 'X-Huspee-Surface': 'seller' } : {} });
     return { status: response.status, body: await response.json() };
   });
 }
@@ -43,7 +43,7 @@ try {
   const cookies = await context.cookies();
   check(cookies.some((c) => c.name === 'huspee_sid' && c.httpOnly) && cookies.some((c) => c.name === 'huspee_seller_sid' && c.httpOnly), 'both HttpOnly cookies coexist');
   await seller.evaluate(() => fetch('/api/v1/seller/shops/880001/disconnect', {
-    method: 'POST', headers: { 'x-requested-with': 'huspee-sdk' },
+    method: 'POST', headers: { 'x-requested-with': 'huspee-sdk', 'X-Huspee-Surface': 'seller' },
   }));
   await seller.goto(`${SELLER_URL}/shops`, { waitUntil: 'networkidle' });
   await seller.getByRole('button', { name: /^(Kết nối shop|Connect shop)$/ }).first().click();
@@ -58,8 +58,8 @@ try {
   await buyer.goto(`${WEB_URL}/cart`, { waitUntil: 'networkidle' });
   await buyer.locator('main h2, main input[type=checkbox]').first().waitFor();
   check(new URL(buyer.url()).pathname === '/cart', 'buyer cart remains accessible');
-  const blocked = await seller.evaluate(async () => (await fetch('/api/v1/cart')).status);
-  check(blocked === 404, 'seller proxy blocks buyer cart');
+  const blocked = await seller.evaluate(async () => (await fetch('/api/v1/cart', { headers: { 'X-Huspee-Surface': 'seller' } })).status);
+  check(blocked === 403, 'backend blocks buyer cart for seller surface');
   await seller.getByRole('button', { name: /Đăng xuất|Log out|Logout/ }).click();
   await seller.waitForURL((url) => url.pathname === '/login');
   await buyer.reload({ waitUntil: 'networkidle' });

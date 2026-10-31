@@ -34,7 +34,7 @@ It has three API surfaces over one shared PostgreSQL state:
 
 - Passwords: scrypt. Sessions: random 256-bit tokens, stored as SHA-256, `HttpOnly; SameSite=Lax`
   cookies; state-changing `/api/v1` requests require `X-Requested-With` (CSRF), CORS only for
-  `WEB_APP_URL`.
+  `WEB_APP_URL` and `SELLER_APP_URL`, including the `X-Huspee-Surface` header.
 - Partner/shop auth: constant-time HMAC verification, ±5 min timestamps, opaque tokens hashed at rest,
   single-use codes and rotating refresh tokens (reuse revokes the family), grant revocation.
 - Tenant isolation is enforced in queries (`shopId` / `buyerId` scoping); resources outside scope
@@ -50,7 +50,9 @@ API environment variables; `apps/api/.env.example` has working dev values.
 |---|---|
 | `DATABASE_URL` | PostgreSQL connection |
 | `PORT`, `PUBLIC_BASE_URL` | Listen port and externally visible base URL (used for media URLs and the OAuth callback) |
-| `WEB_APP_URL` | Seller/buyer web app origin (CORS with credentials, post-authorization redirect) |
+| `WEB_APP_URL` | Buyer origin (CORS with credentials), default `http://localhost:3001` |
+| `SELLER_APP_URL` | Seller origin (CORS and post-consent `/shops/:id` redirect), default `http://localhost:3002` |
+| `BROWSER_PROXY_ENABLED` | Relative authorization/media URLs for same-origin proxy/tunnel deployments |
 | `COOKIE_SECURE` | `true` in any HTTPS deployment |
 | `HUSPEE_PARTNER_ID` | The single platform-managed Partner identity (default `2001001`) |
 | `HUSPEE_PARTNER_KEY` | **Secret.** Partner key; referenced by the `PartnerApp.keyRef` DB column, never stored in the DB |
@@ -62,3 +64,30 @@ API environment variables; `apps/api/.env.example` has working dev values.
 | `ASSISTANT_TOOL_DEBUG` | Test-only debug route for assistant tools; never enable outside tests |
 
 Never commit real secrets; `apps/api/.env` is git-ignored and `.env.example` holds dev placeholders.
+
+## Browser session surfaces
+
+`new HuspeeClient({ baseUrl, surface: 'seller' })` is a typed browser-client extension. It sends
+`X-Huspee-Surface: seller` on every request and `surface: 'seller'` in login/signup bodies.
+Seller signup still uses `account_type: 'seller'`. Omitting the client option keeps all original
+method payloads and the buyer/default session behavior, including seller accounts that log in
+through that legacy surface. No upstream Shopee SDK method or signed contract changes.
+
+The API chooses `huspee_sid` by default and exclusively `huspee_seller_sid` for the seller header.
+Login/signup reject mismatching header/body surfaces; a buyer-only account cannot log in on seller
+surface and no session is created. `web_sessions.surface` is authoritative: copying a token to the
+other cookie cannot authenticate or revoke that session. Migration
+`20261031090000_session_surface` adds the column with BUYER default for all existing records.
+`SessionGuard` rejects seller-surface sessions on routes marked `RequireRole('BUYER')`, independently
+of account roles; public catalog/voice choices remain available. Logout revokes/clears only its surface.
+
+HTML consent has no SDK headers. It prefers a valid seller cookie, then a legacy session; the form's
+CSRF token binds to the exact selected session. Its login creates a seller-surface session. The callback
+uses the same preference, validates the existing state cookie and ownership, consumes the single-use
+code, and redirects to `SELLER_APP_URL/shops/:id?connected=1` (or `connect_error`).
+
+Both Next.js proxies forward cookies and headers without renaming them. Seller proxy still localizes
+absolute authorization URLs when `BROWSER_PROXY_ENABLED=false`, and API/seller redirect origins for
+tunnels. With proxy mode enabled, relative URLs continue to work on either app's origin. Configure
+API `WEB_APP_URL`/`SELLER_APP_URL` to the two public origins; neither CORS nor the surface header
+replaces role or shop ownership checks.

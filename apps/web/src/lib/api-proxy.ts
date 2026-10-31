@@ -1,4 +1,3 @@
-import { requestCookies } from '@huspee/web-ui/lib/cookies';
 /** Fixed upstream only: browsers use the web origin for API, cookies, media and SSE. */
 export async function proxyApi(request: Request): Promise<Response> {
   const incoming = new URL(request.url);
@@ -23,7 +22,6 @@ export async function proxyApi(request: Request): Promise<Response> {
   ])
     headers.delete(name);
   headers.set('accept-encoding', 'identity');
-  headers.set('cookie', requestCookies(headers.get('cookie'), 'buyer'));
   try {
     const response = await fetch(upstream, {
       method: request.method,

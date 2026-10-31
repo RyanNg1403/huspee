@@ -38,8 +38,8 @@ More detail: [`docs/PLATFORM.md`](docs/PLATFORM.md).
 Sign in as buyer `an.nguyen@example.com` and seller `huy.techzone@example.com`
 (TechZone 880001) or `lan.glowup@example.com` (GlowUp 880002), all with `Password123!`.
 Both apps can stay signed in within one browser profile. The buyer uses `huspee_sid`;
-Seller Centre uses `huspee_seller_sid`. The frontend proxies translate cookies for the
-unchanged API; logging out of one app leaves the other signed in.
+Seller Centre uses `huspee_seller_sid`. The backend binds each session to its surface and selects the cookie using
+`X-Huspee-Surface: seller` (buyer is the default); logging out of one app leaves the other signed in.
 
 To turn on voice (once per machine, needs ChatGPT Plus or Pro):
 
@@ -66,7 +66,10 @@ API, media, session cookies and assistant events through that origin. Set its
 `API_INTERNAL_URL` to the API's listening address. Seller Centre is a separate desktop
 site: forward port 3002 separately when needed and set buyer `SELLER_APP_URL` to that URL.
 Seller `API_PUBLIC_URL` must match the API's `PUBLIC_BASE_URL`; its proxy handles both
-absolute and relative consent URLs. Seller `WEB_APP_URL` points back to the buyer site.
+absolute and relative consent URLs. Seller `WEB_APP_URL` points back to the buyer site. Configure API `WEB_APP_URL` and
+`SELLER_APP_URL` with the respective public origins for CORS and callbacks.
+`BROWSER_PROXY_ENABLED=true` keeps authorization/media URLs relative; both frontend proxies
+also localize known redirect origins, so consent remains on the seller tunnel.
 
 Plain HTTP on a LAN IP supports browsing but cannot request a phone microphone. HTTPS forwarding
 and microphone permission are required for voice, along with the ChatGPT connection described above.
@@ -134,6 +137,11 @@ public origin for consent URLs) and `WEB_APP_URL` (buyer origin). Buyer also rea
 `SELLER_APP_URL` at runtime, defaulting to `http://localhost:3002`. Copy the buyer's
 `.env.example` to `apps/seller-web/.env.local` when using non-default ports. Browser
 requests always go through their app origin; `NEXT_PUBLIC_API_URL` is no longer used.
+API `SELLER_APP_URL` also defaults to `http://localhost:3002` and controls the consent callback
+destination and second allowed CORS origin. Run `pnpm db:migrate` to apply the additive
+`20261031090000_session_surface` migration; existing sessions keep the buyer/default surface.
+Seller Centre cookies issued by the previous cookie-renaming proxy require a new seller sign-in;
+existing default buyer sessions remain valid.
 Old buyer `/seller/*` links redirect to Seller Centre. `/setup/codex` stays on buyer;
 Seller Centre links to it through the runtime buyer origin. No API routes were added.
 

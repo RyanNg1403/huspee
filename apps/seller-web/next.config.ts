@@ -8,7 +8,6 @@ const nextConfig: NextConfig = {
   distDir: process.env.NEXT_DIST_DIR ?? '.next',
   // Errors still surface in dev; only the route badge is hidden.
   devIndicators: false,
-  redirects: async () => [{ source: '/seller/:path*', destination: '/:path*', permanent: false }],
 };
 
 export default nextConfig;
