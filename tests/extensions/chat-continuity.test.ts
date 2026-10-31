@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, expect, it } from 'vitest';
 import { rm } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { CodexTransport } from '../../apps/api/src/assistant/voice/codex-transport.js';
 import { VoiceRuntime } from '../../apps/api/src/assistant/voice/voice-runtime.js';
 import { applyChannelEvent, scopeCallEvent, type TranscriptEntry } from '../../apps/web/src/components/assistant/transcript.js';
 import { fakeCodexLoginHome } from '../helpers/codex-login.js';
@@ -20,6 +21,15 @@ afterAll(async () => {
 });
 const config = { shopName: 'GlowUp', tone: 'FRIENDLY', greetingVi: 'Xin chào', greetingEn: 'Hello', voice: 'spruce' };
 const ctx = { conversationId: 'shared-chat', buyerId: 1, shopId: 880002 };
+
+it('rejects unsupported RPC names instead of silently accepting them in the fake transport', async () => {
+  const transport = new CodexTransport();
+  try {
+    await transport.start();
+    // CLI 0.166.0 ClientRequest.json uses snake_case here despite its camelCase schema title.
+    await expect(transport.request('thread/injectItems', { threadId: 'missing', items: [] })).rejects.toThrow('Codex request failed');
+  } finally { transport.close(); }
+});
 
 it('lists only tool-returned products, merging text and voice provenance by catalog identity', () => {
   const laRoche = { kind: 'product' as const, item_id: 2000201, name: 'La Roche', image: '/la-roche.jpg', models: [] };
@@ -64,15 +74,16 @@ it('keeps La Roche text, Cocoon speech and subsequent text on one model thread a
     await until(() => h.saved.some((item) => item.text.includes('Cocoon')));
     await h.runtime.stopCall(ctx.conversationId, ctx.buyerId, call.call_id);
     expect(h.ended).toEqual([]);
+    expect(h.events.filter((event) => event.type === 'error')).toEqual([]);
     expect(h.runtime.poll(ctx.conversationId, ctx.buyerId, 0).closed).toBe(false);
     await h.runtime.text(ctx.conversationId, ctx.buyerId, 'CONTINUITY_RECALL');
     await until(() => h.turns() === 2);
     expect(h.saved).toContainEqual({ role: 'assistant', text: 'La Roche and Cocoon' });
     const firstThread = h.requests.find((r) => r.method === 'turn/start')!.params.threadId;
     expect(h.requests.filter((r) => r.method === 'thread/start')).toHaveLength(1);
-    expect(h.requests.filter((r) => ['turn/start', 'thread/realtime/start', 'thread/injectItems'].includes(r.method)).every((r) => r.params.threadId === firstThread)).toBe(true);
+    expect(h.requests.filter((r) => ['turn/start', 'thread/realtime/start', 'thread/inject_items'].includes(r.method)).every((r) => r.params.threadId === firstThread)).toBe(true);
     expect(JSON.stringify(h.requests.find((r) => r.method === 'thread/realtime/start')!.params.initialItems)).toContain('La Roche');
-    expect(JSON.stringify(h.requests.find((r) => r.method === 'thread/injectItems')!.params.items)).toContain('Cocoon');
+    expect(JSON.stringify(h.requests.find((r) => r.method === 'thread/inject_items')!.params.items)).toContain('Cocoon');
     expect(h.requests.filter((r) => r.method === 'thread/unsubscribe')).toHaveLength(0);
     const next = await h.runtime.startCall(ctx.conversationId, ctx.buyerId, 'continuity-offer');
     expect(next.call_id).not.toBe(call.call_id);
@@ -135,7 +146,7 @@ it('retries unsynced voice history and delivers an in-flight checked reply as te
     const request = internals.transport.request.bind(internals.transport);
     let fail = true;
     internals.transport.request = (method, params) => {
-      if (method === 'thread/injectItems' && fail) { fail = false; return Promise.reject(new Error('Transient sync failure')); }
+      if (method === 'thread/inject_items' && fail) { fail = false; return Promise.reject(new Error('Transient sync failure')); }
       return request(method, params);
     };
     await h.runtime.stopCall(ctx.conversationId, ctx.buyerId, call.call_id);

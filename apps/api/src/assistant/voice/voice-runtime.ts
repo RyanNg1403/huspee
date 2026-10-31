@@ -257,7 +257,8 @@ export class VoiceRuntime {
     while (session.historySync) await session.historySync;
     const pending = session.voiceHistory.slice();
     if (!pending.length) return;
-    const work = this.transport.request('thread/injectItems', {
+    // CLI 0.166.0 uses snake_case on the wire (the schema title is camelCase).
+    const work = this.transport.request('thread/inject_items', {
       threadId: session.threadId,
       items: pending.map(({ role, text }) => ({ type: 'message', role, content: [{ type: role === 'user' ? 'input_text' : 'output_text', text }] })),
     }).then(() => { session.voiceHistory.splice(0, pending.length); });

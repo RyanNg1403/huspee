@@ -17,7 +17,7 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     memories.set(threadId, []);
     send({ id, result: { thread: { id: threadId } } });
   }
-  else if (method === 'thread/injectItems') {
+  else if (method === 'thread/inject_items') {
     memories.get(params.threadId)?.push(...params.items.flatMap((item) => item.content?.map((part) => part.text) ?? []));
     send({ id, result: {} });
   }
@@ -150,5 +150,6 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     unlinkSync(join(process.env.CODEX_HOME, 'auth.json'));
     send({ id, result: {} });
   } else if (method === 'thread/realtime/listVoices') send({ id, result: { voices: { v3: ['spruce'] } } });
-  else send({ id, result: {} });
+  else if (['initialize', 'thread/unsubscribe', 'turn/interrupt', 'thread/realtime/appendText'].includes(method)) send({ id, result: {} });
+  else send({ id, error: { code: -32601, message: 'Unknown method' } });
 });
