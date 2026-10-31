@@ -57,7 +57,10 @@ try {
   await page.locator('h1').waitFor();
   await page.waitForResponse((r) => r.url().endsWith('/context') && r.request().postDataJSON().item_id === 2000101);
   // Picking a variant on the page changes what the assistant row says the buyer is viewing.
-  await page.getByRole('button', { name: 'Đen', exact: true }).first().click();
+  // Phones pick variants in the product page's variation sheet.
+  await page.getByRole('button', { name: /^Choose / }).click();
+  await page.getByRole('button', { name: 'Đen', exact: true }).last().click();
+  await page.keyboard.press('Escape');
   await openSheet(page);
   await page.waitForFunction(() => document.querySelector('[data-testid="product-context-notice"]')?.getAttribute('aria-busy') === 'false');
   const viewing = await notice.innerText();
