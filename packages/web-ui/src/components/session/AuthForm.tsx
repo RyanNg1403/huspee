@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState, useSyncExternalStore, type FormEvent } from 'react';
-import { Button, Card, Input, Select } from '@huspee/web-ui/components/ui';
+import { Button, Card, Input } from '@huspee/web-ui/components/ui';
 import { useSession } from '@huspee/web-ui/components/session';
 import { useT } from '@huspee/web-ui/i18n/client';
 import { common } from '@huspee/web-ui/i18n/common';
@@ -21,7 +21,6 @@ export function AuthForm({ signup = false, seller = false }: { signup?: boolean;
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const data = new FormData(e.currentTarget);
-    const role = seller || data.get('role') === 'seller' ? 'seller' : 'buyer';
     setLoading(true);
     setError('');
     try {
@@ -31,7 +30,7 @@ export function AuthForm({ signup = false, seller = false }: { signup?: boolean;
           password: String(data.get('password')),
           name: String(data.get('name')),
           phone: String(data.get('phone') || '') || undefined,
-          account_type: role,
+          account_type: seller ? 'seller' : 'buyer',
         });
         await refresh();
       } else await login(String(data.get('email')), String(data.get('password')));
@@ -39,10 +38,8 @@ export function AuthForm({ signup = false, seller = false }: { signup?: boolean;
       router.push(
         next?.startsWith('/') && !next.startsWith('//') && !next.includes('\\')
           ? next
-          : signup && role === 'seller'
-            ? seller
-              ? '/shops'
-              : '/seller/shops'
+          : signup && seller
+            ? '/shops'
             : '/',
       );
       router.refresh();
@@ -66,15 +63,6 @@ export function AuthForm({ signup = false, seller = false }: { signup?: boolean;
               {t('phone')}
               <Input name="phone" autoComplete="tel" />
             </label>
-            {!seller && (
-              <label className="block">
-                {t('role')}
-                <Select name="role">
-                  <option value="buyer">{t('buyer')}</option>
-                  <option value="seller">{t('sellerRole')}</option>
-                </Select>
-              </label>
-            )}
           </>
         )}
         <label className="block">
@@ -107,6 +95,15 @@ export function AuthForm({ signup = false, seller = false }: { signup?: boolean;
         >
           {t(signup ? 'login' : 'signup')}
         </Link>
+        {signup && !seller && (
+          <>
+            {' · '}
+            {/* Plain link: /seller/* redirects to Seller Centre on its own origin. */}
+            <a className="text-primary" href="/seller/signup">
+              {t('sellerSignup')}
+            </a>
+          </>
+        )}
       </p>
     </Card>
   );

@@ -16,7 +16,7 @@ export const viewport: Viewport = {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const lang = (await cookies()).get('huspee_lang')?.value === 'en' ? 'en' : 'vi';
   return (
-    <html lang={lang} data-huspee-surface="seller">
+    <html lang={lang}>
       <body className={font.className}>
         <LanguageProvider initialLang={lang}>
           <SessionProvider>
